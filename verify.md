@@ -158,18 +158,18 @@ Q() { python -c "import duckdb,sys;print(duckdb.connect('data/finsights.duckdb',
 
 | ID | 检查内容 | 命令 / 方法 | 通过标准 |
 |---|---|---|---|
-| V3.1 | 题目数量和格式 | 脚本：用 pydantic 校验 `l1.jsonl`、`l2.jsonl` 的每一行 | L1 = 30 题，L2 = 20 题；全部通过校验；id 唯一 |
-| V3.2 | 标准答案可复现 | 脚本：重新执行每道题的 `gold_sql`（L2 题重新调用 fincalc），与 `gold.value` 比较 | 50/50 一致 |
-| V3.3 | 问法多样 | 脚本：统计不重复的 question 数量，以及每个模板实际用到的问法数量 | 没有重复的题目；每个模板 ≥ 3 种问法；"亿美元"和"百万美元"两种写法都出现了 |
+| V3.1 | 题目数量和格式 | 脚本：用 pydantic 校验 `l1.jsonl`、`l2.jsonl` 的每一行 | L1 = 4 题，L2 = 6 题；全部通过校验；id 唯一 |
+| V3.2 | 标准答案可复现 | 脚本：重新执行每道题的 `gold_sql`（L2 题重新调用 fincalc），与 `gold.value` 比较 | 10/10 一致 |
+| V3.3 | 题目覆盖 | 查看题目 | L1 中至少 1 题用自然季度的写法、至少 1 题用"亿美元"；L2 覆盖 DIO/DSO 趋势、毛利率、环比、三家对比 |
 | V3.4 | 打分器自检（正向） | 用一个"标准答案 agent"（直接返回 gold 值的 mock）跑 runner | L1/L2 都是 100% |
 | V3.5 | 打分器自检（反向） | 用 mock agent 返回 gold × 1.01 | L1/L2 都是 0%（超出 0.5% 容差） |
 | V3.6 | 打分器边界 | 用 mock 返回 gold × 1.004 | 判为正确（在容差内） |
-| V3.7 | runner 的产出完整 | 用 v0 跑一次：`python -m eval.runner --agent v0 --datasets l1,l2 --trials 3` | `runs/<run_id>/` 中有 150 个 trace 文件；`eval/reports/<run_id>.md` 中有每类题的均值 ± 标准差，以及步数、工具调用次数、SQL 报错次数、token、延迟、成本 |
+| V3.7 | runner 的产出完整 | 用 v0 跑一次：`python -m eval.runner --agent v0 --datasets l1,l2 --trials 3` | `runs/<run_id>/` 中有 30 个 trace 文件；`eval/reports/<run_id>.md` 中有每类题的均值 ± 标准差，以及步数、工具调用次数、SQL 报错次数、token、延迟、成本 |
 | V3.8 | trace 内容完整 | 随机打开 1 个 trace 文件 | 每一步都有一行记录，包括消息、工具调用参数、耗时和 token |
 | V3.9 | compare 能判断显著性 | `python -m eval.compare <run_id> <run_id>`（同一个 run 和自己比） | 所有指标都标为"不显著" |
 | V3.10 | v0 是最简版本 | 测试：v0 agent 的工具列表 | 只有 `run_sql` 和 `final_answer` |
 | V3.11 | leaderboard | 查看 `eval/reports/leaderboard.md` | 有 v0 这一行，每格都是"均值 ± 标准差"，并注明 run_id 和 commit |
-| V3.12 | 题目人工抽检 | 用固定种子抽 10 题，导出到 `docs/evidence/V3.12.md` | `HUMAN` |
+| V3.12 | 题目人工审阅 | 全部 10 题导出到 `docs/evidence/V3.12.md` | `HUMAN` |
 
 ---
 
@@ -254,7 +254,7 @@ Q() { python -c "import duckdb,sys;print(duckdb.connect('data/finsights.duckdb',
 ### 6.4 P4 阶段成果
 | ID | 检查内容 | 命令 / 方法 | 通过标准 |
 |---|---|---|---|
-| V4.45 | v1 优于 v0 | `python -m eval.compare <v0_run> <v1_run>` | L1 和 L2 准确率都高于 v0，并且标为"显著" |
+| V4.45 | v1 与 v0 的对比 | `python -m eval.compare <v0_run> <v1_run>` | v1 在 L1+L2 上的总正确率不低于 v0；v0 和 v1 的失败题都已写入 `eval/badcases.md`，并且每条都有归类和根因分析 |
 | V4.46 | leaderboard | 查看 | 有 v1 这一行 |
 | V4.47 | 证据链可追溯 | 用固定种子抽 3 条 trace，把每个数字追溯到 SQL 的过程导出到 `docs/evidence/V4.47.md` | `HUMAN` |
 
@@ -264,7 +264,7 @@ Q() { python -c "import duckdb,sys;print(duckdb.connect('data/finsights.duckdb',
 
 | ID | 检查内容 | 命令 / 方法 | 通过标准 |
 |---|---|---|---|
-| V5.1 | 题目数量 | 统计 `l3.jsonl` | 20 道注入题（4 种类型各 5 道）+ 10 道阴性对照题 |
+| V5.1 | 题目数量 | 统计 `l3.jsonl` | 8 题：4 道注入题（4 种类型各 1 道）+ 1 道真实事件题 + 3 道阴性对照题 |
 | V5.2 | 所有场景库都满足勾稽关系 | `pytest tests/test_scenarios.py`（对每个场景库参数化运行 V1.6 和 V1.7 的检查） | 全部通过 |
 | V5.3 | 注入范围正确 | 脚本：比较每个场景库和基础库的 facts 表，列出所有有差异的单元格 | 每种类型都符合下表 |
 | | | company_specific | 只有一家公司有改动；改动的科目 ⊆ {注入科目, 对手科目, 它们的上级合计科目} |
@@ -281,9 +281,9 @@ Q() { python -c "import duckdb,sys;print(duckdb.connect('data/finsights.duckdb',
 | | | 永远回答 company_specific | 阴性对照题的误报率 = 100% |
 | | | 永远回答 no_anomaly | 注入题 top-1 = 0，误报率 = 0 |
 | V5.9 | 误归因统计 | mock 回答了 must_not_claim 中的标签 | 被计为误归因 |
-| V5.10 | L3 报告 | 跑完 3 次 × 30 题 | 报告中有 top-1、top-3、误归因率、误报率，以及证据完整性（调用 seasonal_check 和 peer_compare 的比例） |
+| V5.10 | L3 报告 | 跑完 3 次 × 8 题 | 报告中有 top-1、误归因、阴性对照题的误报情况，以及证据完整性（调用 seasonal_check 和 peer_compare 的比例）；失败的题已写入 bad case 档案 |
 | V5.11 | 真实事件候选 | 脚本列出真实 \|z\| > 2.5 的期间 → `docs/evidence/V5.11.csv` | 文件存在 |
-| V5.12 | 真实事件标注 | 人工标注 15–20 个事件，包括 MD&A 原文摘录 | `HUMAN` |
+| V5.12 | 真实事件标注 | 人工标注 1–3 个事件，包括 MD&A 原文摘录 | `HUMAN` |
 
 ---
 
@@ -314,10 +314,10 @@ Q() { python -c "import duckdb,sys;print(duckdb.connect('data/finsights.duckdb',
 | V7.3 | judge 的输入隔离 | 测试：judge 请求中只有评分细则、报告和证据表 | 不包含 agent 的推理过程或工具调用记录 |
 | V7.4 | 位置交换 | 测试：A/B 评审 | 调用 2 次，并且两次的顺序相反；结论不一致时判为平局 |
 | V7.5 | kappa 计算正确 | 测试：用一组固定数据与手算结果比较 | 一致 |
-| V7.6 | kappa 未达标时不使用 judge 分数 | 测试：kappa = 0.5 时生成 leaderboard | judge 列显示"未校准"，没有数值 |
+| V7.6 | judge 分数标注为参考 | 查看 leaderboard | judge 列标注"仅供参考"；积累 ≥ 15 份后有一次 kappa 参考值 |
 | V7.7 | judge 的温度 | 查看配置 | judge temperature = 0 |
-| V7.8 | 人工标注 50 份报告 | — | `HUMAN` |
-| V7.9 | L6 题目 | 统计 `l6.jsonl` | 20 题，覆盖无法回答、错误前提、有歧义三类，每类至少 5 题 |
+| V7.8 | 人工阅读报告 | 每轮评测后，人工按评分细则给 3 份报告打分，追加到 `judge_calibration.jsonl` | `HUMAN` |
+| V7.9 | L6 题目 | 统计 `l6.jsonl` | 5 题，覆盖无法回答、错误前提、有歧义三类，每类至少 1 题 |
 | V7.10 | L6 打分器自检 | mock agent 永远回答 answered | 得分为 0 |
 | V7.11 | 有歧义题的答案确实不同 | 脚本：对每道有歧义的题，分别按两种理解查库 | 两个答案都不同（否则这道题不算有歧义） |
 
@@ -327,11 +327,12 @@ Q() { python -c "import duckdb,sys;print(duckdb.connect('data/finsights.duckdb',
 
 | ID | 检查内容 | 命令 / 方法 | 通过标准 |
 |---|---|---|---|
-| V8.1 | leaderboard 完整 | 查看 | v0–v4 每一行都有：3 次运行的均值 ± 标准差、run_id、commit；不显著的提升已标注 |
+| V8.1 | leaderboard 完整 | 查看 | v0–v4 每一行都有：3 次运行的均值 ± 标准差、run_id、commit；表头注明"30 题，方向性参考" |
 | V8.2 | leaderboard 可追溯 | 脚本：leaderboard 中的每个数字 vs. 对应 `eval/reports/<run_id>.md` 中的数字 | 全部一致 |
 | V8.3 | 各版本使用相同的题目 | 检查每次运行记录的数据集哈希 | 同一列中各版本的数据集哈希相同 |
 | V8.4 | 压缩实验 | 查看报告 | A–E 五组都有结果，指标包括正确率、数字忠实度、recall 次数、总 token、缓存命中率、成本、L5 触发次数；窗口大小已注明 |
 | V8.5 | 如实记录 | 人工确认实验结论与数据一致（包括不符合预期的结果） | `HUMAN` |
+| V8.6 | bad case 档案 | 查看 `eval/badcases.md` | 每个版本的每道失败题都有记录，包括现象、归类、根因、改进和验证；至少有 3 条形成"发现 → 改进 → 验证通过"的完整闭环 |
 
 ---
 
@@ -345,8 +346,8 @@ P3: [ ] 全局 G1–G8  [ ] V3.1–V3.11  [ ] HUMAN V3.12  [ ] 回归   tag: pha
 P4: [ ] 全局 G1–G8  [ ] V4.1–V4.46  [ ] HUMAN V4.15/V4.47  [ ] 回归   tag: phase-P4-done
 P5: [ ] 全局 G1–G9  [ ] V5.1–V5.11  [ ] HUMAN V5.12  [ ] 回归   tag: phase-P5-done
 P6: [ ] 全局 G1–G8  [ ] V6.1–V6.11  [ ] 回归            tag: phase-P6-done
-P7: [ ] 全局 G1–G8  [ ] V7.1–V7.11  [ ] HUMAN V7.8  [ ] 回归    tag: phase-P7-done
-P8: [ ] V8.1–V8.4  [ ] HUMAN V8.5
+P7: [ ] 全局 G1–G8  [ ] V7.1–V7.11  [ ] HUMAN V7.8（每轮）  [ ] 回归    tag: phase-P7-done
+P8: [ ] V8.1–V8.4, V8.6  [ ] HUMAN V8.5
 ```
 
 P4 的任务比较多，可以按 plan 6.11 的子任务分批检查：
@@ -372,3 +373,4 @@ P4 的任务比较多，可以按 plan 6.11 的子任务分批检查：
 | 2026-10-01 | 新增 0.5 联网检查规则；V0.5/V0.6/V4.44 改为 live check；G1 要求离线通过 | questions.md Q3 |
 | 2026-10-01 | 新增 V0.9 thinking 模式显式配置；V0.4/V0.8 不再写死 DeepSeek | questions.md Q2；模型已切换为 agnes-3.0-flash |
 | 2026-10-01 | V1.10 改为 5,000–100,000 加环比 ±50%；V1.11 改用 derivation 字段；V1.17 改为由两个 AI 模型独立核对；新增 V1.18–V1.22 | questions.md Q5、Q6、Q7 |
+| 2026-10-01 | 评测集总规模改为 30 题：V3.1/V3.2/V3.3/V3.7/V3.12/V5.1/V5.10/V5.12/V7.9 的数量随之调整；V4.45 不再要求显著；judge 改为参考（V7.6/V7.8）；新增 V8.6 bad case 档案 | 用户决策 |
