@@ -60,5 +60,6 @@ P0: [x] 全局 G1–G8  [x] V0.1–V0.9（G3 按验证文档 P0 跳过）   tag:
 | V1.15 | PASS | (account,期间,version) 重复 = 0；restated 的 available_date 全部晚于对应 original | （本次） |
 | V1.16 | PASS | source_ref 为空 = 0（SEC: 标签@期间 或 derived=…；联想: PDF 文件名 + manifest 哈希） | （本次） |
 | V1.17 | HUMAN-待确认 | 抽样清单 `docs/evidence/V1.17_sample.csv`：seed=42 抽 10%（151/1507 行），含 fy/quarter/科目/行名/值(千美元)/PDF 文件名/页码提示 | — |
+| V1.17-A | HUMAN-待确认（Claude 部分已完成） | Claude 独立核对：用 xpdf `pdftotext -table` 提取（与执行者的 pdfplumber 不同），151/151 一致、0 错误，明细见 `docs/evidence/V1.17_claude_check.csv`，脚本见 `V1.17_claude_check_script.py.txt`；整库交叉核对：资产负债表 740 格、利润表 169 格（含 Q4 倒算）全部一致。另发现 5 个系统性问题，见 questions.md Q7。等第二个模型独立核对后由用户确认 | — |
 
 > 附注：本阶段共 7 个 pytest 文件级测试通过（13 个用例，含 6 个新 ETL 纯函数测试）。V1.9/V1.14 的 BLOCKED 不阻塞 P2 开工（缺口科目不影响语义层与计算库的任何接口），但 P1 tag 待 Q4–Q6 人工确认后补打。

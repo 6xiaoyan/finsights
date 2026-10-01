@@ -703,13 +703,14 @@ def inject(base_db, inj: Injection) -> tuple[str, dict]   # 返回场景库路�
 | 2026-10-01 | 初版 | — |
 | 2026-10-01 | 明确 total_equity 含少数股东权益；快照对无 available_date 的表按关联过滤 | 编写 verify.md 时发现的歧义 |
 | 2026-10-01 | 时间窗口定为 2017 年起；重写 6.6 压缩设计（参考 Claude Code 的 5 层流水线和 9 段模板，加入证据账本和摘要核验） | 用户确认；对齐 Claude Code 的做法 |
+| 2026-10-01 | 附录 A 新增 financing_receivables（只含流动部分）、deferred_revenue_noncurrent；附录 B 新增 derivation 字段；fiscal_year 统一为 4 位数；Q4 倒算优先用全年 − 9M YTD | questions.md Q4、Q6、Q7 |
 | 2026-10-01 | 答复 questions.md Q1–Q3：thinking 显式关闭；live check 不进 pytest；verify.md 正则修正。正文中写死 DeepSeek 的地方改为模型无关的写法 | 人工答复 |
 | 2026-10-01 | LLM 由 DeepSeek V4.1 Flash 切换为 Agnes AI `agnes-3.0-flash`（限时免费）；`config.yaml` 的 base_url / model / context.window 同步更新（512K） | 用户决策：成本考虑；PRD 4.6 已加批注 |
 
 ---
 
 ## 附录 A：标准科目表（初版，可按实际数据增减）
-**资产负债表**：cash, short_term_investments, accounts_receivable, inventory, other_current_assets, total_current_assets, ppe_net, goodwill, intangibles, other_noncurrent_assets, total_assets, accounts_payable, short_term_debt, accrued_liabilities, deferred_revenue_current, other_current_liabilities, total_current_liabilities, long_term_debt, other_noncurrent_liabilities, total_liabilities, noncontrolling_interest, total_equity, total_liabilities_and_equity
+**资产负债表**：cash, short_term_investments, accounts_receivable, financing_receivables, inventory, other_current_assets, total_current_assets, ppe_net, goodwill, intangibles, other_noncurrent_assets, total_assets, accounts_payable, short_term_debt, accrued_liabilities, deferred_revenue_current, deferred_revenue_noncurrent, other_current_liabilities, total_current_liabilities, long_term_debt, other_noncurrent_liabilities, total_liabilities, noncontrolling_interest, total_equity, total_liabilities_and_equity
 
 **利润表（SFR）**：revenue, cogs, gross_profit, operating_income, net_income
 
@@ -732,7 +733,8 @@ CREATE TABLE facts (
   available_date DATE,                         -- 首次披露日期，as_of 依据
   version TEXT DEFAULT 'original',             -- original / restated
   source TEXT, source_ref TEXT,                -- 例如 XBRL 标签 + accn，或 PDF 页码
-  is_derived BOOLEAN DEFAULT FALSE);           -- Q4 倒算值为 TRUE
+  derivation TEXT,                             -- NULL=直接报送；q4_backout / sum_of_parts / rev_minus_cogs / residual / manual_patch
+  is_derived BOOLEAN DEFAULT FALSE);           -- = (derivation IS NOT NULL)
 CREATE TABLE facts_detail (
   company_id TEXT, fiscal_year INT, fiscal_quarter INT, account_code TEXT,
   region TEXT, product_line TEXT, value DOUBLE, synthetic BOOLEAN DEFAULT TRUE);

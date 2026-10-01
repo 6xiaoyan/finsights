@@ -1,0 +1,57 @@
+import csv, re, sys, collections
+import os
+AUD=os.path.dirname(os.path.abspath(__file__))
+rows=list(csv.DictReader(open('D:/finsights/docs/evidence/V1.17_sample.csv',encoding='utf-8')))
+num_re=re.compile(r'\(?-?[\d,]+(?:\.\d+)?\)?')
+def nums(s):
+    out=[]
+    for m in num_re.findall(s):
+        neg=m.startswith('(')
+        v=m.strip('()').replace(',','')
+        if not v or v=='-': continue
+        try: x=float(v)
+        except: continue
+        if '.' not in m and len(v)<=2 and ',' not in m: continue  # 附註編號
+        out.append(-x if neg else x)
+    return out
+NONCUR={'ppe_net','goodwill','intangibles','long_term_debt','other_noncurrent_assets','other_noncurrent_liabilities','deferred_revenue_noncurrent'}
+def section_of(lines,i):
+    for j in range(i,-1,-1):
+        l=lines[j].strip()
+        if l.startswith('非流動資產') or l.startswith('非流動負債'): return 'noncurrent'
+        if l.startswith('流動資產') or l.startswith('流動負債'): return 'current'
+    return None
+res=[]
+cache={}
+for r in rows:
+    stem=r['source_pdf'][:-4]
+    if stem not in cache: cache[stem]=open(AUD+f'/{stem}.tbl.txt',encoding='utf-8',errors='ignore').read().split('\n')
+    lines=cache[stem]
+    lab=r['line_item_zh'].strip()
+    val=float(r['value_k_usd'])
+    hits=[]
+    for i,l in enumerate(lines):
+        s=l.strip().lstrip('-').strip()
+        if s.startswith(lab):
+            n=nums(s[len(lab):])
+            if n: hits.append((i,n))
+    status='NOT_FOUND'; detail=''
+    first=[h for h in hits if abs(h[1][0]-val)<0.5]
+    anyc=[h for h in hits if any(abs(x-val)<0.5 for x in h[1])]
+    if first:
+        exp='noncurrent' if r['account_code'] in NONCUR else ('current' if r['statement']=='BS' and r['account_code'] not in ('total_assets','total_equity','total_liabilities','noncontrolling_interest','total_liabilities_and_equity') else None)
+        secs={section_of(lines,h[0]) for h in first}
+        if exp and exp not in secs and len(hits)>1: status='SECTION_MISMATCH'; detail=str(secs)
+        else: status='OK'
+        detail+=f' line={first[0][0]+1} cols={first[0][1][:4]}'
+    elif anyc:
+        status='WRONG_COLUMN'; detail=f'line={anyc[0][0]+1} cols={anyc[0][1][:4]}'
+    elif hits:
+        status='VALUE_MISMATCH'; detail=' | '.join(f'line={h[0]+1} cols={h[1][:4]}' for h in hits[:3])
+    res.append((r,status,detail))
+c=collections.Counter(s for _,s,_ in res); print(c)
+w=csv.writer(open(AUD+'/result.csv','w',encoding='utf-8',newline=''))
+w.writerow(list(rows[0].keys())+['claude_status','claude_detail'])
+for r,s,d in res: w.writerow(list(r.values())+[s,d])
+for r,s,d in res:
+    if s!='OK': print(r['fy'],r['quarter'],r['account_code'],r['line_item_zh'],r['value_k_usd'],r['source_pdf'],s,d)

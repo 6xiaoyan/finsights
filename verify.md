@@ -118,14 +118,19 @@ Q() { python -c "import duckdb,sys;print(duckdb.connect('data/finsights.duckdb',
 | V1.7 | 分项加总 = 合计 | `python -m etl.check_identities` | 输出 0 failures；`data/identity_report.md` 中列出了所有使用 `other_*` 吸收项的期间及吸收金额 |
 | V1.8 | 吸收项不能太大 | 检查 identity_report 中的吸收金额 | 任何一期的吸收项都 < 该期总资产的 5%；超过的列入 `docs/questions.md` |
 | V1.9 | 核心科目没有缺失 | `Q "SELECT p.company_id,p.fiscal_year,p.fiscal_quarter,a.code FROM periods p CROSS JOIN (SELECT UNNEST(['total_assets','inventory','accounts_receivable','accounts_payable','revenue','cogs']) code) a LEFT JOIN facts f ON f.company_id=p.company_id AND f.fiscal_year=p.fiscal_year AND f.fiscal_quarter=p.fiscal_quarter AND f.account_code=a.code AND f.version='original' WHERE f.value IS NULL"` | 0 行 |
-| V1.10 | 单位正确（百万美元） | `Q "SELECT company_id, MIN(value), MAX(value) FROM facts WHERE account_code='revenue' AND version='original' GROUP BY 1"` | 每家公司的季度营收都在 5,000–40,000 之间（单位错 1000 倍的话会明显超出这个范围） |
-| V1.11 | Q4 利润表是倒算的 | `Q "SELECT f.is_derived, a.statement, COUNT(*) FROM facts f JOIN accounts a ON f.account_code=a.code WHERE f.fiscal_quarter=4 GROUP BY 1,2"` | 利润表 Q4 全部 `is_derived=TRUE`；资产负债表全部 `FALSE` |
+| V1.10 | 单位正确（百万美元） | `Q "SELECT company_id, MIN(value), MAX(value) FROM facts WHERE account_code='revenue' AND version='original' GROUP BY 1"`；另写脚本计算每家公司相邻季度营收的环比变化 | ①所有季度营收都在 5,000–100,000 之间；②环比变化都在 ±50% 以内，超出的逐条说明原因 |
+| V1.11 | Q4 利润表是倒算的 | `Q "SELECT f.derivation, a.statement, f.fiscal_quarter, COUNT(*) FROM facts f JOIN accounts a ON f.account_code=a.code GROUP BY ALL ORDER BY ALL"` | `q4_backout` 只出现在利润表的 Q4；利润表 Q4 的 revenue 和 cogs 全部是 `q4_backout`；资产负债表中没有 `q4_backout`；`is_derived = (derivation IS NOT NULL)` 对所有行都成立 |
 | V1.12 | 倒算结果正确 | 脚本：对 HP 和 Dell 的每个财年，Q1–Q4 营收之和 vs. 原始 JSON 中的 10-K 全年营收 | 每年误差 < 0.1% |
 | V1.13 | 财年映射正确 | `Q "SELECT company_id, fiscal_quarter, MONTH(period_end) m, COUNT(*) FROM periods GROUP BY 1,2,3 ORDER BY 1,2"` | 联想 Q1 的期末月份 = 6；HP Q1 = 1；Dell Q1 = 4 或 5；每家公司每个季度只有 1–2 个期末月份（52/53 周造成的差异） |
 | V1.14 | 披露日期合理 | `Q "SELECT COUNT(*) FROM facts f JOIN periods p USING(company_id,fiscal_year,fiscal_quarter) WHERE f.version='original' AND (f.available_date <= p.period_end OR f.available_date > p.period_end + INTERVAL 150 DAY)"` | 0 |
 | V1.15 | 重述数据处理正确 | `Q "SELECT company_id,fiscal_year,fiscal_quarter,account_code,version,COUNT(*) c FROM facts GROUP BY 1,2,3,4,5 HAVING c>1"`；另外检查每条 restated 的 available_date 都晚于对应 original | 第一条查询 0 行；第二项全部满足 |
 | V1.16 | 来源可追溯 | `Q "SELECT COUNT(*) FROM facts WHERE source_ref IS NULL OR source_ref=''"` | 0 |
-| V1.17 | 联想数据抽检 | 随机抽取 10% 的联想数字（用固定种子生成抽样清单 `docs/evidence/V1.17_sample.csv`，包含 PDF 文件名和页码），由人工核对 | `HUMAN`：人工在清单上逐条标注 ✓/✗，错误率为 0 才通过 |
+| V1.17 | 联想数据抽检 | 随机抽取 10% 的联想数字（用固定种子生成抽样清单 `docs/evidence/V1.17_sample.csv`，包含 PDF 文件名和页码），由人工核对 | `HUMAN`：人工在清单上逐条标注 ✓/✗，错误率为 0 才通过。2026-10-01 起由两个 AI 模型分别独立核对（不能使用执行者的抽取代码），用户确认最终结果 |
+| V1.18 | fiscal_year 写法统一 | `Q "SELECT company_id, MIN(fiscal_year), MAX(fiscal_year) FROM periods GROUP BY 1"` | 全部是 4 位数（2017–2027）；联想 FY18 记为 2018 |
+| V1.19 | days 正确 | `Q "SELECT company_id, fiscal_year, fiscal_quarter, days, d FROM (SELECT *, DATEDIFF('day', LAG(period_end) OVER (PARTITION BY company_id ORDER BY period_end), period_end) d FROM periods) WHERE d IS NOT NULL AND d <> days"`；窗口第一期的 days 单独用窗口外那一期的期末日核对 | 0 行；Dell FY2017 Q4 = 98 |
+| V1.20 | 口径连续性 | 脚本 `etl/check_continuity.py`：①列出每个 (公司, 标准科目) 在各年映射的报表行或 XBRL 标签，报表行发生变化的位置标出来；②列出每个科目环比变化超过历年同季度 3σ 的跳变 | 输出 `data/continuity_report.md`；每个映射变化和每个跳变都有一句说明（"真实经营变化"并附证据，或者"口径变化"并已写入 filing_notes，或者"映射错误"并已修复） |
+| V1.21 | SEC 数据的披露日期准确 | 脚本：用 EDGAR submissions 接口拿到每个期间本身的 10-Q 或 10-K 的提交日期，与 original 版本的 available_date 比较 | 全部相等；不相等的逐条说明原因（例如 companyfacts 缺失、已人工补录） |
+| V1.22 | 残差拆解 | 查看 identity_report | 每个占总资产超过 5% 的残差，都列出了由哪些报送标签或报表行构成，并且加起来与残差相符（误差 < 1%） |
 
 ---
 
@@ -334,7 +339,7 @@ Q() { python -c "import duckdb,sys;print(duckdb.connect('data/finsights.duckdb',
 
 ```
 P0: [ ] 全局 G1–G8  [ ] V0.1–V0.9                     tag: phase-P0-done
-P1: [ ] 全局 G1–G9  [ ] V1.1–V1.16  [ ] HUMAN V1.17   tag: phase-P1-done
+P1: [ ] 全局 G1–G9  [ ] V1.1–V1.16, V1.18–V1.22  [ ] HUMAN V1.17   tag: phase-P1-done
 P2: [ ] 全局 G1–G8  [ ] V2.1–V2.13  [ ] 回归 P0–P1      tag: phase-P2-done
 P3: [ ] 全局 G1–G8  [ ] V3.1–V3.11  [ ] HUMAN V3.12  [ ] 回归   tag: phase-P3-done
 P4: [ ] 全局 G1–G8  [ ] V4.1–V4.46  [ ] HUMAN V4.15/V4.47  [ ] 回归   tag: phase-P4-done
@@ -366,3 +371,4 @@ P4 的任务比较多，可以按 plan 6.11 的子任务分批检查：
 | 2026-10-01 | G2–G7 的命令移到表格外的代码块；G4 改为按 .env 中的实际密钥值检查；新增正则自检 `G-selftest` | questions.md Q1：表格中的 `\|` 在 ERE 中是字面竖线，导致检查失效 |
 | 2026-10-01 | 新增 0.5 联网检查规则；V0.5/V0.6/V4.44 改为 live check；G1 要求离线通过 | questions.md Q3 |
 | 2026-10-01 | 新增 V0.9 thinking 模式显式配置；V0.4/V0.8 不再写死 DeepSeek | questions.md Q2；模型已切换为 agnes-3.0-flash |
+| 2026-10-01 | V1.10 改为 5,000–100,000 加环比 ±50%；V1.11 改用 derivation 字段；V1.17 改为由两个 AI 模型独立核对；新增 V1.18–V1.22 | questions.md Q5、Q6、Q7 |

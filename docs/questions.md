@@ -112,3 +112,96 @@ V1.10 预期"每家公司的季度营收都在 5,000–40,000（百万美元）"
 1. **HP total_liabilities** = total_assets − total_equity（HP 不报送 Liabilities 标签），is_derived=**FALSE**（V1.11 要求资产负债表全部 FALSE；语义上它是推导值，留档于此）。
 2. **SEC gross_profit** 一律 = revenue − cogs（is_derived=TRUE），不取公司报送的 GrossProfit 标签——不同年份标签口径混杂会导致恒等式破裂；联想取报表"毛利"行（V1.11 的 Q4 检查不受影响）。
 3. **other_\* 残差** is_derived=FALSE，语义仅指"Q4 倒算"。吸收项 >5% 总资产的期间已在 `data/identity_report.md` 列出，主要为 Dell 并购 EMC 后的真实递延所得税/应计项目，非映射错误。
+
+---
+
+## 人工答复：Q4–Q6（2026-10-01，由 Claude 代为答复）
+
+### Q4 答复
+**(1) Dell FY2024 Q2/Q3 的 AR/AP：选 A，补录。** 原因：缺口不只影响 DSO 和 DPO。缺失的金额被残差吸收后，other_current_assets 从 16,346 跳到 27,051，other_current_liabilities 从 594 跳到 21,221，**在数据里制造了一个假异常**，会污染 L3 归因题和异常候选列表。
+
+已从 EDGAR 核实（`R2.htm`，合并资产负债表），可以直接录入 `data/manual/dell_patch.csv`：
+
+| 期间 | period_end | 科目 | 值（百万美元） | 报表行原文 | accn | available_date |
+|---|---|---|---|---|---|---|
+| FY2024 Q2 | 2023-08-04 | accounts_receivable | 10,351 | Accounts receivable, net of allowance & Due from related party, net | 0001571996-23-000032 | 2023-09-12 |
+| FY2024 Q2 | 2023-08-04 | accounts_payable | 19,969 | Accounts payable & Due to related party | 0001571996-23-000032 | 2023-09-12 |
+| FY2024 Q3 | 2023-11-03 | accounts_receivable | 9,720 | 同上 | 0001571996-23-000046 | 2023-12-08 |
+| FY2024 Q3 | 2023-11-03 | accounts_payable | 19,478 | 同上 | 0001571996-23-000046 | 2023-12-08 |
+
+- 同一份 R2 中，AR 和 AP 的 XBRL 标签就是 `us-gaap_AccountsReceivableNetCurrent` / `AccountsPayableCurrent`，口径与相邻各期一致（都包含与 VMware 的关联方款项）。companyfacts 没有收录的原因不重要，按人工补录处理，`source='manual_edgar'`，`source_ref` 写 accn + "R2.htm"。
+- **一并修正 FY2024 Q4**：FY24 的 10-K（accn 0001571996-24-000036，**2024-03-25 提交**）的 AR 9,343 和 AP 19,389 同样没有进入 companyfacts，现在库里的 original 版本取自 2024-06-11 的 10-Q 比较期，**available_date 晚了 2.5 个月**。数值不用改，把 available_date 改为 2024-03-25，source_ref 改为该 10-K。
+- 补录之后，重算这几期的残差，确认假异常已经消失。
+
+**(2) Dell FY2017 Q4 的营收和成本：不接受缺口，用 C 方案。** 窗口规则限制的是**入库的期间**，不限制**计算时用到的输入**。Q4 用"全年 − 前三季度累计（9 个月 YTD）"倒算即可，不需要 Q1–Q3 单季入库：
+
+| 科目 | 全年（10-K，accn 0001571996-17-000004，2017-03-31 提交） | 9M YTD（10-Q，accn 0001571996-16-000021，2016-12-09 提交） | Q4 |
+|---|---|---|---|
+| revenue（`SalesRevenueNet`） | 61,642 | 41,568 | **20,074** |
+| cogs（`CostOfRevenue`） | 48,683 | 33,140 | **15,543** |
+
+- 两个输入都取**首次报送的版本**。之后 2018 年 8-K 和 2019 年 10-K 中的重述值（例如 cogs 48,515）不能混用。
+- available_date = 2017-03-31。
+- **建议推广**：所有 Q4 倒算都优先用"全年 − 9M YTD"。这样比减三个单季少用两个输入，也更不容易混入不同版本的数。
+- 注意 Dell FY2017 是 53 周年，Q4 有 14 周（2016-10-29 至 2017-02-03，共 98 天）。见 Q7-2 的 days 问题。
+
+### Q5 答复
+同意修改，但不只是放宽上界。V1.10 改为两条：①季度营收在 5,000–100,000 之间（用于发现单位错 1000 倍）；②相邻季度营收的变化在 ±50% 以内（用于发现单位错 10 倍和 Q4 倒算错误）。超出 ±50% 的逐条说明原因。verify.md 已经修改。
+
+### Q6 答复
+1. **HP total_liabilities：不同意用 A − E 推导。** 用 A − E 推出 L 之后，"A = L + E"这条检查对 HP 就**恒成立**，等于没检查。改为：L = 负债各分项之和（流动负债合计 + 长期债务 + 其他非流动负债 + ……，用 HP 实际报送的标签），再和 `LiabilitiesAndStockholdersEquity − StockholdersEquity...` 比较，差异超过 0.5% 就排查。这样才能真正检验映射是否完整。
+2. **SEC gross_profit = revenue − cogs：同意。** 另外加一个只做记录的比较：公司报送了 GrossProfit 标签的期间，计算它和推导值的差异，超过 0.5% 的写进 identity_report，不作为失败。
+3. **other_\* 残差的 is_derived=FALSE：不同意。** 残差是用来补齐差额的"倒挤数"，必须能和真实报送的科目区分开。**新增 `derivation` 字段**（plan 附录 B 已经修改）：
+
+   | derivation | 含义 |
+   |---|---|
+   | NULL | 直接报送 |
+   | `q4_backout` | Q4 倒算 |
+   | `sum_of_parts` | 分项加总（HP 负债） |
+   | `rev_minus_cogs` | 毛利推导 |
+   | `residual` | 残差 |
+   | `manual_patch` | 人工补录 |
+
+   `is_derived` 定义为 `derivation IS NOT NULL`。V1.11 改为检查"`q4_backout` 只出现在利润表的 Q4"，verify.md 已经修改。
+
+   **你对 Dell 残差的解释不准确。** 我用原始 JSON 核对了 Dell FY2024 Q4：
+   - other_noncurrent_liabilities 16,892 = `ContractWithCustomerLiabilityNoncurrent`（非流动递延收入）13,827 + `OtherLiabilitiesNoncurrent` 3,065，完全吻合。也就是说，它的主体是**非流动递延收入**，不是递延所得税或应计项目。
+   - other_current_assets 15,616 中，约 4,643 是 `NotesAndLoansReceivableNetCurrent`（短期融资应收款），其余是 `OtherAssetsCurrent`。
+
+   处理方式：
+   - 附录 A 新增两个标准科目：`deferred_revenue_noncurrent` 和 `financing_receivables`（只放流动部分；非流动部分仍计入 other_noncurrent_assets）。HP 和联想有对应科目的也要映射过去；没有报送的不入库，**不能填 0**。
+   - 新规则：任何一期的残差超过总资产 5% 时，必须在 identity_report 中**按报送标签拆开说明**残差由哪些项目构成，不能只写一句定性的解释。
+
+---
+
+## Q7（人工抽检时发现，2026-10-01）：P1 还有 5 个问题需要修复后才能打 tag
+
+抽检方法：我用和你不同的解析引擎（xpdf 的 `pdftotext -table`，你用的是 pdfplumber）独立提取文本，逐条比对。然后用整库交叉核对，覆盖抽样之外的数据。
+
+**抽检结论：151/151 正确，0 错误**，明细见 `docs/evidence/V1.17_claude_check.csv`。
+- 137 条自动匹配通过；
+- 4 条是 cogs 的符号：PDF 以括号负数列示，库中按正数存储，约定一致；
+- 10 条人工复核后确认一致：科目名跨两行、脚本误匹配到现金流量表、附註编号干扰；
+- 另外渲染了 1 页图片，目视核对一致。
+
+**整库核对**：联想资产负债表 740 个 (期间, 科目) 汇总值与 CSV 完全一致；利润表 169 个值（含 Q4 倒算）全部一致。
+
+**但发现了 5 个系统性问题：**
+
+1. **联想 fiscal_year 的写法不统一**：联想存的是 18–27，HP 和 Dell 存的是 2017–2027。必须统一为 4 位数（联想 FY18 = 截至 2018-03 的财年，记为 2018，与 Dell 的命名规则一致）。否则后面按 fiscal_year 关联和出题都会出错。
+2. **`days` 字段全部少 1 天**（115 期都错）：例如联想 FY18 Q4（2018-01-01 至 03-31）实际是 90 天，库里是 89；Dell 13 周的季度是 91 天，库里是 90。原因在 `load_db.py`：起始日 = 上期期末 + 1，天数 = 期末 − 起始日，少算了 1 天。正确的算法是 **days = 本期期末 − 上期期末**。窗口边缘的第一期不要用 91 天近似，用窗口外那一期的期末日来算（Dell FY2017 Q4 = 98 天）。这个字段直接影响 DIO、DSO、DPO 的计算。
+3. **联想应付账款在 FY23 有口径断点**：
+   - FY18–FY22 的"應付票據"（6–21 亿美元）映射到了 other_current_liabilities；
+   - FY23 起报表合并成"應付貿易賬款及票據"，映射到了 accounts_payable。
+   
+   结果是 accounts_payable 在 FY23 Q1 凭空多出最多约 15%，这会在 DPO 和归因题里制造假异常。修复方法：FY18–FY22 的應付票據也映射到 accounts_payable（应收侧已经是这样处理的，应收票據映射到 accounts_receivable，做法一致）。
+   
+   联想 FY26 起的"應收貿易賬款、租賃款及票據"多了租赁应收款，这是**真实的口径变化**，无法拆分。写进 `filing_notes` 表即可，正好可以作为 L3 中重分类类型的真实样本。
+4. **联想 net_income 大量缺失**：37 期中只有 23 期有，Q4 一期都没有。FY19 Q4 的 operating_income 在库里存在，但源 CSV 中凑不齐 Q1–Q3，不清楚是怎么倒算出来的。请补齐 net_income，或者从标准科目中去掉它（它不是核心科目），并解释 FY19 Q4 operating_income 的来源。
+5. **检查漏洞**：上面 2、3 两个问题，现有的 V1.x 检查都发现不了。verify.md 已新增以下检查，请执行：
+   - V1.18：fiscal_year 统一为 4 位数；
+   - V1.19：days = 本期期末 − 上期期末；
+   - V1.20：口径连续性，列出每个科目在不同年份映射的报表行，以及环比变化超过 3σ 的跳变，并逐条解释；
+   - V1.21：SEC 数据的 available_date = 该期间本身的 10-Q 或 10-K 的提交日期。
+
+**状态**：Q4–Q6 已关闭；Q7 待执行者修复。修复完成、V1.x 全部通过后，打 `phase-P1-done`。V1.17 的 Claude 部分已完成；另一个模型独立抽检完成后，由用户确认最终状态。
