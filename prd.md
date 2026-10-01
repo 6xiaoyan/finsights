@@ -116,7 +116,7 @@
 
 ### 4.6 模型选型
 > **批注（2026-10-01）：出于成本考虑，LLM 由 DeepSeek V4.1 Flash 切换为 Agnes AI（社区常写作 Agens）的旗舰免费模型 `agnes-3.0-flash`。** 推广期内 input/output 均为 $0；即使推广终止，list 价（$0.05 / $0.15 每百万 token）也只有原选型的约 1/4–1/8。上下文 512K，支持 OpenAI 风格 function calling。免费档限速约 20 RPM，评测 runner 的并发与重试设计需遵守。DeepSeek V4.1 Flash 保留为备选（免费推广终止或能力实测不达标时切回）。模型信息官方查证见 `docs/questions.md`；能力实测见 `docs/evidence/P0_capability_probe_output.txt`。
-- **全部使用 DeepSeek V4.1 Flash**，包括 agent 主循环、报告中的结论抽取、LLM-as-judge。
+- **全部使用同一个模型**（当前为 `agnes-3.0-flash`，备选 DeepSeek V4.1 Flash），包括 agent 主循环、报告中的结论抽取、LLM-as-judge。模型名以 `config.yaml` 为准。
 - 好处：成本低，每题跑 3 次、频繁回归测试都负担得起；只有一个模型，变量少，版本对比更干净。
 - 风险：judge 和 agent 是同一个模型，可能存在自我偏好（judge 倾向给自己风格的输出打高分）。缓解措施见 6.5。
 
@@ -192,7 +192,7 @@
 1. 人工标注 50 份报告；
 2. 计算 judge 打分与人工标注的 Cohen's kappa，kappa < 0.6 就修改评分细则；
 3. 做 A/B 对比时，交换两份报告的先后顺序各评一次，消除位置偏差；
-4. judge 和 agent 都使用 DeepSeek V4.1 Flash，存在自我偏好的风险，缓解措施如下：
+4. judge 和 agent 使用同一个模型（见 4.6），存在自我偏好的风险，缓解措施如下：
    - 人工校准更加重要，kappa 达标前不使用 judge 的分数；
    - judge 使用独立的 system prompt，只给它评分细则、报告和证据数据，不给 agent 的推理过程；
    - 能用确定性指标衡量的部分（数字忠实度、根因命中）不交给 judge；
@@ -247,7 +247,7 @@ eval/
 - [x] 公司范围：联想、惠普、戴尔
 - [x] 数据范围：资产负债表 + 利润表（SFR）关键行
 - [x] 时间窗口：自然年 2017 年起
-- [x] 模型：全部使用 DeepSeek V4.1 Flash（见 4.6）
+- [x] 模型：全部使用同一个模型，当前为 `agnes-3.0-flash`（2026-10-01 由 DeepSeek V4.1 Flash 切换，见 4.6）
 - [ ] 合成明细的维度粒度（地区 × 产品线？是否需要月度？）
 - [ ] 预测模型的选择：统计模型和 LLM 推理的分工
 - [ ] 从组内收集真实问题的方式和脱敏方式

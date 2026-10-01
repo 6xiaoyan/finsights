@@ -16,7 +16,22 @@
 | 工具调用 | 支持 OpenAI 风格 `tools` / `tool_choice`；文档描述了多步工具编排。**未提及并行工具调用** → 与 DeepSeek 结论一致：执行采用串行，代码兼容多个 tool_calls | [模型页](https://wiki.agnes-ai.com/en/docs/agnes-30-flash.md) |
 | 缓存 | cached input 单独计价（list 价的 10%），说明存在自动前缀缓存；但触发机制未文档化。plan 6.6.2 "修改历史会使前缀缓存失效、应攒批" 的假设保留，待 V4.44 冒烟测试用实际账单/命中率验证 | [定价页](https://wiki.agnes-ai.com/en/docs/pricing.md) |
 | 限速 | 免费档约 **20 RPM**（第三方汇总，以控制台为准）。影响：eval runner 并发 4 × 每题 3 次可能触顶；`agent/llm.py` 的 429 指数退避重试可吸收，runner 设计长任务并发时需加客户端限速 | [Free-LLM-Collection](https://github.com/for-the-zero/Free-LLM-Collection) |
-| 端点与密钥 | base_url `https://apihub.agnes-ai.com/v1`；密钥在 `platform.agnes-ai.com` 申请。**认证诊断（2026-10-01）**：用户的 key 在推理端点持续 401 "Invalid token"，仅一次用裸 token（去 `sk-` 前缀）访问 /v1/models 得 200，随后恢复 401——请求形式（前缀、认证头、端点、模型 id）均已排除，指向 key 本身的激活/同步/归属问题，诊断明细见 verification_log V0.5 | [wiki](https://wiki.agnes-ai.com/) |
+| 端点与密钥 | **base_url 用中国站 `https://api.agnes-ai.cn/v1`（2026-10-01 实测该 key 在此端点对话正常）**；国际站 `apihub.agnes-ai.com/v1` 对该 key 返回 401 "Invalid token"（此前约 20 次诊断请求排除了请求形式问题，见 verification_log 历史）。开发者文档未公开（集成在登录后的控制台），模型资料另见 Hugging Face `Agnes-AI/Agnes-3.0-Flash` | [wiki](https://wiki.agnes-ai.com/) |
+
+### P0 能力探针结论（2026-10-01，两次运行一致，证据 `docs/evidence/P0_capability_probe_output.txt`）
+
+`agnes-3.0-flash` 五项探针 3 通过 / 2 失败。**通过**：中文连通、工具调用（正确产出 get_weather + 北京参数）、company_specific 归因（JSON 字段与标签全对、证据引用得当）。**失败 ×2，且是同一种失败模式——倾向生成"公司特定"的自信叙事**：
+
+1. **同行共振场景判错**：三家同季存货同向跳升（z 均 >4），模型盯着"联想 z=4.7 > 同行 4.1"的排名，无视"三家同向同量级"的模式，判成 `company_specific`（第二次运行甚至明确写"所有公司 Q3 z 均高，差异源于公司特定波动"——看到了事实仍然推错）。
+2. **错误前提不拒绝**：数据是存货 +18.2%（上升），问"为什么下降"，模型不指出矛盾，反而把存货数据误读成营收，再顺着"下降"前提编出五点归因长文（AI PC 换机潮、"国补"等，均无出处）。
+
+**设计启示（供 P4 实现 attribution skill 与 system prompt 时落实，P5 的 L3 评测定量验证）**：
+- attribution skill 的同行对比步骤要写成机械规则：**判定 industry_wide 看"三家是否同向 + 量级相近（幅度差异 < 30% 或均超各自历史区间）"，不看 z 值排名**。
+- system prompt 铁律加一条（呼应 plan 6.10 第 5 条）：**"前提与数据矛盾时必须 refuse/clarify，禁止改写数据以迎合前提"**。
+- 本探针正好是 PRD 4.3"确认偏误"论断的实证：便宜模型会"合理化任何现象"。这反而是本项目卖点（可信度设计）的好素材，面试可讲。
+- L3 评测（P5）若显示脚手架救不回来（top-1 显著低于随机），再按 PRD 4.6 批注的口子评估切回 DeepSeek。
+
+**附带观察（更新 Q2）**：两次探针运行响应均很快、正文无 reasoning 内容，usage 只有 prompt/completion 两项，默认疑似未开 thinking；Q2 结论"不显式传参"维持，留待 V4.44 冒烟测试再确认。
 
 ### DeepSeek V4.1 Flash 模型信息（已被 2026-10-01 的模型切换取代，留档备查）
 

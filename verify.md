@@ -40,19 +40,45 @@
 3. 再跑**之前所有阶段**的自动检查（回归）；
 4. 全部 PASS（`HUMAN` 项已由人工确认）之后，打 git tag：`phase-P<n>-done`。
 
+### 0.5 联网检查（live check）
+需要真实 LLM 或网络的检查（V0.5、V0.6、V4.44、所有评测运行），**不放进 pytest**：
+- 放在 `scripts/live/<检查ID>_*.py` 中，用 `python scripts/live/xxx.py` 单独运行；
+- 运行输出保存为 `docs/evidence/<检查ID>_output.txt`（包含运行时间、模型名、原始响应摘要），作为证据；
+- pytest 中**全部是离线测试**，LLM 一律用 mock。这样 G1 不受网络和限速影响，也不需要 skip。
+
 ---
 
 ## 1. 全局检查（每个阶段结束都要跑）
 
+> 注意：表格单元格里的 `|` 要写成 `\|` 才能正确渲染，因此 G2–G7 的命令**不写在表格里，以下面代码块中的写法为准**（代码块里的 `|` 是真正的管道或"或"）。
+
+```bash
+# G2：测试数量
+pytest -q --collect-only | tail -1
+# G3：新增的 skip/xfail（P0 跳过）
+git diff phase-P<n-1>-done..HEAD -- tests | grep -nE "^\+.*(skip|xfail)"
+# G4：密钥泄露。① .env 没有被跟踪 ② 仓库中不包含 .env 里的任何密钥值 ③ 没有常见的密钥形态
+git ls-files --error-unmatch .env 2>/dev/null && echo "FAIL: .env 被跟踪"
+grep -E "KEY|TOKEN|SECRET" .env | cut -d= -f2- | grep -v '^$' | while read -r v; do git grep -nF "$v" && echo "FAIL: 密钥值出现在仓库中"; done
+git grep -nE "sk-[A-Za-z0-9]{16,}|api_key\s*=\s*['\"][^'\"]+"
+# G6：agent 不读取标准答案
+grep -rnE "eval/datasets|scenarios/.*\.json|gold" agent/ semantic/ fincalc/
+# G7：没有执行任意代码的入口
+grep -rnE "(^|[^_.[:alnum:]])(eval|exec)\(|subprocess|os\.system" agent/ semantic/ fincalc/   # 不会误报 ast.literal_eval
+```
+上面每条命令的通过标准都是**无输出**（G2 除外，见下表）。
+
+**自检正则本身是否有效**：第一次执行 G3、G4、G6、G7 时，先在一个临时分支上故意制造一处违规（例如在 tests 中加一行 `pytest.mark.skip`、在 agent/ 中写一行 `eval(`），确认命令**有输出**，然后删除这个临时分支。把这一步的结果记为证据 `G-selftest`。
+
 | ID | 检查内容 | 命令 / 方法 | 通过标准 |
 |---|---|---|---|
-| G1 | 全部测试通过 | `pytest -q` | 0 failed, 0 error |
-| G2 | 测试数量没有减少 | `pytest -q --collect-only \| tail -1`，与上一阶段日志中记录的数量比较 | 数量 ≥ 上一阶段 |
-| G3 | 没有新增的 skip/xfail | `git diff phase-P<n-1>-done..HEAD -- tests \| grep -nE "^\+.*(skip\|xfail)"` | 无输出（P0 阶段跳过此项） |
-| G4 | 没有提交密钥 | `git grep -nE "sk-[A-Za-z0-9]{16,}\|api_key\s*=\s*['\"][^'\"]+"` | 无输出 |
+| G1 | 全部测试通过（离线） | 断网或不设置 API key 的情况下运行 `pytest -q` | 0 failed, 0 error（见 0.5：pytest 中不能有联网测试） |
+| G2 | 测试数量没有减少 | 见上方代码块，与上一阶段日志中记录的数量比较 | 数量 ≥ 上一阶段 |
+| G3 | 没有新增的 skip/xfail | 见上方代码块 | 无输出 |
+| G4 | 没有提交密钥 | 见上方代码块 | 无输出 |
 | G5 | 工作区干净，提交格式正确 | `git status --porcelain`；`git log --format=%s phase-P<n-1>-done..HEAD` | 无未提交的改动；每条提交都符合 `[P<n>.<m>] ...` |
-| G6 | agent 不读取标准答案 | `grep -rnE "eval/datasets\|scenarios/.*\.json\|gold" agent/ semantic/ fincalc/` | 无输出 |
-| G7 | 没有执行任意代码的入口 | `grep -rnE "\beval\(\|\bexec\(\|subprocess\|os\.system" agent/ semantic/ fincalc/` | 无输出（calc 用 AST 实现，不能用 eval） |
+| G6 | agent 不读取标准答案 | 见上方代码块 | 无输出 |
+| G7 | 没有执行任意代码的入口 | 见上方代码块 | 无输出（calc 用 AST 实现，不能用 eval） |
 | G8 | 本阶段的问题都已关闭 | 查看 `docs/questions.md` | 没有与本阶段相关的未决问题 |
 | G9 | 合规 | 人工确认 `data/` 中只有公开财报数据和合成数据 | `HUMAN`（仅 P1 和 P5 结束时检查） |
 
@@ -65,11 +91,12 @@
 | V0.1 | git 和 .gitignore | `git check-ignore .env data/finsights.duckdb data/snapshots/x runs/x` | 4 个路径都被输出（都被忽略） |
 | V0.2 | 目录结构 | 检查 plan 1.2 中列出的每个目录 | 全部存在 |
 | V0.3 | 依赖可以安装和导入 | `pip install -e .` 后运行 `python -c "import duckdb, pandas, statsmodels, pydantic, yaml, openai, httpx, dotenv"` | 无报错 |
-| V0.4 | 配置项完整 | `python -c "import yaml;c=yaml.safe_load(open('config.yaml'));print(c['llm']['base_url'],c['llm']['model'],c['agent']['max_steps'],c['context']['window'])"` | 正常输出，不报 KeyError；代码中没有写死模型名（`grep -rn "deepseek" agent/ --include=*.py` 无输出） |
-| V0.5 | LLM 可以连通 | `python -m agent.llm "ping"` | 返回非空文本，并打印 token 用量 |
-| V0.6 | 工具调用可用 | 测试 `tests/test_llm.py::test_tool_call`：定义一个 `get_weather(city)` 工具，问"北京天气" | 返回的 tool_call 名为 `get_weather`，参数中包含北京 |
+| V0.4 | 配置项完整 | `python -c "import yaml;c=yaml.safe_load(open('config.yaml'));print(c['llm']['base_url'],c['llm']['model'],c['agent']['max_steps'],c['context']['window'])"` | 正常输出，不报 KeyError；代码中没有写死模型名（`grep -rniE "agnes|deepseek" agent/ --include=*.py` 无输出） |
+| V0.5 | LLM 可以连通 | live check：`python -m agent.llm "ping"` | 返回非空文本，并打印 token 用量 |
+| V0.6 | 工具调用可用 | live check（见 0.5）`scripts/live/V0.6_tool_call.py`：定义一个 `get_weather(city)` 工具，问"北京天气"；解析逻辑另用 mock 在 `tests/test_llm.py` 中测试 | 返回的 tool_call 名为 `get_weather`，参数中包含北京 |
 | V0.7 | 重试逻辑 | 单元测试：mock 前 2 次返回 429，第 3 次成功 | 最终成功，共调用 3 次；连续 4 次失败时抛出异常 |
-| V0.8 | 模型信息已查清 | `docs/questions.md` 中记录了 DeepSeek V4.1 Flash 的模型名、上下文长度、是否支持并行工具调用、前缀缓存规则，**并且每一项都附有官方文档链接** | 4 项都有，并且都有链接 |
+| V0.8 | 模型信息已查清 | `docs/questions.md` 中记录了**当前所用模型**（config 中的 `llm.model`）的模型名、上下文长度、是否支持并行工具调用、前缀缓存规则，**并且每一项都附有官方文档链接** | 4 项都有，并且都有链接 |
+| V0.9 | thinking 模式显式配置 | `config.yaml` 中有 `llm.enable_thinking`（agent、judge 分别配置）；`agent/llm.py` 每次请求都显式传这个参数；离线测试检查请求体中有这个字段，并且响应中的 reasoning 内容不会被写回 messages | 通过 |
 
 ---
 
@@ -306,7 +333,7 @@ Q() { python -c "import duckdb,sys;print(duckdb.connect('data/finsights.duckdb',
 ## 11. 阶段完成清单（复制到 `docs/verification_log.md` 顶部）
 
 ```
-P0: [ ] 全局 G1–G8  [ ] V0.1–V0.8                     tag: phase-P0-done
+P0: [ ] 全局 G1–G8  [ ] V0.1–V0.9                     tag: phase-P0-done
 P1: [ ] 全局 G1–G9  [ ] V1.1–V1.16  [ ] HUMAN V1.17   tag: phase-P1-done
 P2: [ ] 全局 G1–G8  [ ] V2.1–V2.13  [ ] 回归 P0–P1      tag: phase-P2-done
 P3: [ ] 全局 G1–G8  [ ] V3.1–V3.11  [ ] HUMAN V3.12  [ ] 回归   tag: phase-P3-done
@@ -329,3 +356,13 @@ P4 的任务比较多，可以按 plan 6.11 的子任务分批检查：
 | P4.5c | V4.35 |
 | P4.5d | V4.36–V4.44 |
 | P4.6 | V4.45–V4.47 |
+
+---
+
+## 12. 变更记录
+| 日期 | 变更 | 原因 |
+|---|---|---|
+| 2026-10-01 | 初版 | — |
+| 2026-10-01 | G2–G7 的命令移到表格外的代码块；G4 改为按 .env 中的实际密钥值检查；新增正则自检 `G-selftest` | questions.md Q1：表格中的 `\|` 在 ERE 中是字面竖线，导致检查失效 |
+| 2026-10-01 | 新增 0.5 联网检查规则；V0.5/V0.6/V4.44 改为 live check；G1 要求离线通过 | questions.md Q3 |
+| 2026-10-01 | 新增 V0.9 thinking 模式显式配置；V0.4/V0.8 不再写死 DeepSeek | questions.md Q2；模型已切换为 agnes-3.0-flash |

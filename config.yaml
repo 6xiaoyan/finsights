@@ -3,7 +3,7 @@
 # 2026-10-01：出于成本考虑，LLM 由 DeepSeek V4.1 Flash 切换为 Agnes AI 免费模型（PRD 4.6 批注）。
 
 llm:
-  base_url: https://apihub.agnes-ai.com/v1
+  base_url: https://api.agnes-ai.cn/v1   # 中国站端点；这把 key 在国际站 apihub.agnes-ai.com 无效（实测 401）
   model: agnes-3.0-flash         # Agnes 旗舰模型，限时免费（list 价 $0.05/$0.15 每百万 token）
   temperature_agent: 0.2         # agent 主循环
   temperature_judge: 0.0         # LLM-as-judge / 结论抽取

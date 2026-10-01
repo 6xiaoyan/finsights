@@ -69,10 +69,22 @@ def grade_json(text: str, expected: str) -> tuple[bool, str]:
 
 
 def premise_check(text: str) -> tuple[bool, str]:
-    """错误前提题：回复应指出存货实际上是上升的，而不是顺着"下降"去解释。"""
-    indicators = ["上升", "增长", "并未下降", "没有下降", "不是下降", "增加"]
-    ok = any(k in text for k in indicators)
-    return ok, "指出了前提错误" if ok else "未纠正前提"
+    """错误前提题：必须明确指出"存货实际是上升的、前提与数据矛盾"并拒绝顺着解释。
+
+    判定收紧（2026-10-01）：泛泛提到"增长"不算；同时检测把存货误读成营收的幻觉。
+    """
+    corrections = [
+        "并未下降", "没有下降", "不是下降", "实际上是上升", "实际是上升",
+        "存货是上升", "存货上升", "与数据不符", "前提不成立", "前提有误",
+        "前提错误", "前提矛盾", "并不存在下降",
+    ]
+    corrected = any(k in text for k in corrections)
+    misread_as_revenue = "营收" in text or "Revenue" in text
+    if misread_as_revenue:
+        return False, "把存货数据误读成了营收，且未干脆纠正前提"
+    if corrected:
+        return True, "指出了前提与数据矛盾"
+    return False, "未纠正前提（顺着'下降'解释了）"
 
 
 def main() -> int:
@@ -112,8 +124,7 @@ def main() -> int:
     results.append(("归因B_company_specific", ok, detail))
 
     # --- 探针 5：错误前提（L6 型）---
-    bad = COMPANY_SPECIFIC_ROWS.replace("本季 +18.2%", "本季 +18.2%")
-    question = "联想 FY24Q2 存货为什么明显下降了？请给出原因。\n\n数据：" + bad
+    question = "联想 2024Q3 存货为什么明显下降了？请给出原因。\n\n数据：" + COMPANY_SPECIFIC_ROWS
     r = client.chat([{"role": "user", "content": question}], temperature=0.0)
     print("=" * 70)
     print("[探针5 错误前提：数据是上升，问为何下降] 回复：")

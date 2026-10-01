@@ -93,7 +93,7 @@ finsights/
 - [ ] 按 1.2 建目录；写 `pyproject.toml`，依赖：duckdb, pandas, statsmodels, pydantic, pyyaml, openai, httpx, python-dotenv, pytest。
 - [ ] `config.yaml` 包括：`llm.base_url`、`llm.model`、`llm.temperature`（agent 0.2，judge 0）、`agent.max_steps=20`、`agent.max_tokens_budget`、`context.window`、`context.compact_threshold`。
 - [ ] `agent/llm.py`：封装 chat 调用（支持 tools），带重试（指数退避，最多 3 次）和超时，返回 token 用量。
-- ⚠️ DeepSeek V4.1 Flash 的准确模型名、上下文长度、是否支持并行工具调用、前缀缓存规则：**查 DeepSeek 官方文档**，写进 `config.yaml` 和 `docs/questions.md`，不要猜。
+- ⚠️ 所用模型（当前为 agnes-3.0-flash）的准确模型名、上下文长度、是否支持并行工具调用、前缀缓存规则：**查该模型的官方文档**，写进 `config.yaml` 和 `docs/questions.md`，不要猜。
 
 **验收**：`python -m agent.llm "ping"` 能返回结果；一个带 1 个工具的调用能正确返回 tool_call。
 
@@ -381,7 +381,7 @@ Anthropic API 也提供了同类的官方能力：`clear_tool_uses`（参数有 
 1. **数据都在 Result Store 中，是确定性的，可以无损召回。** 在 Claude Code 里，旧的文件内容被清掉后，只能重新读文件，而且文件可能已经被修改。在本项目中，`recall(rid)` 一定能拿回原样的结果。所以工具结果这部分的压缩**几乎是无损的**。真正有损的只有模型的推理过程（看过哪些数据、排除了哪些假设、为什么）。
 2. **推理过程可以由代码结构化记录。** 分析类工具（seasonal_check、peer_compare、variance）的输出本身就是对假设的检验结果，例如"z=3.1，超出历年同季度区间"。所以 Claude Code 中需要 LLM 维护的 Session Memory，在这里可以**由代码自动维护**，称为证据账本（Evidence Ledger）。
 
-另外，DeepSeek **没有** cache_edits 这类接口（⚠️ 以官方文档为准）。任何对历史消息的改动都会让之后的前缀缓存失效，所以修改历史要**攒批、一次性做**，并且每次至少释放一定数量的 token 才值得（对应 `clear_at_least`）。
+另外，DeepSeek 和 Agnes 都**没有** cache_edits 这类接口（见 `docs/questions.md` 的查证结果）。任何对历史消息的改动都会让之后的前缀缓存失效，所以修改历史要**攒批、一次性做**，并且每次至少释放一定数量的 token 才值得（对应 `clear_at_least`）。
 
 #### 6.6.3 压缩流水线（每次调用模型前，按顺序执行）
 | 层 | 名称 | 对应 Claude Code | 触发条件 | 动作 | 调用 LLM |
@@ -479,7 +479,7 @@ class ContextManager:
         ...
 ```
 - 压缩状态（哪些 rid 已经存根化、当前用的是哪份账本或摘要）要保存在 ctx 中。下一轮直接复用同一个视图，**不要每轮重新计算出不同的结果**，否则会破坏前缀缓存。
-- 阈值全部从 config 读取。⚠️ DeepSeek V4.1 Flash 的窗口大小和缓存规则需要查文档后填入。
+- 阈值全部从 config 读取。窗口大小已查证（agnes-3.0-flash 为 512K）；Agnes 的缓存触发机制没有文档，以 V4.44 冒烟测试中实测的缓存命中率为准。
 
 #### 6.6.6 压缩的评测（版本对比表中的一行）
 - [ ] 构造 15 道长任务题：L5 三家公司报告、一个 session 内连续 5 问的多轮对话、需要 8 步以上的归因题。
@@ -655,7 +655,7 @@ def inject(base_db, inj: Injection) -> tuple[str, dict]   # 返回场景库路�
 - [ ] 10–15 道报告题（单公司营运资本分析、三家公司对比、某季度异常复盘）。
 - [ ] 编写 `report` skill。
 - 打分：
-  1. **数字忠实度**：用一个独立的 LLM 调用（结论抽取，DeepSeek V4.1 Flash，temperature 0）从报告正文中抽取所有 (数字, 所描述的对象) → 逐条回查数据库。**不使用 agent 自己的 claims 列表**，避免自己给自己作证。
+  1. **数字忠实度**：用一个独立的 LLM 调用（结论抽取，与 agent 同一模型，temperature 0）从报告正文中抽取所有 (数字, 所描述的对象) → 逐条回查数据库。**不使用 agent 自己的 claims 列表**，避免自己给自己作证。
   2. **LLM judge**：按评分细则打 1–3 分，维度见 PRD 6.5。judge 的 prompt 只包含评分细则、报告和证据数据（Result Store 导出的表），不包含 agent 的推理过程。
 
 ### 9.2 judge 校准（人工）
@@ -690,7 +690,7 @@ def inject(base_db, inj: Injection) -> tuple[str, dict]   # 返回场景库路�
 |---|---|---|
 | 1 | 时间窗口：HP 拆分和 Dell 合并 EMC 导致早期数据不可比 | ✅ 已确认：从 2017 年开始，PRD 已同步 |
 | 2 | 联想 Q1/Q3 业绩公告中是否有完整的资产负债表 | 先下载两期确认；缺失就在 periods 中标记，不能插值 |
-| 3 | DeepSeek V4.1 Flash 是否支持并行工具调用、上下文长度、缓存规则 | 查文档；不支持并行就串行执行 |
+| 3 | 模型是否支持并行工具调用、上下文长度、缓存规则 | ✅ 已查证（questions.md）：串行执行工具，代码兼容多个 tool_calls |
 | 4 | GLM 5.3 Flash 能力有限 | P4.5（压缩）和 P5.2（注入器）完成后，人工 review 代码，或者交给更强的模型 review |
 | 5 | 同一个模型同时担任 agent 和 judge | 见 PRD 6.5 |
 | 6 | 评测样本少（L3 只有 30 题） | 每题 3 次运行；报告中写出置信区间；之后用注入器扩充题量 |
@@ -703,6 +703,7 @@ def inject(base_db, inj: Injection) -> tuple[str, dict]   # 返回场景库路�
 | 2026-10-01 | 初版 | — |
 | 2026-10-01 | 明确 total_equity 含少数股东权益；快照对无 available_date 的表按关联过滤 | 编写 verify.md 时发现的歧义 |
 | 2026-10-01 | 时间窗口定为 2017 年起；重写 6.6 压缩设计（参考 Claude Code 的 5 层流水线和 9 段模板，加入证据账本和摘要核验） | 用户确认；对齐 Claude Code 的做法 |
+| 2026-10-01 | 答复 questions.md Q1–Q3：thinking 显式关闭；live check 不进 pytest；verify.md 正则修正。正文中写死 DeepSeek 的地方改为模型无关的写法 | 人工答复 |
 | 2026-10-01 | LLM 由 DeepSeek V4.1 Flash 切换为 Agnes AI `agnes-3.0-flash`（限时免费）；`config.yaml` 的 base_url / model / context.window 同步更新（512K） | 用户决策：成本考虑；PRD 4.6 已加批注 |
 
 ---
