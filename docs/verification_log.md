@@ -256,3 +256,16 @@ trace 事件；摘要冻结进 `CompState`，重建不再调 LLM、视图逐字�
 | V4.43 | PASS | `re.findall(r'(?<![\w.])\d{4,}', agent/context.py)` → `[]`：L5/PTL 新代码不含任何写死的 4 位以上数值阈值 | （本次） |
 
 **回归**：`pytest -q` → **119 passed**；G6/G7 grep 无输出。V4.44（真实 LLM 16K 窗口冒烟）见下方 live 记录。
+
+### V4.44 live 冒烟记录（16K 窗口 / 长任务归因题 / agnes-3.0-flash，2026-10-01，共 4 次尝试）
+
+| 次 | 冒烟配置 | 结果 |
+|---|---|---|
+| 1 | steps 20, keep 2 | refuse（步数耗尽）；L3×4/L4×4，无 API 报错、无熔断 |
+| 2 | steps 30, keep 2 | 30 步 refuse；L3×6/L4×17/L5×2；一次 final_answer 参数错误（claims.5.value 非数值）；L4 投影后模型反复复核 r2/r3 烧预算 |
+| 3 | steps 40, keep 3, 打回 2 | 9 步收敛→answered；打回耗尽 verified=False（`≈0%` 需精确 0 的 claim、z 写 0.09 vs 存储 0.0913 超 0.5% 相对容差）；无 API 报错 |
+| 4 | 打回上限 4 | 38 步 answered；L3×7/L4×30/L5×2（L5 两次生成核验失败→按设计退回仅账本）；正文 30 个数字仅 7 条 claim，其中 2 条数值在任何结果中不存在（124.639 vs 最近 126.06；置信度 0.85 非数据数字）→护栏按设计拦截→verified=False |
+
+**标准逐条判定**：①trace ≥1 次 L3：PASS（4 次均稳定）；②无 API 报错：PASS（4 次均成立）；③最终答案通过 verifier：FAIL（4 次）。③的根因是**模型 claim 纪律**（正文↔claims 不闭合、引用不存在的数），非压缩/循环缺陷；执行者不得改检查项与通过标准（verify 0.3），可调冒烟参数已试完。**V4.44 记 待 Q10**（docs/questions.md 四选一，含 P8 prompt 实验路径），不自行判 PASS。
+
+证据：`docs/evidence/V4.44_output.txt` / `V4.44_trace.jsonl` / `V4.44_config_used.yaml` 为第 4 次运行；第 1–3 次证据被后续运行覆写，结论如上表。

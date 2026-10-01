@@ -1,0 +1,34 @@
+agent:
+  final_answer_max_retries: 4
+  max_steps: 40
+  max_tokens_budget: 500000
+  max_wall_s: 900
+context:
+  clear_at_least: 200
+  compact_fail_limit: 3
+  compact_threshold: 2000
+  l3_ratio: 0.05
+  l5_enabled: true
+  l5_keep_last_turns: 1
+  ledger_keep_recent_turns: 3
+  reactive_max_retries: 3
+  reserve_output: 3000
+  result_max_rows: 50
+  result_max_tokens: 2000
+  skill_reinject_max_tokens: 3000
+  stub_keep_last: 3
+  window: 16000
+llm:
+  base_url: https://api.agnes-ai.cn/v1
+  enable_thinking:
+    agent: false
+    judge: false
+  max_retries: 3
+  model: agnes-3.0-flash
+  pricing_usd_per_mtok:
+    input: 0.05
+    output: 0.15
+  rate_limit_rpm: 18
+  temperature_agent: 0.2
+  temperature_judge: 0.0
+  timeout_s: 120
