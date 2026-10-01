@@ -127,23 +127,30 @@ xbrl_tags:
   CashAndCashEquivalentsAtCarryingValue: cash
   ShortTermInvestments: short_term_investments
   AccountsPayableCurrent: accounts_payable
+  AccruedLiabilitiesCurrent: accrued_liabilities
+  ContractWithCustomerLiabilityCurrent: deferred_revenue_current
   Goodwill: goodwill
   IntangibleAssetsNetExcludingGoodwill: intangibles
   PropertyPlantAndEquipmentNet: ppe_net
   LiabilitiesCurrent: total_current_liabilities
+  DebtCurrent: short_term_debt
   LongTermDebtCurrent: short_term_debt
   ShortTermBorrowings: short_term_debt
   CommercialPaper: short_term_debt
   LongTermDebtNoncurrent: long_term_debt
   Liabilities: total_liabilities
   StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest: total_equity
+  # Dell 2019–2021 的可赎回少数股东权益列于夹层（A = L + 赎回NCI + E），
+  # 并入 total_equity 使恒等式闭合（口径：total_equity = 全部权益含可赎回 NCI，见 questions.md）
+  TemporaryEquityCarryingAmountAttributableToParent: total_equity
   MinorityInterest: noncontrolling_interest
   LiabilitiesAndStockholdersEquity: total_liabilities_and_equity
   Revenues: revenue
   RevenueFromContractWithCustomerExcludingAssessedTax: revenue
   CostOfRevenue: cogs
   CostOfGoodsAndServicesSold: cogs
-  GrossProfit: gross_profit
+  # gross_profit 不取公司报送的 GrossProfit 标签：不同年份标签口径混杂会导致 收入−成本 ≠ 毛利，
+  # SEC 数据一律由 load_db 派生（毛利 = 收入 − 成本，is_derived=TRUE）；联想取报表"毛利"行。
 
 # 残差吸收：reported_total − Σ已映射子项 → other_*（plan 3.3）
 residual_rules:
@@ -151,3 +158,15 @@ residual_rules:
   - {total: total_assets,          known: [total_current_assets, ppe_net, goodwill, intangibles],          absorb: other_noncurrent_assets}
   - {total: total_current_liabilities, known: [accounts_payable, short_term_debt, accrued_liabilities, deferred_revenue_current], absorb: other_current_liabilities}
   - {total: total_liabilities,     known: [total_current_liabilities, long_term_debt],                     absorb: other_noncurrent_liabilities}
+
+# 回退标签：主标签在该期缺失时启用（如 HP 2022 起权益改用 StockholdersEquity 报送）。
+# 回退只在主标签完全缺失时使用，不会与主标签求和。
+xbrl_fallback_tags:
+  total_equity:
+    - StockholdersEquity
+  deferred_revenue_current:
+    - DeferredRevenueCurrent
+  # HP 2017–FY22Q3 用 LongTermDebtAndCapitalLeaseObligations 报长期债务，之后改用 LongTermDebtNoncurrent
+  # （两段重叠期若求和会翻倍，故走回退而非求和）
+  long_term_debt:
+    - LongTermDebtAndCapitalLeaseObligations

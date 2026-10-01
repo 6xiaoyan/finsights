@@ -89,3 +89,26 @@ verify.md V0.6 要求"测试 `tests/test_llm.py::test_tool_call`"用真实 LLM �
 **建议**：真实工具调用测试以**独立探针脚本**实现（`docs/evidence/P0_capability_probe.py`，含 V0.6 的 get_weather/北京用例），运行输出存为 `docs/evidence/P0_capability_probe_output.txt` 作为 V0.6 证据；`tests/test_llm.py` 保留全部离线 mock 测试（工具调用的解析逻辑由 mock 覆盖）。即 V0.6 的证据形式从 pytest 改为脚本，请人工确认是否接受。
 
 > **人工答复（2026-10-01）：接受，并推广为通用规则。** verify.md 新增 0.5 节"联网检查"：所有需要真实 LLM 或网络的检查（V0.5、V0.6、V4.44、所有评测运行）都放在 `scripts/live/<检查ID>_*.py` 中单独运行，输出存为 `docs/evidence/<检查ID>_output.txt`；pytest 中全部是离线测试。G1 改为"离线运行 pytest -q 全部通过"。请把现有的 `docs/evidence/P0_capability_probe.py` 移到 `scripts/live/V0.6_capability_probe.py`（证据目录只放输出，不放代码）。**状态：已关闭。**
+
+---
+
+## 待人工确认（P1）
+
+### Q4（P1 提出）：Dell 有 6 个"核心科目"缺口，无法从合规来源补齐
+
+| 缺口 | 原因 | 选项 |
+|---|---|---|
+| Dell FY2024 Q2/Q3 的 accounts_receivable、accounts_payable（共 4 条） | 这两份 10-Q（accn 0001571996-23-000032 / -46）的资产负债表未用 `AccountsReceivableNetCurrent` / `AccountsPayableCurrent` 报送（R2 文件确认存在标准标签，但 companyfacts 无对应非维度事实，推断为维度上下文或扩展标签，companyfacts 不收录扩展标签）；FY25 文件的比较期也未重述 | A. 人工从两份 10-Q 主文档抄 4 个数，经 data/manual CSV 入库（V1.16 可溯源）；B. 接受缺口（已由 other_* 残差吸收，勾稽闭合不受影响） |
+| Dell FY2017Q4 的 revenue、cogs（共 2 条） | Q4 倒算需要同财年 Q1–Q3，但 Dell FY2017 的 Q1–Q3 期末都在 2017-01-01 之前，按 plan 时间窗口规则未入库 → 无法倒算 | A. 接受缺口（仅影响 Dell FY17Q4 的收入/成本/毛利）；B. 为倒算输入放宽窗口（会违反窗口规则，不建议） |
+
+V1.9 按现状为 BLOCKED（6 条）；其余 109 期核心科目齐全。
+
+### Q5（P1 提出）：V1.10 营收区间上限被 Dell 增长击穿
+
+V1.10 预期"每家公司的季度营收都在 5,000–40,000（百万美元）"。实测 Dell 季度营收最大 43,842（FY2027Q1，2026 年 5 月），最小 18,000——区间是为抓"单位错 1000 倍"设计的，Dell 是真实增长越过了上界。**建议**：把 V1.10 的上界改为 50,000 或改为"对数数量级正确（10³–10⁵）"。未改前 V1.10 记 PASS-with-note。
+
+### Q6（P1 提出）：三个派生口径确认（当前实现如下，如无异议即为定稿）
+
+1. **HP total_liabilities** = total_assets − total_equity（HP 不报送 Liabilities 标签），is_derived=**FALSE**（V1.11 要求资产负债表全部 FALSE；语义上它是推导值，留档于此）。
+2. **SEC gross_profit** 一律 = revenue − cogs（is_derived=TRUE），不取公司报送的 GrossProfit 标签——不同年份标签口径混杂会导致恒等式破裂；联想取报表"毛利"行（V1.11 的 Q4 检查不受影响）。
+3. **other_\* 残差** is_derived=FALSE，语义仅指"Q4 倒算"。吸收项 >5% 总资产的期间已在 `data/identity_report.md` 列出，主要为 Dell 并购 EMC 后的真实递延所得税/应计项目，非映射错误。

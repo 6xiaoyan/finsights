@@ -85,8 +85,9 @@ def _split_line(line: str, n_cols: int) -> tuple[str, list[float | None]]:
 
 
 def _period_end(fy_tag: str, quarter: str) -> str:
-    fy = int(fy_tag[2:])  # FY18 → 18，财年止 2018-03-31
-    return {"Q1": f"{fy - 1}-06-30", "Q2": f"{fy - 1}-09-30", "Q3": f"{fy - 1}-12-31", "Q4": f"{fy}-03-31"}[quarter]
+    fy = int(fy_tag[2:])  # FY18 → 财年止 2018-03-31
+    return {"Q1": f"{2000 + fy - 1}-06-30", "Q2": f"{2000 + fy - 1}-09-30",
+            "Q3": f"{2000 + fy - 1}-12-31", "Q4": f"{2000 + fy}-03-31"}[quarter]
 
 
 def _find_pages(pdf) -> tuple[int, int, int] | None:
@@ -164,7 +165,8 @@ def _parse_is_page(pdf, amap: dict, is_page: int, tag: str) -> tuple[list[dict],
     lines = text.splitlines()
     header = "\n".join(lines[:8])
     n_cols = _is_n_cols(header)
-    period_type = "12m" if ("止十二個月" in header or "止年度" in header) else "3m"
+    # 年报表头只写"二零一八年"而不写"止十二個月"，按公告类型判定：Q4 公告的损益表 = 全年数
+    period_type = "12m" if tag.endswith("Q4") else "3m"
     rows: list[dict] = []
     warnings: list[str] = []
     is_map = {k.replace(" ", ""): v for k, v in amap["lenovo_is"].items()}

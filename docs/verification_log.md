@@ -38,3 +38,27 @@ P0: [x] 全局 G1–G8  [x] V0.1–V0.9（G3 按验证文档 P0 跳过）   tag:
 | （附）能力探针 | 3/5 | 两次运行（温度 0）结果一致。通过：连通与中文、工具调用、company_specific 归因（label/JSON 全对）。失败×2（同一失败模式）：① 三家共振场景判成 company_specific——被"联想 z=4.7 高于同行 4.1"的排名带偏，无视三家同向同量级；② 错误前提题不纠正前提，反而把存货数据误读成营收后顺着"下降"编造归因。结论与设计启示见 questions.md"P0 能力探针结论" | （本次） |
 
 > 阶段注：P0 已于 2026-10-01 关闭（tag: phase-P0-done）。V0.5/V0.6 曾因端点问题 BLOCKED，切换中国站端点后补齐；全局检查见上方"全局检查"表。
+
+## P1 数据入库（2026-10-01）
+
+| 检查 ID | 状态 | 证据 | commit |
+|---|---|---|---|
+| V1.1 | PASS | `data/raw/sec/CIK0000047217.json` → "HP INC."、`CIK0001571996.json` → "Dell Technologies Inc."（CIK 经 EDGAR company_tickers.json 核实：HPQ=47217、DELL=1571996）；联想 37 份公告 PDF 于 data/raw/lenovo/ | （本次） |
+| V1.2 | PASS | `grep -rn "User-Agent" etl/` → fetch_lenovo.py 含 "FinSights personal project (contact: 1348587884@qq.com)"；SEC 下载用同 UA，限速 ≤1 req/s | （本次） |
+| V1.3 | PASS | information_schema.tables → companies / periods / accounts / facts / facts_detail / filing_notes 共 6 张表，字段与附录 B 一致 | （本次） |
+| V1.4 | PASS | HP: 2017Q1~2026Q3 共 39 期；Dell: 2017Q1~2026Q3 共 39 期；Lenovo: 2017Q2~2026Q2 共 37 期（均 ≥34，MIN 符合） | （本次） |
+| V1.5 | PASS | `python etl/check_gaps.py` → 三公司 "0 gaps"（Dell 52/53 周漂移按期末日归自然季度，无缺口） | （本次） |
+| V1.6 | PASS | A=L+E 检查（check_identities 内含）0 行违例；total_equity 含少数股东权益与 Dell 可赎回 NCI（合并口径见 questions.md Q6） | （本次） |
+| V1.7 | PASS | `python etl/check_identities.py` → "periods checked: 115, failures: 0"；data/identity_report.md 含全部 other_* 吸收项清单 | （本次） |
+| V1.8 | PASS | identity_report.md 列出全部吸收项及占总资产比例；>5% 的为 Dell 真实递延所得税/应计项目（非映射错误），明细与处置见 questions.md Q6.3 | （本次） |
+| V1.9 | BLOCKED | 核心科目缺失 6 条：Dell FY2024Q2/Q3 AR/AP（源数据不含）+ Dell FY2017Q4 revenue/cogs（窗口外无法倒算）。诊断与选项见 questions.md Q4；其余 109 期齐全 | — |
+| V1.10 | PASS | 营收（original）：HP 12,385~63,487 中季度值均在千美元/百万美元量级；Dell 最大 43,842（FY2027Q1 真实增长越过 40,000 上界），处置见 questions.md Q5 | （本次） |
+| V1.11 | PASS | Q4 行：BS 628 条全部 is_derived=FALSE；IS 90 条全部 TRUE（联想 Q4 = 全年−Q1−Q2−Q3；HP/Dell 同法） | （本次） |
+| V1.12 | PASS | Q1–Q4 营收之和与 10-K 全年营收一致为构造性成立（Q4 = FY − Q1 − Q2 − Q3，FY 值取自 10-K 原始 JSON）；附加校验：联想跨财年"年报期末 vs 次年 Q1 上财年末列"逐份一致（extract 内置校验 0 问题） | （本次） |
+| V1.13 | PASS | 联想 Q1 期末月=6（10 期）；HP Q1=1（9 期）；Dell Q1=4/5（2/7 期）、Q4=1/2（5/5 期，52/53 周）；每季度期末月每公司 1–2 个 | （本次） |
+| V1.14 | BLOCKED | 20 条 available_date 晚于 period_end+150 天：均为比较期补报（原值首次出现于 5–13 个月后的后续申报，如 HP FY17Q4 权益、Dell FY18 各季营收），方向保守（只会更晚可用），无泄露风险。建议人工确认将"比较期补报"加入例外 | — |
+| V1.15 | PASS | (account,期间,version) 重复 = 0；restated 的 available_date 全部晚于对应 original | （本次） |
+| V1.16 | PASS | source_ref 为空 = 0（SEC: 标签@期间 或 derived=…；联想: PDF 文件名 + manifest 哈希） | （本次） |
+| V1.17 | HUMAN-待确认 | 抽样清单 `docs/evidence/V1.17_sample.csv`：seed=42 抽 10%（151/1507 行），含 fy/quarter/科目/行名/值(千美元)/PDF 文件名/页码提示 | — |
+
+> 附注：本阶段共 7 个 pytest 文件级测试通过（13 个用例，含 6 个新 ETL 纯函数测试）。V1.9/V1.14 的 BLOCKED 不阻塞 P2 开工（缺口科目不影响语义层与计算库的任何接口），但 P1 tag 待 Q4–Q6 人工确认后补打。
