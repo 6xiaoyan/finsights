@@ -269,3 +269,26 @@ trace 事件；摘要冻结进 `CompState`，重建不再调 LLM、视图逐字�
 **标准逐条判定**：①trace ≥1 次 L3：PASS（4 次均稳定）；②无 API 报错：PASS（4 次均成立）；③最终答案通过 verifier：FAIL（4 次）。③的根因是**模型 claim 纪律**（正文↔claims 不闭合、引用不存在的数），非压缩/循环缺陷；执行者不得改检查项与通过标准（verify 0.3），可调冒烟参数已试完。**V4.44 记 待 Q10**（docs/questions.md 四选一，含 P8 prompt 实验路径），不自行判 PASS。
 
 证据：`docs/evidence/V4.44_output.txt` / `V4.44_trace.jsonl` / `V4.44_config_used.yaml` 为第 4 次运行；第 1–3 次证据被后续运行覆写，结论如上表。
+
+## P4.6 v1 正式评测与阶段全局检查（V4.45–V4.47 + G1–G8，2026-10-01）
+
+| 检查 ID | 状态 | 证据 |
+|---|---|---|
+| V4.45 | PASS（复跑） | 首轮 run 20261001-212749（commit 见 eval/reports/20261001-212749.md）：L1 0.92/L2 0.39，**低于 v0 → FAIL**；逐 trial 归因（eval/badcases.md）后两项 agent 侧修复：①working_capital 单期/非相邻期静默退化为期末口径 → 自动向前补一期（回归测试 test_working_capital_single_period_keeps_avg_basis）；②system prompt 铁律 3：claim.value 用题面单位。复跑 run 20261001-215744（commit 17a181c）：L1 0.92±0.14、L2 1.00±0.00，总 29/30=0.967 ≥ v0 26/30=0.867；compare 判 L2 +0.39 显著改善、L1 −0.08 显著回退（单 trial 单位漂移，badcases 已归类）。通过标准"总正确率不低于 v0 + 失败题全部归类有根因"满足 |
+| V4.46 | PASS | eval/reports/leaderboard.md 含 v1 行（0.92/1.00，run 20261001-215744，commit 17a181c） |
+| V4.47 | 待 HUMAN | `python scripts/export_v447_evidence.py 20261001-215744 42` 生成 docs/evidence/V4.47.md：固定种子抽 3 条 trace（l2_0003t3/l1_0002t1/l1_0001t1），每条 claim → rid → 工具参数 → 当前库重放 SQL 与结果行齐全。人工批阅点：数字→SQL→结论链条是否完整可信（执行者不自判） |
+| V4.44 | **待 Q10** | 见上方 live 冒烟记录：L3/无 API 报错两条稳定 PASS，"通过 verifier"4 次 FAIL（模型 claim 纪律），四选一裁定等人工 |
+
+**P4 全局检查（范围 fa8a322..HEAD）**：
+| ID | 状态 | 记录 |
+|---|---|---|
+| G1 | PASS | 离线 `pytest -q` → **123 passed**（0 failed/0 error，无联网测试） |
+| G2 | PASS | `pytest --collect-only` → 123 tests ≥ P3 关闭时 40 |
+| G3 | PASS | `git diff fa8a322..HEAD -- tests \| grep skip/xfail` → 无输出 |
+| G4 | BLOCKED-待人工（沿 Q8） | ①.env 未跟踪 ✓；②真实密钥值全库 git grep 无命中 ✓；③通用模式命中仅为 docs 历史证据/引述文本（Q8 已登记，无新增） |
+| G5 | PASS | 本提交后 `git status --porcelain` 空；`git log fa8a322..HEAD --format=%s` 全部 `[P4.x]`/`[P4.x-y]` 前缀 |
+| G6 | PASS | grep eval/datasets\|scenarios\|gold → 无输出（含 P4.6 新文件） |
+| G7 | PASS | grep eval(/exec(/subprocess → 无输出 |
+| G8 | **未关闭** | 本阶段未决问题：**Q9**（V4.2 用例数字矛盾）、**Q10**（V4.44 verifier 项）、V4.15/V4.47 HUMAN 批阅。P4 不打 phase-P4-done tag，等人工裁定 |
+
+**P4 成果摘要**：v1 = 单循环 14 工具 + Result Store 证据链 + hooks/verifier 护栏 + L1–L5 压缩（含 reactive/PTL/熔断），L1+L2 总正确率 0.967（v0 0.867），失败根因全部归档 eval/badcases.md。
