@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import json
+import threading
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -156,6 +157,7 @@ class ResultStore:
         self._by_id: dict[str, StoredResult] = {}
         self._by_key: dict[str, str] = {}
         self._n = 0
+        self._lock = threading.Lock()  # 主循环并发执行只读工具时保护 rid 分配（V4.12）
         self.db_reads = 0   # 供测试断言"缓存命中时没有重复查库"
 
     def lookup(self, tool: str, args: dict) -> StoredResult | None:
@@ -165,15 +167,16 @@ class ResultStore:
     def put(self, tool: str, args: dict, df: pd.DataFrame, sql: str | None = None,
             step: int = 0, unit: str = "") -> StoredResult:
         key = f"{tool}|{_canon(args)}|{self.data_version}"
-        if key in self._by_key:
-            return self._by_id[self._by_key[key]]
-        self._n += 1
-        res = StoredResult(id=f"r{self._n}", tool=tool, args=dict(args),
-                           data_version=self.data_version, df=df, sql=sql,
-                           created_step=step, unit=unit)
-        res.digest = make_digest(res)
-        self._by_id[res.id] = res
-        self._by_key[key] = res.id
+        with self._lock:
+            if key in self._by_key:
+                return self._by_id[self._by_key[key]]
+            self._n += 1
+            res = StoredResult(id=f"r{self._n}", tool=tool, args=dict(args),
+                               data_version=self.data_version, df=df, sql=sql,
+                               created_step=step, unit=unit)
+            res.digest = make_digest(res)
+            self._by_id[res.id] = res
+            self._by_key[key] = res.id
         return res
 
     def get(self, rid: str) -> StoredResult | None:

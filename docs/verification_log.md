@@ -161,3 +161,22 @@ P0: [x] 全局 G1–G8  [x] V0.1–V0.9（G3 按验证文档 P0 跳过）   tag:
 | G6 | PASS | `grep -rnE "eval/datasets\|scenarios/.*\.json\|gold" agent/ semantic/ fincalc/` → 无输出（gold 只存在于 eval/ 内） | （本次） |
 | G7 | PASS | `grep -rnE "(^\|[^_.[:alnum:]])(eval\|exec)\(\|subprocess\|os\.system" agent/ semantic/ fincalc/` → 无输出（runner 的 subprocess 仅调 git rev-parse，且在 eval/，不在禁扫目录） | （本次） |
 | G8 | 待人工 | 未决：Q8（G4③ 范围）、V1.17 第二模型抽检（P1 关闭项）；均已在 questions.md/证据中登记。V3.12 已人工通过 | — |
+
+## P4 Agent 核心（V4.1–V4.12，2026-10-01）
+
+| 检查 ID | 状态 | 证据 | commit |
+|---|---|---|---|
+| V4.1 | PASS | `tests/test_tools.py::test_v4_1_*`：相同 (tool,args,data_version) 两次 put 返回同一 rid，monkeypatch `query_df` 计数证明第二次没有再查库；不同 args 产生新 rid | c4f472a |
+| V4.2 | 待 Q9 | 四用例都已落成测试：6123.4(usd_mn)↔61.234(usd_100mn) 找到、0.182(ratio)↔18.2(pct) 找到、不存在 rid 返回错误不抛异常。**检查项第三例本身自相矛盾**（6150 vs 6123.4 差 0.434%，在 0.5% 容差内，不可能"找不到"）→ 已登记 questions.md Q9；测试用 6250（差 2.07%）验证"超容差→找不到并反馈最近值"规则，并如实断言 6150 可找到（不修改检查项） | c4f472a |
+| V4.3 | PASS | 首行匹配 `^\[r\d+\] \w+\(.*\)$`；60 行结果渲染只显示 50 行并出现 `recall(` 提示；小结果无提示 | c4f472a |
+| V4.4 | PASS | `test_v4_4`：遍历 `all_tool_schemas()`（11 个数据/只读 + todo_write + final_answer = 13）每个都有 pydantic 参数模型、描述含"何时使用"；与 plan 6.4 的 P4 范围一致（load_skill 在 P4.3 加入，forecast 在 P6） | c4f472a +（本次） |
+| V4.5 | PASS | `test_v4_5`：遍历 `all_args_models()` 全部字段名，不存在 db/db_path/as_of | c4f472a +（本次） |
+| V4.6 | PASS | calc 拒绝 `__import__('os')`、`open('x')`、`(lambda:1)()`、`1/0`、`r99.x[...]`、`r1.__class__[...]`，全部以"工具错误"文本返回、不抛异常 | c4f472a |
+| V4.7 | PASS | `r3.inventory[Lenovo,FY24Q2]/r3.inventory[Lenovo,FY23Q2]-1` 与手算一致并产生新 rid | c4f472a |
+| V4.8 | PASS | run_sql 拒绝 INSERT / DROP / ATTACH / COPY / PRAGMA / 多语句 `SELECT 1; DROP…` | c4f472a |
+| V4.9 | PASS | 无 LIMIT 的 SELECT 自动加 LIMIT，最多返回 200 行 | c4f472a |
+| V4.10 | PASS | 绕过护栏直接用工具内部只读连接 `CREATE TABLE t(x INT)` → duckdb 报错 | c4f472a |
+| V4.11 | PASS | `tests/test_loop.py`（mock LLM 按脚本返回）六场景全过：a 查数→final_answer，trace 含 usage/result_id/latency；b 不调工具先提醒 1 次、再犯按预算 refuse（视图中 NUDGE 恰好 1 条）；c 工具报错文本进上下文循环继续；d 步数/token 预算耗尽 → refuse，claims 空、正文无数字；e 核验连败 3 次第 3 次返回并标注"未通过验证"（stop_reject attempt=[1,2]）；f 未调过数据工具而答案含数字 → pre_tool 拦截，取数后同样答案放行 | （本次） |
+| V4.12 | PASS | 一条 assistant 消息含 3 个只读工具调用：`ThreadPoolExecutor` 并发执行（`ResultStore.put` 加锁保证 rid 分配原子），3 个 tool_call_id 与结果一一对应、rid 互不相同 | （本次） |
+
+**回归**：`pytest -q` → **81 passed**（P0–P3 的 71 例全部未受影响；V4.4/V4.5 测试同时加强为遍历全部 13 个工具）。

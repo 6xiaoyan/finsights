@@ -21,6 +21,7 @@ llm:
 agent:
   max_steps: 20
   max_tokens_budget: 500000      # 单次运行的 token 预算
+  max_wall_s: 600                # 单次运行的时间预算（plan 6.2 Budget：步数、token、时间）
   final_answer_max_retries: 2    # 护栏打回重做的最大次数
 
 context:

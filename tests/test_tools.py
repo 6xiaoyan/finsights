@@ -14,7 +14,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from agent.result_store import ResultStore  # noqa: E402
 from agent.tools import data as td  # noqa: E402
-from agent.tools.base import ARGS_MODELS, STORED_TOOLS, tool_schemas  # noqa: E402
+from agent.tools.base import (ARGS_MODELS, STORED_TOOLS, all_args_models, all_tool_schemas,
+                              tool_schemas)  # noqa: E402
 from agent.tools.data import ToolContext, execute, make_data_version  # noqa: E402
 from agent.tools.db import connect  # noqa: E402
 
@@ -123,20 +124,20 @@ def test_v4_3_small_result_not_truncated(ctx):
 
 # ---------------- V4.4 / V4.5 schema
 
-PLAN_TOOLS_P4 = set(STORED_TOOLS) | {"recall"}
+PLAN_TOOLS_P4 = set(STORED_TOOLS) | {"recall", "todo_write", "final_answer"}  # load_skill P4.3；forecast P6
 
 
 def test_v4_4_schemas_complete_with_usage_hints():
-    schemas = {t["function"]["name"]: t["function"] for t in tool_schemas()}
-    assert PLAN_TOOLS_P4 <= set(schemas)
+    schemas = {t["function"]["name"]: t["function"] for t in all_tool_schemas()}
+    assert PLAN_TOOLS_P4 == set(schemas)
     for name, fn in schemas.items():
         assert "何时使用" in fn["description"], name
         assert "properties" in fn["parameters"] or fn["parameters"]["type"] == "object"
-        assert name in ARGS_MODELS
+        assert name in all_args_models()
 
 
 def test_v4_5_no_db_or_as_of_in_args():
-    for name, model in ARGS_MODELS.items():
+    for name, model in all_args_models().items():
         fields = set(model.model_fields)
         assert not {"db", "db_path", "as_of"} & fields, name
 

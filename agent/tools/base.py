@@ -3,7 +3,7 @@
 约束：
 - 任何工具参数中都不允许出现 db/as_of（运行时固定，模型不可改，V4.5）。
 - 描述必须写清"何时使用/何时不用"（V4.4）。
-- forecast 在 P6 加入；load_skill/todo_write/final_answer 在 P4.2/P4.3 注册。
+- todo_write/final_answer 在 P4.2 注册（本文件 LOOP_ARGS_MODELS）；load_skill 在 P4.3，forecast 在 P6。
 """
 from __future__ import annotations
 
@@ -11,6 +11,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from eval.schema import Claim
 from semantic.compiler import MetricRequest
 
 
@@ -68,6 +69,24 @@ class EmptyArgs(BaseModel):
     """list_metrics 无参数。"""
 
 
+# ---- 主循环工具（不进 Result Store）：plan 6.4 的终止/状态类 ----
+
+class TodoItem(BaseModel):
+    content: str = Field(description="任务描述")
+    status: Literal["pending", "in_progress", "done"] = "pending"
+
+
+class TodoWriteArgs(BaseModel):
+    items: list[TodoItem] = Field(description="完整的新计划列表（整体替换旧列表）")
+
+
+class FinalAnswerArgs(BaseModel):
+    answer_md: str = Field(description="中文结论（Markdown），每个数字都要有出处")
+    claims: list[Claim] = Field(default_factory=list,
+                                description="每个结论数字一条：text/value/unit/ref(result_id)")
+    status: Literal["answered", "clarify", "refuse"] = "answered"
+
+
 # 描述统一包含"何时使用"（V4.4 关键词测试）
 DESCRIPTIONS: dict[str, str] = {
     "list_metrics": "返回指标目录（名称、中文名、类型、单位、可用维度）。何时使用：开始分析前、"
@@ -92,6 +111,11 @@ DESCRIPTIONS: dict[str, str] = {
     "get_filing_notes": "报表附注/口径变更说明。何时使用：归因第⑤步，检查变化是否由口径重分类导致。",
     "recall": "从 Result Store 取回某结果的完整行（不重新查库）。何时使用：上下文里该结果被压缩成"
               "存根、需要看 50 行之后的数据时。",
+    "todo_write": "写入或更新任务计划（整体替换）。何时使用：复杂问题第一步拆任务；"
+                  "推进中更新完成状态。何时不用：一步就能答完的简单问题。",
+    "final_answer": "给出最终答案并结束。何时使用：所有数字都已由数据工具查出或经 calc 计算、"
+                    "并且每个数字都在 claims 里引用了 result_id。何时不用：还没查到数据。"
+                    "status=clarify 时 answer_md 写澄清问题；无法回答用 refuse。",
 }
 
 # 产生 rid 并进入 store 的工具（L3 可压缩白名单，plan 6.6.3）
@@ -117,8 +141,15 @@ ARGS_MODELS: dict[str, type[BaseModel]] = {
 }
 
 
+# 主循环特有工具（loop.py 直接处理，不走 data.execute）
+LOOP_ARGS_MODELS: dict[str, type[BaseModel]] = {
+    "todo_write": TodoWriteArgs,
+    "final_answer": FinalAnswerArgs,
+}
+
+
 def tool_schemas() -> list[dict]:
-    """OpenAI function-calling 工具声明（从 pydantic 自动生成，V4.4）。"""
+    """数据类工具的 OpenAI function-calling 声明（从 pydantic 自动生成，V4.4）。"""
     out = []
     for name, model in ARGS_MODELS.items():
         schema = model.model_json_schema()
@@ -132,6 +163,21 @@ def tool_schemas() -> list[dict]:
             },
         })
     return out
+
+
+def all_tool_schemas() -> list[dict]:
+    """主循环用的完整工具声明：数据类 + todo_write + final_answer（load_skill 在 P4.3，forecast 在 P6）。"""
+    out = tool_schemas()
+    for name, model in LOOP_ARGS_MODELS.items():
+        schema = model.model_json_schema()
+        schema.pop("$defs", None)
+        out.append({"type": "function", "function": {
+            "name": name, "description": DESCRIPTIONS[name], "parameters": schema}})
+    return out
+
+
+def all_args_models() -> dict[str, type[BaseModel]]:
+    return {**ARGS_MODELS, **LOOP_ARGS_MODELS}
 
 
 def validate_args(name: str, args: dict) -> BaseModel:
