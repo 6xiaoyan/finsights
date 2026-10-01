@@ -288,8 +288,16 @@ def _h_peer_compare(args, ctx: ToolContext, step: int) -> Outcome:
                    _metric_unit(args.metric))
 
 
+def _prev_fiscal(label: str) -> str:
+    y, q = _fy_key(label)
+    return f"FY{y - 1}Q4" if q == 1 else f"FY{y}Q{q - 1}"
+
+
 def _h_working_capital(args, ctx: ToolContext, step: int) -> Outcome:
     pf, pt = _expand_periods(list(args.periods))
+    # 平均余额口径要求最早期的上一期也在帧内；否则 fincalc 静默用期末值代替
+    # 平均值（V4.45 实测 bad case：单期调用退化出 ~1–4% 系统偏差）
+    pf = _prev_fiscal(pf)
     need = ["accounts_receivable", "inventory", "accounts_payable", "revenue", "cogs"]
     df = _fetch_series(ctx, need, [args.company], period_from=pf, period_to=pt)
     if df.empty:

@@ -64,7 +64,12 @@ def make_agent(name: str, limiter: RateLimiter) -> AgentFn:
         from agent.v0 import run as run_v0
         client = LLMClient()
         return lambda q: run_v0(q, llm=client, limiter=limiter)
-    raise KeyError(f"未知 agent: {name}（可用: v0；v1 在 P4 后加入）")
+    if name == "v1":
+        from agent.llm import LLMClient
+        from agent.v1 import run as run_v1
+        client = LLMClient()
+        return lambda q: run_v1(q, llm=client, limiter=limiter)
+    raise KeyError(f"未知 agent: {name}（可用: v0, v1；更后面的版本在对应阶段加入）")
 
 
 RATE_RETRY_MAX = 3        # 429 耗尽 llm 内部重试后，整个 trial 重做的最大次数

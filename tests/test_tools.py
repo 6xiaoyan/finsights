@@ -245,6 +245,35 @@ def test_working_capital_matches_fincalc(ctx):
     assert abs(float(df.loc[m, "ccc"].iloc[0]) - float(ref["ccc"].iloc[-1])) < 1e-9
 
 
+def test_working_capital_single_period_keeps_avg_basis(ctx):
+    """V4.45 回归：单期调用也必须用平均余额口径（自动向前补一期），不得退化为期末值。"""
+    o = execute("working_capital", {"company": "Lenovo", "periods": ["FY25Q1"]}, ctx)
+    assert o.ok
+    df = o.stored.df
+    row = df.iloc[-1]
+    assert (int(row["fiscal_year"]), int(row["fiscal_quarter"])) == (2025, 1)
+    con = duckdb.connect(DB, read_only=True)
+
+    def vals(fy: int, q: int) -> dict:
+        r = con.execute(
+            "SELECT f.account_code, f.value FROM facts f JOIN periods p USING (company_id, fiscal_year, fiscal_quarter) "
+            "WHERE f.version='original' AND p.company_id='Lenovo' AND p.fiscal_year=? AND p.fiscal_quarter=?",
+            [fy, q]).fetchall()
+        return {a: v for a, v in r}
+
+    cur, prev = vals(2025, 1), vals(2024, 4)
+    con.close()
+    days = float(row["days"])
+    dso = (cur["accounts_receivable"] + prev["accounts_receivable"]) / 2 / cur["revenue"] * days
+    dio = (cur["inventory"] + prev["inventory"]) / 2 / cur["cogs"] * days
+    dpo = (cur["accounts_payable"] + prev["accounts_payable"]) / 2 / cur["cogs"] * days
+    ccc = dso + dio - dpo
+    assert abs(float(row["ccc"]) - ccc) / abs(ccc) < 1e-6
+    # 期末值口径（退化情形）会给出不同的 dso——确认没有走 fallback
+    end_dso = cur["accounts_receivable"] / cur["revenue"] * days
+    assert abs(float(row["dso"]) - end_dso) / end_dso > 0.005
+
+
 def test_unknown_tool_returns_text(ctx):
     o = execute("no_such_tool", {}, ctx)
     assert o.ok is False and "未知工具" in o.text
