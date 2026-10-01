@@ -1,0 +1,335 @@
+[
+  {
+    "date": "18/08/2017 07:59",
+    "title": "二零一七/一八年財政年度第一季業績公佈",
+    "url": "https://www1.hkexnews.hk/listedco/listconews/sehk/2017/0818/ltn20170818022_c.pdf",
+    "fy": "FY18",
+    "quarter": "Q1",
+    "file": "FY18Q1_180820170759.pdf",
+    "sha256": "f9c6c40346424373"
+  },
+  {
+    "date": "02/11/2017 12:17",
+    "title": "二零一七/一八年財政年度中期業績公佈",
+    "url": "https://www1.hkexnews.hk/listedco/listconews/sehk/2017/1102/ltn20171102294_c.pdf",
+    "fy": "FY18",
+    "quarter": "Q2",
+    "file": "FY18Q2_021120171217.pdf",
+    "sha256": "275d813c6bf74ea6"
+  },
+  {
+    "date": "01/02/2018 07:33",
+    "title": "二零一七/一八年財政年度第三季業績公佈",
+    "url": "https://www1.hkexnews.hk/listedco/listconews/sehk/2018/0201/ltn20180201036_c.pdf",
+    "fy": "FY18",
+    "quarter": "Q3",
+    "file": "FY18Q3_010220180733.pdf",
+    "sha256": "fedb05d1c0684457"
+  },
+  {
+    "date": "24/05/2018 12:06",
+    "title": "二零一七/一八年財政年度全年業績公佈",
+    "url": "https://www1.hkexnews.hk/listedco/listconews/sehk/2018/0524/ltn20180524162_c.pdf",
+    "fy": "FY18",
+    "quarter": "Q4",
+    "file": "FY18Q4_240520181206.pdf",
+    "sha256": "7bb7685dde5353cf"
+  },
+  {
+    "date": "16/08/2018 07:35",
+    "title": "二零一八/一九年財政年度第一季業績公佈",
+    "url": "https://www1.hkexnews.hk/listedco/listconews/sehk/2018/0816/ltn20180816024_c.pdf",
+    "fy": "FY19",
+    "quarter": "Q1",
+    "file": "FY19Q1_160820180735.pdf",
+    "sha256": "46d1d78790d7a7d2"
+  },
+  {
+    "date": "08/11/2018 12:17",
+    "title": "二零一八/一九年財政年度中期業績公佈",
+    "url": "https://www1.hkexnews.hk/listedco/listconews/sehk/2018/1108/ltn20181108220_c.pdf",
+    "fy": "FY19",
+    "quarter": "Q2",
+    "file": "FY19Q2_081120181217.pdf",
+    "sha256": "1301aff4cf3fb1f3"
+  },
+  {
+    "date": "21/02/2019 07:28",
+    "title": "二零一八/一九年財政年度第三季業績公佈",
+    "url": "https://www1.hkexnews.hk/listedco/listconews/sehk/2019/0221/ltn20190221030_c.pdf",
+    "fy": "FY19",
+    "quarter": "Q3",
+    "file": "FY19Q3_210220190728.pdf",
+    "sha256": "5cc7d4fa94c6fd42"
+  },
+  {
+    "date": "23/05/2019 12:11",
+    "title": "二零一八/一九年財政年度全年業績公佈",
+    "url": "https://www1.hkexnews.hk/listedco/listconews/sehk/2019/0523/ltn20190523306_c.pdf",
+    "fy": "FY19",
+    "quarter": "Q4",
+    "file": "FY19Q4_230520191211.pdf",
+    "sha256": "3bbd2c48385ee608"
+  },
+  {
+    "date": "15/08/2019 07:45",
+    "title": "二零一九/二零年財政年度第一季業績公佈",
+    "url": "https://www1.hkexnews.hk/listedco/listconews/sehk/2019/0815/ltn20190815022_c.pdf",
+    "fy": "FY20",
+    "quarter": "Q1",
+    "file": "FY20Q1_150820190745.pdf",
+    "sha256": "27ef34b1b7e0c830"
+  },
+  {
+    "date": "07/11/2019 12:02",
+    "title": "二零一九/二零年財政年度中期業績公佈",
+    "url": "https://www1.hkexnews.hk/listedco/listconews/sehk/2019/1107/2019110700279_c.pdf",
+    "fy": "FY20",
+    "quarter": "Q2",
+    "file": "FY20Q2_071120191202.pdf",
+    "sha256": "70f259de444aec07"
+  },
+  {
+    "date": "20/02/2020 12:01",
+    "title": "二零一九/二零年財政年度第三季業績公佈",
+    "url": "https://www1.hkexnews.hk/listedco/listconews/sehk/2020/0220/2020022000280_c.pdf",
+    "fy": "FY20",
+    "quarter": "Q3",
+    "file": "FY20Q3_200220201201.pdf",
+    "sha256": "fcd40faba406bbc6"
+  },
+  {
+    "date": "20/05/2020 07:04",
+    "title": "二零一九/二零年財政年度全年業績公佈",
+    "url": "https://www1.hkexnews.hk/listedco/listconews/sehk/2020/0520/2020052000030_c.pdf",
+    "fy": "FY20",
+    "quarter": "Q4",
+    "file": "FY20Q4_200520200704.pdf",
+    "sha256": "c286ac3350ffc3e2"
+  },
+  {
+    "date": "13/08/2020 12:01",
+    "title": "二零二零/二一年財政年度第一季業績公佈",
+    "url": "https://www1.hkexnews.hk/listedco/listconews/sehk/2020/0813/2020081300188_c.pdf",
+    "fy": "FY21",
+    "quarter": "Q1",
+    "file": "FY21Q1_130820201201.pdf",
+    "sha256": "76826fb8ee123785"
+  },
+  {
+    "date": "03/11/2020 12:15",
+    "title": "二零二零/二一年財政年度中期業績公佈",
+    "url": "https://www1.hkexnews.hk/listedco/listconews/sehk/2020/1103/2020110300416_c.pdf",
+    "fy": "FY21",
+    "quarter": "Q2",
+    "file": "FY21Q2_031120201215.pdf",
+    "sha256": "0cd4f792b216c599"
+  },
+  {
+    "date": "03/02/2021 12:02",
+    "title": "二零二零/二一年財政年度第三季業績公佈",
+    "url": "https://www1.hkexnews.hk/listedco/listconews/sehk/2021/0203/2021020300384_c.pdf",
+    "fy": "FY21",
+    "quarter": "Q3",
+    "file": "FY21Q3_030220211202.pdf",
+    "sha256": "7890a00e3d268708"
+  },
+  {
+    "date": "27/05/2021 12:01",
+    "title": "二零二零/ 二一年財政年度全年業績公佈",
+    "url": "https://www1.hkexnews.hk/listedco/listconews/sehk/2021/0527/2021052700202_c.pdf",
+    "fy": "FY21",
+    "quarter": "Q4",
+    "file": "FY21Q4_270520211201.pdf",
+    "sha256": "41ca2c79485816bf"
+  },
+  {
+    "date": "11/08/2021 12:01",
+    "title": "二零二一/二二年財政年度第一季業績公佈",
+    "url": "https://www1.hkexnews.hk/listedco/listconews/sehk/2021/0811/2021081100183_c.pdf",
+    "fy": "FY22",
+    "quarter": "Q1",
+    "file": "FY22Q1_110820211201.pdf",
+    "sha256": "649bc1173a0a2cc5"
+  },
+  {
+    "date": "04/11/2021 12:01",
+    "title": "二零二一/二二年財政年度中期業績公佈",
+    "url": "https://www1.hkexnews.hk/listedco/listconews/sehk/2021/1104/2021110400373_c.pdf",
+    "fy": "FY22",
+    "quarter": "Q2",
+    "file": "FY22Q2_041120211201.pdf",
+    "sha256": "a5dfb8da2b3b8bd2"
+  },
+  {
+    "date": "23/02/2022 12:01",
+    "title": "二零二一/二二年財政年度第三季業績公佈",
+    "url": "https://www1.hkexnews.hk/listedco/listconews/sehk/2022/0223/2022022300160_c.pdf",
+    "fy": "FY22",
+    "quarter": "Q3",
+    "file": "FY22Q3_230220221201.pdf",
+    "sha256": "82f672d729611a19"
+  },
+  {
+    "date": "26/05/2022 12:01",
+    "title": "二零二一/ 二二年財政年度全年業績公佈",
+    "url": "https://www1.hkexnews.hk/listedco/listconews/sehk/2022/0526/2022052600234_c.pdf",
+    "fy": "FY22",
+    "quarter": "Q4",
+    "file": "FY22Q4_260520221201.pdf",
+    "sha256": "3025bed4dbc0b039"
+  },
+  {
+    "date": "10/08/2022 07:32",
+    "title": "二零二二/二三年財政年度第一季業績公佈",
+    "url": "https://www1.hkexnews.hk/listedco/listconews/sehk/2022/0810/2022081000028_c.pdf",
+    "fy": "FY23",
+    "quarter": "Q1",
+    "file": "FY23Q1_100820220732.pdf",
+    "sha256": "f79a0053eb144d29"
+  },
+  {
+    "date": "03/11/2022 12:02",
+    "title": "二零二二 / 二三年財政年度中期業績公佈",
+    "url": "https://www1.hkexnews.hk/listedco/listconews/sehk/2022/1103/2022110300388_c.pdf",
+    "fy": "FY23",
+    "quarter": "Q2",
+    "file": "FY23Q2_031120221202.pdf",
+    "sha256": "9ea54f1c1f3ad69d"
+  },
+  {
+    "date": "17/02/2023 12:01",
+    "title": "二零二二/二三年財政年度第三季業績公佈",
+    "url": "https://www1.hkexnews.hk/listedco/listconews/sehk/2023/0217/2023021700190_c.pdf",
+    "fy": "FY23",
+    "quarter": "Q3",
+    "file": "FY23Q3_170220231201.pdf",
+    "sha256": "5c13840638dbed73"
+  },
+  {
+    "date": "24/05/2023 12:18",
+    "title": "二零二二/ 二三年財政年度全年業績公佈",
+    "url": "https://www1.hkexnews.hk/listedco/listconews/sehk/2023/0524/2023052400220_c.pdf",
+    "fy": "FY23",
+    "quarter": "Q4",
+    "file": "FY23Q4_240520231218.pdf",
+    "sha256": "d35d6ccc09e39e9b"
+  },
+  {
+    "date": "17/08/2023 12:01",
+    "title": "二零二三/二四年財政年度第一季業績公佈",
+    "url": "https://www1.hkexnews.hk/listedco/listconews/sehk/2023/0817/2023081700140_c.pdf",
+    "fy": "FY24",
+    "quarter": "Q1",
+    "file": "FY24Q1_170820231201.pdf",
+    "sha256": "f12ed5fd267ca01c"
+  },
+  {
+    "date": "16/11/2023 12:19",
+    "title": "二零二三/二四年財政年度中期業績公佈",
+    "url": "https://www1.hkexnews.hk/listedco/listconews/sehk/2023/1116/2023111600159_c.pdf",
+    "fy": "FY24",
+    "quarter": "Q2",
+    "file": "FY24Q2_161120231219.pdf",
+    "sha256": "fe97431d809fc302"
+  },
+  {
+    "date": "22/02/2024 12:02",
+    "title": "二零二三/二四年財政年度第三季業績公佈",
+    "url": "https://www1.hkexnews.hk/listedco/listconews/sehk/2024/0222/2024022200124_c.pdf",
+    "fy": "FY24",
+    "quarter": "Q3",
+    "file": "FY24Q3_220220241202.pdf",
+    "sha256": "ce4ca1ed04dfd749"
+  },
+  {
+    "date": "23/05/2024 12:04",
+    "title": "二零二三/ 二四年財政年度全年業績公佈",
+    "url": "https://www1.hkexnews.hk/listedco/listconews/sehk/2024/0523/2024052300286_c.pdf",
+    "fy": "FY24",
+    "quarter": "Q4",
+    "file": "FY24Q4_230520241204.pdf",
+    "sha256": "6dbdbf36e794b8a7"
+  },
+  {
+    "date": "15/08/2024 12:01",
+    "title": "二零二四/二五年財政年度第一季業績公佈",
+    "url": "https://www1.hkexnews.hk/listedco/listconews/sehk/2024/0815/2024081500198_c.pdf",
+    "fy": "FY25",
+    "quarter": "Q1",
+    "file": "FY25Q1_150820241201.pdf",
+    "sha256": "b665d9a5148f34ca"
+  },
+  {
+    "date": "15/11/2024 07:21",
+    "title": "二零二四/二五年財政年度中期業績公佈",
+    "url": "https://www1.hkexnews.hk/listedco/listconews/sehk/2024/1115/2024111500032_c.pdf",
+    "fy": "FY25",
+    "quarter": "Q2",
+    "file": "FY25Q2_151120240721.pdf",
+    "sha256": "0c8a6b6db5697f75"
+  },
+  {
+    "date": "20/02/2025 12:01",
+    "title": "二零二四/二五年財政年度第三季業績公佈",
+    "url": "https://www1.hkexnews.hk/listedco/listconews/sehk/2025/0220/2025022000140_c.pdf",
+    "fy": "FY25",
+    "quarter": "Q3",
+    "file": "FY25Q3_200220251201.pdf",
+    "sha256": "2dace4b8e7f0585e"
+  },
+  {
+    "date": "22/05/2025 12:03",
+    "title": "二零二四/ 二五年財政年度全年業績公佈",
+    "url": "https://www1.hkexnews.hk/listedco/listconews/sehk/2025/0522/2025052200194_c.pdf",
+    "fy": "FY25",
+    "quarter": "Q4",
+    "file": "FY25Q4_220520251203.pdf",
+    "sha256": "d311c555d65370e9"
+  },
+  {
+    "date": "14/08/2025 07:42",
+    "title": "二零二五/二六年財政年度第一季業績公佈",
+    "url": "https://www1.hkexnews.hk/listedco/listconews/sehk/2025/0814/2025081400028_c.pdf",
+    "fy": "FY26",
+    "quarter": "Q1",
+    "file": "FY26Q1_140820250742.pdf",
+    "sha256": "086cfbfe97aaf10f"
+  },
+  {
+    "date": "20/11/2025 07:29",
+    "title": "二零二五 / 二六年財政年度中期業績公佈",
+    "url": "https://www1.hkexnews.hk/listedco/listconews/sehk/2025/1120/2025112000058_c.pdf",
+    "fy": "FY26",
+    "quarter": "Q2",
+    "file": "FY26Q2_201120250729.pdf",
+    "sha256": "56f3219fcc0a287c"
+  },
+  {
+    "date": "12/02/2026 12:02",
+    "title": "二零二五/二六年財政年度第三季業績公佈",
+    "url": "https://www1.hkexnews.hk/listedco/listconews/sehk/2026/0212/2026021200274_c.pdf",
+    "fy": "FY26",
+    "quarter": "Q3",
+    "file": "FY26Q3_120220261202.pdf",
+    "sha256": "7f09d8928e14e3e8"
+  },
+  {
+    "date": "22/05/2026 07:32",
+    "title": "二零二五/ 二六年財政年度全年業績公佈",
+    "url": "https://www1.hkexnews.hk/listedco/listconews/sehk/2026/0522/2026052200034_c.pdf",
+    "fy": "FY26",
+    "quarter": "Q4",
+    "file": "FY26Q4_220520260732.pdf",
+    "sha256": "1823c37cd2e7c7e4"
+  },
+  {
+    "date": "13/08/2026 12:01",
+    "title": "二零二六/ 二七年財政年度第一季業績公佈",
+    "url": "https://www1.hkexnews.hk/listedco/listconews/sehk/2026/0813/2026081300142_c.pdf",
+    "fy": "FY27",
+    "quarter": "Q1",
+    "file": "FY27Q1_130820261201.pdf",
+    "sha256": "337d22412402e35a"
+  }
+]
