@@ -60,6 +60,8 @@ def compare(run_a: str, run_b: str, runs_root: Path = RUNS, reports_root: Path =
 
 
 def main(argv: list[str]) -> int:
+    # Windows GBK 控制台无法编码 '−' 等字符（报告内容为 UTF-8 markdown）
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     ap = argparse.ArgumentParser()
     ap.add_argument("run_a")
     ap.add_argument("run_b")

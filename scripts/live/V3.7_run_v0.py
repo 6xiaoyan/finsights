@@ -13,5 +13,7 @@ sys.path.insert(0, ".")
 from eval.runner import main  # noqa: E402
 
 if __name__ == "__main__":
+    # 免费档实测：>10 RPM 持续请求会触发按分钟窗口的 429 配额墙，
+    # 故压到 8 RPM、并发 2；runner 内另有 429 trial 级重试兜底。
     sys.exit(main(["V3.7_run_v0", "--agent", "v0", "--datasets", "l1,l2",
-                   "--trials", "3", "--concurrency", "4"]))
+                   "--trials", "3", "--concurrency", "2", "--max-rpm", "8"]))

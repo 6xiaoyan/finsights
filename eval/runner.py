@@ -19,6 +19,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Callable
 
+from openai import RateLimitError
+
 from eval.graders import get_grader
 from eval.schema import Answer, Question
 
@@ -65,6 +67,22 @@ def make_agent(name: str, limiter: RateLimiter) -> AgentFn:
     raise KeyError(f"未知 agent: {name}（可用: v0；v1 在 P4 后加入）")
 
 
+RATE_RETRY_MAX = 3        # 429 耗尽 llm 内部重试后，整个 trial 重做的最大次数
+RATE_RETRY_WAIT_S = 180   # 重做前等待秒数 × 次数（免费档配额按分钟窗口恢复）
+
+
+def _call_with_rate_retry(agent_fn: AgentFn, question: str) -> tuple[Answer, dict]:
+    """429 属于配额窗口问题，等待后整 trial 重做；其他异常原样抛出（由 one() 记为 error）。"""
+    for attempt in range(RATE_RETRY_MAX + 1):
+        try:
+            return agent_fn(question)
+        except RateLimitError:
+            if attempt == RATE_RETRY_MAX:
+                raise
+            time.sleep(RATE_RETRY_WAIT_S * (attempt + 1))
+    raise AssertionError("unreachable")
+
+
 def _git_commit() -> str:
     try:
         return subprocess.run(["git", "rev-parse", "--short", "HEAD"], capture_output=True,
@@ -93,18 +111,29 @@ def run_suite(questions: list[Question], agent_fn: AgentFn, trials: int, run_id:
 
     def one(q: Question, trial: int) -> None:
         t0 = time.time()
-        answer, info = agent_fn(q.question)
-        grade = get_grader(q.category)(q, answer)
-        latency = info.get("latency_s", round(time.time() - t0, 2))
-        cost = (info.get("prompt_tokens", 0) * pin + info.get("completion_tokens", 0) * pout) / 1e6
-        rec = {"qid": q.id, "category": q.category, "trial": trial,
-               "correct": bool(grade["correct"]), "status": answer.status,
-               "steps": info.get("steps", 0), "tool_calls": info.get("tool_calls", 0),
-               "sql_errors": info.get("sql_errors", 0),
-               "prompt_tokens": info.get("prompt_tokens", 0),
-               "completion_tokens": info.get("completion_tokens", 0),
-               "cost_usd": round(cost, 6), "latency_s": latency,
-               "detail": grade["detail"], "answer_md": answer.answer_md[:500]}
+        rec: dict
+        answer: Answer | None = None
+        info: dict = {}
+        try:
+            answer, info = _call_with_rate_retry(agent_fn, q.question)
+            grade = get_grader(q.category)(q, answer)
+            latency = info.get("latency_s", round(time.time() - t0, 2))
+            cost = (info.get("prompt_tokens", 0) * pin + info.get("completion_tokens", 0) * pout) / 1e6
+            rec = {"qid": q.id, "category": q.category, "trial": trial,
+                   "correct": bool(grade["correct"]), "status": answer.status,
+                   "steps": info.get("steps", 0), "tool_calls": info.get("tool_calls", 0),
+                   "sql_errors": info.get("sql_errors", 0),
+                   "prompt_tokens": info.get("prompt_tokens", 0),
+                   "completion_tokens": info.get("completion_tokens", 0),
+                   "cost_usd": round(cost, 6), "latency_s": latency,
+                   "detail": grade["detail"], "answer_md": answer.answer_md[:500]}
+        except Exception as e:  # 单次 trial 失败（如限速重试耗尽）不拖垮整个 run
+            rec = {"qid": q.id, "category": q.category, "trial": trial,
+                   "correct": False, "status": "error", "steps": 0, "tool_calls": 0,
+                   "sql_errors": 0, "prompt_tokens": 0, "completion_tokens": 0,
+                   "cost_usd": 0.0, "latency_s": round(time.time() - t0, 2),
+                   "detail": f"运行异常: {type(e).__name__}: {e}", "answer_md": ""}
+            info = {"trace": [{"type": "error", "error": str(e)[:500]}]}
         trace = [json.dumps({"qid": q.id, "trial": trial, "type": "meta", "agent": agent_name,
                              "question": q.question, "ts": datetime.now().isoformat(timespec="seconds")},
                             ensure_ascii=False)]

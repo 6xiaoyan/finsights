@@ -8,6 +8,8 @@
 P0: [x] 全局 G1–G8  [x] V0.1–V0.9（G3 按验证文档 P0 跳过）   tag: phase-P0-done
 ```
 
+> P1/P2/P3 暂不勾选：P1 待 V1.17 第二模型抽检；P2/P3 的全局 G4 因 Q8（docs 历史证据误报范围）BLOCKED 待人工；P3 另待 V3.12 人工逐题审阅。详见各阶段小节。
+
 ## 全局检查（P0 关闭时执行，2026-10-01）
 
 | 检查 ID | 状态 | 证据 | commit |
@@ -122,3 +124,40 @@ P0: [x] 全局 G1–G8  [x] V0.1–V0.9（G3 按验证文档 P0 跳过）   tag:
 | G7 | PASS | `grep -rnE "(^\|[^_.[:alnum:]])(eval\|exec)\(\|subprocess\|os\.system" agent/ semantic/ fincalc/` → 无输出 | （本次） |
 | G8 | 待 Q8 | 与本阶段相关的新问题仅 Q8（G4③ 误报范围），已登记等人工答复 | — |
 
+
+## P3 评测框架 + L1/L2 题目 + v0 基线（2026-10-01）
+
+| 检查 ID | 状态 | 证据 | commit |
+|---|---|---|---|
+| V3.1 | PASS | `tests/test_eval.py::test_v3_1_*`：pydantic 逐行校验 l1.jsonl/l2.jsonl；L1=4、L2=6、id 唯一 | （本次） |
+| V3.2 | PASS | `test_v3_2`：重建数据集并重新执行每题 gold_sql / 重走 fincalc 路径，10/10 与 gold.value 一致 | （本次） |
+| V3.3 | PASS | L1 含自然季度写法（l1_0002 HP calendar 2024Q3）与"亿美元"（l1_0003）；L2 覆盖 DIO/DSO 趋势、毛利率、环比、三家对比（docs/evidence/V3.12.md） | （本次） |
+| V3.4 | PASS | mock agent 返回 gold×1.0 跑 runner：L1、L2 准确率均 100% | （本次） |
+| V3.5 | PASS | mock 返回 gold×1.01：L1、L2 均 0%（超 0.5% 容差） | （本次） |
+| V3.6 | PASS | mock 返回 gold×1.004：判为正确（容差内） | （本次） |
+| V3.7 | PASS | live 运行 `scripts/live/V3.7_run_v0.py` → run `20261001-183059`：30 个 trace + summary.json；报告 L1 1.00±0.00、L2 0.78±0.10，含步数/工具调用/SQL 报错/token/延迟/成本（docs/evidence/V3.7_output.txt）。踩坑记录：①首跑 181956 单个 429 异常经线程池炸掉全局 → runner 增加 trial 级 try/except；②二跑 182502 免费档按分钟窗口的 429 配额墙致 22 error trial → 增加 `_call_with_rate_retry`（429 整 trial 退避重做，最多 3 次），并把负载压到 8 RPM、并发 2；三跑全 30 trial 完成、0 error | （本次） |
+| V3.8 | PASS | 抽查 `runs/20261001-183059/l2_0001_1.jsonl`：meta + 每步 assistant 行（消息、tool_calls 参数、latency_ms、usage token）+ tool_result 行 + result 行 | （本次） |
+| V3.9 | PASS | `python -m eval.compare 20261001-183059 20261001-183059`：全部指标"不显著"（eval/reports/compare_20261001-183059_vs_20261001-183059.md）；离线 `test_v3_9` 同过 | （本次） |
+| V3.10 | PASS | `test_v3_10`：`[t["function"]["name"] for t in v0.TOOLS] == ["run_sql","final_answer"]`，无其他工具 | （本次） |
+| V3.11 | PASS | leaderboard v0 行：L1 1.00±0.00、L2 0.78±0.10，注明 run_id=20261001-183059、commit=71933af | （本次） |
+| V3.12 | HUMAN-待审 | 全部 10 题 + gold 值 + gold_sql/gold_method 已导出 `docs/evidence/V3.12.md`，等人工逐题过目 | — |
+
+**v0 基线 bad case（P4 改进输入，均为真实失败样本，未做任何针对性特判）**
+1. l2_0002（t1、t3）：题目未钉死 DSO 口径，v0 用"期末应收÷单季收入"，gold 用编译器平均余额口径 → 值与同比符号都算偏（+0.35/+0.90 天 vs gold −2.90 天）。启示：口径应由 skills/fincalc 统一，或 agent 应 clarify。
+2. l2_0003 t2：v0 取数全对（8265.5/11081×92=68.63），但最后一步 LLM 心算写成 72.9。印证 plan"所有数值由代码算、LLM 不做算术"的原则，P4 需上 fincalc 工具。
+3. l2_0001 t2：CCC 21.9 vs gold 21.42，同样是末步心算漂移（0.5% 容差外）。
+
+**回归**：pytest 40 passed（含 P0–P2 全部 28 例）；P2 语义层/计算库未改动。
+
+## P3 全局检查（2026-10-01）
+
+| 检查 ID | 状态 | 证据 | commit |
+|---|---|---|---|
+| G1 | PASS | `pytest -q` → **40 passed**（全离线，无联网用例） | （本次） |
+| G2 | PASS | `pytest --collect-only` → 40 tests ≥ 上一阶段 28 | （本次） |
+| G3 | PASS | `git diff phase-P0-done..HEAD -- tests \| grep -nE "^\+.*(skip\|xfail)"` → 无输出；新增 test_eval.py 亦无 skip/xfail | （本次） |
+| G4 | BLOCKED-待人工 | ①.env 未被跟踪 ✓；②.env 密钥值 `git grep -nF` → 无输出 ✓；③模式扫描：agent/eval/scripts/tests/config.yaml 全部无输出，新增证据文件（V3.7_output、reports）无密钥形态；仅历史 docs 证据 3 处假 key 命中（见 Q8，等人工裁定） | — |
+| G5 | PASS | 提交后 `git status --porcelain` 无输出；提交 `[P3.5] …` 格式 | （本次） |
+| G6 | PASS | `grep -rnE "eval/datasets\|scenarios/.*\.json\|gold" agent/ semantic/ fincalc/` → 无输出（gold 只存在于 eval/ 内） | （本次） |
+| G7 | PASS | `grep -rnE "(^\|[^_.[:alnum:]])(eval\|exec)\(\|subprocess\|os\.system" agent/ semantic/ fincalc/` → 无输出（runner 的 subprocess 仅调 git rev-parse，且在 eval/，不在禁扫目录） | （本次） |
+| G8 | 待人工 | 未决：Q8（G4③ 范围）、V3.12 逐题审阅、V1.17 第二模型抽检（P1 关闭项）；均已在 questions.md/证据中登记 | — |
