@@ -4,7 +4,21 @@
 
 ---
 
-## 已查证（P0 ⚠️ 项，无需再确认，留档备查）
+## 已查证
+
+### Agnes AI（Agens）模型信息（2026-10-01 查证，现行选型）
+
+| 项 | 结论 | 来源 |
+|---|---|---|
+| 准确模型名 | `agnes-3.0-flash`（旗舰，限时免费）；`agnes-2.5-flash` 同为免费。社区与部分资料将厂商写作 "Agens"，官方拼写为 **Agnes AI**（新加坡 Sapiens AI 旗下），为同一服务商 | [模型页](https://wiki.agnes-ai.com/en/docs/agnes-30-flash.md)、[定价页](https://wiki.agnes-ai.com/en/docs/pricing.md) |
+| 上下文长度 | 512K tokens，最大输出 65,536 tokens | [模型页](https://wiki.agnes-ai.com/en/docs/agnes-30-flash.md) |
+| 价格 | 当前推广期 input / output / cached input 全部 $0；list 价 $0.05 / $0.15 / $0.005 每百万 token。**注意是限时推广**，评测报告需记录运行日期，推广终止时按 plan 变更流程决定是否切回 DeepSeek | [定价页](https://wiki.agnes-ai.com/en/docs/pricing.md) |
+| 工具调用 | 支持 OpenAI 风格 `tools` / `tool_choice`；文档描述了多步工具编排。**未提及并行工具调用** → 与 DeepSeek 结论一致：执行采用串行，代码兼容多个 tool_calls | [模型页](https://wiki.agnes-ai.com/en/docs/agnes-30-flash.md) |
+| 缓存 | cached input 单独计价（list 价的 10%），说明存在自动前缀缓存；但触发机制未文档化。plan 6.6.2 "修改历史会使前缀缓存失效、应攒批" 的假设保留，待 V4.44 冒烟测试用实际账单/命中率验证 | [定价页](https://wiki.agnes-ai.com/en/docs/pricing.md) |
+| 限速 | 免费档约 **20 RPM**（第三方汇总，以控制台为准）。影响：eval runner 并发 4 × 每题 3 次可能触顶；`agent/llm.py` 的 429 指数退避重试可吸收，runner 设计长任务并发时需加客户端限速 | [Free-LLM-Collection](https://github.com/for-the-zero/Free-LLM-Collection) |
+| 端点与密钥 | base_url `https://apihub.agnes-ai.com/v1`；密钥在 `platform.agnes-ai.com` 申请。2026-10-01 用户提供的首把 key 被网关拒绝（401 Invalid token），已请用户核对 | [wiki](https://wiki.agnes-ai.com/) |
+
+### DeepSeek V4.1 Flash 模型信息（已被 2026-10-01 的模型切换取代，留档备查）
 
 **DeepSeek V4.1 Flash 模型信息**（2026-10-01 查证，来源均为官方文档）：
 
@@ -35,10 +49,16 @@ G4: git grep -nE "sk-[A-Za-z0-9]{16,}\|api_key\s*=\s*['\"][^'\"]+"
 
 **影响**：不影响任何已实现功能；若确认修改，从 P0 起即可用正确正则执行全局检查。
 
-### Q2（P0 提出）：deepseek-flash 的 thinking 模式默认状态与使用策略
+### Q2（P0 提出）：agnes-3.0-flash 的 thinking 模式默认状态与使用策略
 
-官方文档确认 flash 支持 thinking 模式（`thinking`、`reasoning_effort` 参数），但未查到**默认是否开启**，以及开启后 tool_calls 响应结构的变化。plan 4.6 只定了模型未定 thinking 策略。
+官方文档确认可通过 `chat_template_kwargs: {"enable_thinking": true}` 开启 thinking；但**默认是否开启**未文档化，开启后 tool_calls 响应结构是否变化也未说明。
 
-**建议**：agent 主循环与 judge 均不显式传 `thinking` 参数（用 API 默认值）；V0.5 ping 测试时观察响应里是否出现 `reasoning_content` 字段，把结果补记到这里，再决定是否需要显式关闭（若默认开启，需评估成本影响）。
+**建议**：agent 主循环与 judge 均不显式传 thinking 相关参数（用 API 默认值）；V0.5 ping 与能力探针运行时观察响应里是否出现 reasoning 内容，把结果补记到这里，再决定是否需要显式关闭（若默认开启，需评估成本与延迟影响）。
 
 **影响**：P0 不阻塞；只影响 `agent/llm.py` 是否显式传参。
+
+### Q3（P0 提出）：V0.6 真实工具调用测试的实现位置
+
+verify.md V0.6 要求"测试 `tests/test_llm.py::test_tool_call`"用真实 LLM 验证工具调用。但如果把它放进 pytest 收集，会带来两个冲突：① G1 要求 `pytest -q` 全过，而真实调用依赖网络与有效 key，离线/限速（20 RPM）时必然失败或超时；② 往套件里加 skip/xfail 会违反 0.3 规则 2。
+
+**建议**：真实工具调用测试以**独立探针脚本**实现（`docs/evidence/P0_capability_probe.py`，含 V0.6 的 get_weather/北京用例），运行输出存为 `docs/evidence/P0_capability_probe_output.txt` 作为 V0.6 证据；`tests/test_llm.py` 保留全部离线 mock 测试（工具调用的解析逻辑由 mock 覆盖）。即 V0.6 的证据形式从 pytest 改为脚本，请人工确认是否接受。

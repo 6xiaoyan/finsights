@@ -25,7 +25,7 @@
 |---|---|---|
 | 语言 | Python 3.11+ | — |
 | 数据库 | DuckDB（单文件） | 分析型、零运维；支持只读连接；可以按 `as_of` 快速生成快照 |
-| LLM | DeepSeek V4.1 Flash，用 OpenAI 兼容接口调用 | PRD 4.6 |
+| LLM | Agnes AI `agnes-3.0-flash`（OpenAI 兼容接口）；备选 DeepSeek V4.1 Flash | PRD 4.6 及其批注（2026-10-01 起切换，成本考虑） |
 | 统计 | pandas、statsmodels（ETS/SARIMA） | — |
 | 校验 | pydantic v2 | 工具参数和评测题目的 schema |
 | 测试 | pytest | — |
@@ -703,6 +703,7 @@ def inject(base_db, inj: Injection) -> tuple[str, dict]   # 返回场景库路�
 | 2026-10-01 | 初版 | — |
 | 2026-10-01 | 明确 total_equity 含少数股东权益；快照对无 available_date 的表按关联过滤 | 编写 verify.md 时发现的歧义 |
 | 2026-10-01 | 时间窗口定为 2017 年起；重写 6.6 压缩设计（参考 Claude Code 的 5 层流水线和 9 段模板，加入证据账本和摘要核验） | 用户确认；对齐 Claude Code 的做法 |
+| 2026-10-01 | LLM 由 DeepSeek V4.1 Flash 切换为 Agnes AI `agnes-3.0-flash`（限时免费）；`config.yaml` 的 base_url / model / context.window 同步更新（512K） | 用户决策：成本考虑；PRD 4.6 已加批注 |
 
 ---
 

@@ -1,9 +1,10 @@
 # FinSights 配置
 # 模型信息的查证记录见 docs/questions.md（附官方文档链接）。
+# 2026-10-01：出于成本考虑，LLM 由 DeepSeek V4.1 Flash 切换为 Agnes AI 免费模型（PRD 4.6 批注）。
 
 llm:
-  base_url: https://api.deepseek.com
-  model: deepseek-flash          # DeepSeek-V4.1-Flash，官方文档确认的模型 id
+  base_url: https://apihub.agnes-ai.com/v1
+  model: agnes-3.0-flash         # Agnes 旗舰模型，限时免费（list 价 $0.05/$0.15 每百万 token）
   temperature_agent: 0.2         # agent 主循环
   temperature_judge: 0.0         # LLM-as-judge / 结论抽取
   timeout_s: 120
@@ -17,8 +18,8 @@ agent:
 context:
   # 有效窗口 = window - 20000（为摘要输出预留）
   # 压缩触发阈值 = 有效窗口 - 13000（plan 6.6.4）
-  window: 1000000                # deepseek-flash 官方上下文长度；压缩实验时临时调小（如 16000）
-  compact_threshold: 967000      # window - 33000
+  window: 512000                 # agnes-3.0-flash 官方上下文长度；压缩实验时临时调小（如 16000）
+  compact_threshold: 479000      # window - 33000
   clear_at_least: 8000           # L3 存根化至少要释放的 token 数
   stub_keep_last: 3              # L3 保留最近 N 个结果不压缩
   ledger_keep_recent_turns: 2    # L4 保留最近 N 轮

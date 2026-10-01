@@ -115,6 +115,7 @@
 - **护栏**：答案返回前自动做数字核验和勾稽校验，不通过就打回重做，或在答案中标注"未通过验证"
 
 ### 4.6 模型选型
+> **批注（2026-10-01）：出于成本考虑，LLM 由 DeepSeek V4.1 Flash 切换为 Agnes AI（社区常写作 Agens）的旗舰免费模型 `agnes-3.0-flash`。** 推广期内 input/output 均为 $0；即使推广终止，list 价（$0.05 / $0.15 每百万 token）也只有原选型的约 1/4–1/8。上下文 512K，支持 OpenAI 风格 function calling。免费档限速约 20 RPM，评测 runner 的并发与重试设计需遵守。DeepSeek V4.1 Flash 保留为备选（免费推广终止或能力实测不达标时切回）。模型信息官方查证见 `docs/questions.md`；能力实测见 `docs/evidence/P0_capability_probe_output.txt`。
 - **全部使用 DeepSeek V4.1 Flash**，包括 agent 主循环、报告中的结论抽取、LLM-as-judge。
 - 好处：成本低，每题跑 3 次、频繁回归测试都负担得起；只有一个模型，变量少，版本对比更干净。
 - 风险：judge 和 agent 是同一个模型，可能存在自我偏好（judge 倾向给自己风格的输出打高分）。缓解措施见 6.5。
