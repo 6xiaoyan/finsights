@@ -200,3 +200,33 @@ P0: [x] 全局 G1–G8  [x] V0.1–V0.9（G3 按验证文档 P0 跳过）   tag:
 顺带修复：`verify_ledger` 原先按完整标题精确匹配，"假设检验记录（…）"节被整节跳过（核验形同虚设）→ 现按 `（` 前缀归一；`hooks._NUMBER_RE` 原先只允许一组 `[.,]\d+`，`1,234.5` 会被拆成 `1,234`+`5` 两个 token（verifier/账本都会误报）→ 改为 `(?:[.,]\d+)*`。账本大数改用千分位定点格式（避免 %g 的科学计数法无法核验）。
 
 **回归**：`pytest -q` → **101 passed**；G6/G7 grep 无输出。
+
+## P4.5b/c 压缩流水线 L1–L4（V4.19–V4.31、V4.35，2026-10-01）
+
+实现：`agent/context.py` 重写为 L2 轮次折叠 → L3 结果存根化 → L4 账本压缩的投影管线；
+状态冻结进 `CompState`（攒批触发、不回退，前缀友好）；阈值全部来自 `config.yaml` 的 context 段；
+主循环在 final_answer 被接受/带标注返回时写入 `答案已提交（…）` 标记（L2 的折叠依据），
+`on_context_overflow` 提供 reactive 基础版（强制全量存根 + 投影到最近 1 组，超限抛 ContextTooLong；完整 PTL/熔断在 P4.5d）。
+
+| 检查 ID | 状态 | 证据 | commit |
+|---|---|---|---|
+| V4.19 | PASS | `tests/test_context.py::test_v4_19_24_invariants_over_200_random_histories`：固定种子 200 条随机历史 × 4 组配置（L2only/L3/L4/all），`check_invariants` 逐视图断言：每个 tool_call 有结果、无孤立 tool、无连续 assistant。实测触发统计：L2 折叠 138 条、L3 存根 18 条、L4 压缩 51 条、all 组 200 条全触发（脚本输出留档） | （本次） |
+| V4.20 | PASS | 同上测试：每条历史 × 配置在 build_view 前后对原始历史做 sha256 比对（800 组合全部不变）；投影视图只生成新 dict，原始 messages 列表不被修改（主循环 `ctx.messages` 与视图分离） | （本次） |
+| V4.21 | PASS | `check_invariants`：每个视图断言 `view[0] == history[0]`（system 消息逐字节相同，L2/L3/L4 均只重排其余部分） | （本次） |
+| V4.22 | PASS | `check_invariants`：历史中出现过的每个 `[rN]` 头 rid 压缩后仍 `store.get` 可取；存根行含 `原始数据: recall("rN")` 指引；`test_v4_28/test_v4_35` 在触发后复检 | （本次） |
+| V4.23 | PASS | `test_v4_23_compact_events_complete`：触发后 trace 有 `{type:"compact", level, tokens_before, tokens_after, rids}` 事件且 tokens_after ≤ before；L1 在 `render()` 写入时强制执行（结果头行本身即"引用+预览"，超预算行带 recall offset 提示，见 V4.3/V4.25） | （本次） |
+| V4.24 | PASS | 同 V4.19 测试：同一 ctx 对同一历史连续两次 `build_view` 输出相等（800 组合）；`test_v4_24_prefix_stable_when_appending`：历史末尾追加一轮后重建，若压缩状态未变（stubbed/cut/fold/errors 四项），新视图前缀 = 旧视图逐条相等 | （本次） |
+| V4.25 | PASS | `test_v4_25_l1_result_budget_300_rows`：300 行结果渲染数据行 ≤50（cfg result_max_rows）且出现 `完整结果可用 recall("r1", offset=…)` 提示；store 内仍是完整 300 行 | （本次） |
+| V4.26 | PASS | `test_v4_26_l2_folds_only_verified_turns`：两个完成轮（一个 SUBMIT_OK、一个 SUBMIT_BAD）→ 只折叠通过轮；折叠保留用户问题原文 + 答案正文（111）+ claims 引用 rid（r1）；未通过轮的 assistant/tool 原样在视图 | （本次） |
+| V4.27 | PASS | `test_v4_27_l3_whitelist_never_stubs_specials`：触发存根化后 load_skill 结果、todo_write 结果、护栏反馈（"答案未通过核验…"）、user 提醒消息逐字节不变；白名单（query_metric 等 11 个）结果被存根化 | （本次） |
+| V4.28 | PASS | `test_v4_28_l3_keep_rules_and_errors`：6 个结果中最近 3 个（c3–c5）保持原样；最近 assistant 引用过 r2 → c1 不存根；实际存根集合恰为 {c0, c2}；两条报错中较早一条压成单行 `已失败: …`，最近一条报错保留全文供自我纠错 | （本次） |
+| V4.29 | PASS | `test_v4_29_l3_no_trigger_below_clear_at_least`：可释放 < clear_at_least(10000) 时 `comp.stubbed == frozenset()`，视图无存根、无失败行 | （本次） |
+| V4.30 | PASS | `test_v4_30_stub_format_and_digest_stable`：存根匹配 plan 6.6.3 正则 `[rN 已压缩] tool(args)\n摘要: …\n原始数据: recall("rN")`；同一结果两次生成存根相同；digest ≤200 字符 | （本次） |
+| V4.31 | PASS | `test_v4_31_digest_numbers_traceable`：真实 DB 播种全部 10 个存储工具后，每个结果 digest 的全部带符号数字 token 都能在其 rid 中 `find_value` 命中 | （本次） |
+| V4.35 | PASS | `test_v4_35_l4_view_structure`：L4 触发后视图 = system + 账本（与触发时刻冻结的 `ledger_text`、`ledger.render` 双重比对相等）+ 已加载 skills 块 + 用户原始问题 + 最近 2 轮，消息条数精确 == 4 + 保留轮总条数（"不多不少"），五不变量复检通过 | （本次） |
+
+顺带：`to_ledger_entry` 加异常兜底（渲染崩不得拖垮压缩管线，随机历史里合成列形会走 passthrough）；
+`hooks._NUMBER_RE` 加 `(?<![A-Za-z0-9.])` 前置断言——"p50/P95" 这类标识符内数字不再被当成主张值（V4.31 测试暴露）。
+主循环提交标记测试：`test_loop_appends_submit_markers`（通过 → `答案已提交（通过护栏核验）`；注入 verifier 连败到上限 → `…（⚠ 未通过验证）`）。
+
+**回归**：`pytest -q` → **114 passed**；G6/G7 grep 无输出。

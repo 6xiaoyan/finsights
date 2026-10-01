@@ -123,7 +123,11 @@ def to_ledger_entry(res: StoredResult) -> str:
     fn = LEDGER_BUILDERS.get(res.tool)
     if fn is None:
         return _e_passthrough(res)
-    return fn(res)
+    try:
+        return fn(res)
+    except Exception:
+        # 账本渲染绝不能让压缩管线崩溃（L4 在主循环内调用）
+        return _e_passthrough(res)
 
 
 # ---------------- 账本本体
@@ -180,7 +184,7 @@ class Ledger:
 # ---------------- 账本核验：数据/假设检验两节的每个数字都能在其 rid 中找到
 
 # 带符号数值：账本行里的 +18.20%、-3.4 等必须连同符号核验（bare_numbers 会丢符号）。
-_SIGNED_NUM_RE = re.compile(r"[+-]?\d+(?:[.,]\d+)*%?")
+_SIGNED_NUM_RE = re.compile(r"(?<![A-Za-z0-9.])[+-]?\d+(?:[.,]\d+)*%?")
 
 
 def _signed_numbers(text: str) -> list[float]:

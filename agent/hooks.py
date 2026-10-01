@@ -16,7 +16,7 @@ from typing import Any
 _EXCLUDE_RE = re.compile(
     r"FY\s?\d{2,4}\s*Q[1-4]|(?:19|20)\d{2}\s*Q[1-4]|(?:19|20)\d{2}\s*年|第\s*\d+(?:[、，.．]?|"
     r"\s*(?:点|条|步|章|节|部分))|\[\s*r\d+\s*\]|(?<![A-Za-z0-9.])r\d+(?![0-9A-Za-z])")
-_NUMBER_RE = re.compile(r"\d+(?:[.,]\d+)*%?")   # 允许千分位+小数（1,234.56 是一个整体）
+_NUMBER_RE = re.compile(r"(?<![A-Za-z0-9.])\d+(?:[.,]\d+)*%?")  # 千分位+小数一体；跳过标识符内数字（p50、P95）
 
 
 def bare_numbers(text: str) -> list[str]:
