@@ -22,7 +22,8 @@ import yaml
 
 from agent import context as context_manager
 from agent import hooks, skills
-from agent.context import ContextTooLong
+from agent.context import CompState, ContextTooLong, SUBMIT_BAD, SUBMIT_OK
+from agent.ledger import Ledger
 from agent.result_store import ResultStore
 from agent.tools import data as tool_data
 from agent.tools.base import (ARGS_MODELS, READ_ONLY_TOOLS, FinalAnswerArgs, LoadSkillArgs,
@@ -80,6 +81,10 @@ class RunContext:
     verifier: Callable | None = None                 # P4.4 的 verifier；默认放行
     stop_max_retries: int = 2                        # config: agent.final_answer_max_retries
     tools_run: list[str] = field(default_factory=list)   # 已成功执行的数据类工具
+    cfg: dict = field(default_factory=dict)          # config.yaml 的 context 段（压缩阈值，V4.43）
+    ledger: Ledger = field(default_factory=Ledger)   # 证据账本（P4.5a，代码生成）
+    comp: CompState = field(default_factory=CompState)  # 压缩冻结状态（P4.5b）
+    messages: list[dict] = field(default_factory=list)  # 原始历史引用（reactive 兜底重建视图用）
     stats: dict = field(default_factory=lambda: {
         "steps": 0, "tool_calls": 0, "blocked": 0, "prompt_tokens": 0, "completion_tokens": 0})
 
@@ -106,11 +111,14 @@ def make_run_ctx(db_path: str, llm: Any, *, run_id: str = "test-run",
     if max_steps is not None:
         budget.max_steps = max_steps
     store = ResultStore(tool_data.make_data_version(db_path))
+    ledger = Ledger(as_of=as_of.isoformat() if as_of else None,
+                    data_version=store.data_version)
     return RunContext(run_id=run_id, db_path=db_path, as_of=as_of, store=store,
                       todos=[], loaded_skills={}, budget=budget,
                       trace=TraceWriter(trace_path),
                       tool_ctx=ToolContext(db_path=db_path, store=store, cfg=cfg),
-                      llm=llm, verifier=verifier, stop_max_retries=stop_retries)
+                      llm=llm, verifier=verifier, stop_max_retries=stop_retries,
+                      cfg=cfg, ledger=ledger)
 
 
 def build_system_prompt() -> str:
@@ -146,6 +154,8 @@ def _exec_call(call, ctx: RunContext, step: int) -> dict:
     """执行一个非 final_answer 工具调用，返回 tool 消息（错误以文本返回，不抛异常）。"""
     t0 = time.perf_counter()
     rid = None
+    args: dict = {}
+    stored = None
     try:
         args = json.loads(call.arguments)
     except Exception as e:
@@ -173,9 +183,14 @@ def _exec_call(call, ctx: RunContext, step: int) -> dict:
             out = tool_data.execute(call.name, args, ctx.tool_ctx, step)
             text = out.text
             rid = out.rid
+            stored = out.stored
             if out.ok and call.name in ARGS_MODELS:
                 ctx.tools_run.append(call.name)
     ctx.stats["tool_calls"] += 1
+    if text.startswith("工具错误"):
+        ctx.ledger.note_failure(call.name, text)                # 账本：失败记录
+    elif stored is not None:
+        ctx.ledger.note_scope(call.name, args, unit=stored.unit)  # 账本：口径累积
     ctx.trace.event(type="tool_result", step=step, tool=call.name, call_id=call.id,
                     result_id=rid, latency_ms=int((time.perf_counter() - t0) * 1000),
                     ok=not text.startswith("工具错误"), result_head=text[:400])
@@ -207,6 +222,7 @@ def _finish_stats(ctx: RunContext) -> dict:
 def run(question: str, ctx: RunContext) -> FinalAnswer:
     TOOL_SCHEMAS = all_tool_schemas()
     messages = [system_message(), user_message(question, ctx)]
+    ctx.messages = messages                     # reactive 兜底重建视图用（context.on_context_overflow）
     stop_retries = 0
     nudged = False
     t_start = ctx.stats["t_start"] = time.monotonic()
@@ -267,6 +283,8 @@ def run(question: str, ctx: RunContext) -> FinalAnswer:
                     continue
                 verdict = hooks.stop(fa, ctx)          # 6.8 护栏
                 if verdict.ok or stop_retries >= ctx.stop_max_retries:
+                    # 写入提交标记，供 L2 轮次折叠识别"已完成且通过核验"的问答轮
+                    messages.append(_tool_msg(call.id, SUBMIT_OK if verdict.ok else SUBMIT_BAD))
                     return _finalize(fa, verdict, ctx)
                 stop_retries += 1
                 ctx.trace.event(type="stop_reject", step=step, call_id=call.id,

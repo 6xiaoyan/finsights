@@ -188,3 +188,15 @@ P0: [x] 全局 G1–G8  [x] V0.1–V0.9（G3 按验证文档 P0 跳过）   tag:
 | V4.18 | PASS | `test_v4_18_feedback_is_specific`：反馈含 "claim 1"（哪个 claim）、"r1"（哪个 rid）、"期望 {claim 值}" 与 "最接近的是 {store 候选值}"（期望值与实际值）、"容差 0.5%"；主循环集成测试确认反馈原文作为工具结果送回模型，模型据此第二次提交通过核验 | （本次） |
 
 **回归**：`pytest -q` → **96 passed**（P4.2 的 mock 测试改为默认走真实 verifier 后仍全过；V4.4/V4.5 遍历全部 14 个工具）。
+
+## P4.5a 证据账本（V4.32–V4.34，2026-10-01）
+
+| 检查 ID | 状态 | 证据 | commit |
+|---|---|---|---|
+| V4.32 | PASS | `tests/test_ledger.py::test_v4_32_ledger_is_code_generated`：mock LLM 跑完整归因流程（load_skill→variance→seasonal_check→peer_compare→get_filing_notes→final，6 次调用全过护栏）；`ledger.render` 调用前后 `len(ctx.llm.views)` 不变（生成账本 LLM 调用=0），两次渲染逐字符相同（纯函数） | （本次） |
+| V4.33 | PASS | `test_v4_33_sections_and_verify`：真实 DB 播种 10 个工具结果后账本含"口径/已取得的数据/假设检验记录/失败记录/计划"五节且顺序正确；每条假设检验记录都带 rid；`verify_ledger(text, store)==[]`（数据/假设两节的每个带符号数字都能在其 rid 中找到，含 +%、千分位、负值）；`test_verify_ledger_catches_fabricated_numbers`：插入编造行 987654.3% 与无 rid 行均被抓到 | （本次） |
+| V4.34 | PASS | `test_v4_34_every_analysis_tool_has_entry`：`LEDGER_BUILDERS` 键集合 == DATA_TOOLS ∪ HYPOTHESIS_TOOLS（= 全部 STORED_TOOLS + recall）；6 个分析工具逐个在真实 DB 执行，`to_ledger_entry` 输出非空且含该结果 rid | （本次） |
+
+顺带修复：`verify_ledger` 原先按完整标题精确匹配，"假设检验记录（…）"节被整节跳过（核验形同虚设）→ 现按 `（` 前缀归一；`hooks._NUMBER_RE` 原先只允许一组 `[.,]\d+`，`1,234.5` 会被拆成 `1,234`+`5` 两个 token（verifier/账本都会误报）→ 改为 `(?:[.,]\d+)*`。账本大数改用千分位定点格式（避免 %g 的科学计数法无法核验）。
+
+**回归**：`pytest -q` → **101 passed**；G6/G7 grep 无输出。

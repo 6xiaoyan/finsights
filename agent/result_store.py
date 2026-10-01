@@ -182,6 +182,9 @@ class ResultStore:
     def get(self, rid: str) -> StoredResult | None:
         return self._by_id.get(rid)
 
+    def all(self) -> list[StoredResult]:
+        return list(self._by_id.values())
+
     def check_value(self, rid: str, value: float, unit: str = "",
                     tol: float = TOL) -> tuple[bool, float | None, str]:
         """返回 (是否找到, 最接近的候选值, 错误信息)。rid 不存在不抛异常。"""

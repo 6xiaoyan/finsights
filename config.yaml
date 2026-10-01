@@ -25,12 +25,16 @@ agent:
   final_answer_max_retries: 2    # 护栏打回重做的最大次数
 
 context:
-  # 有效窗口 = window - 20000（为摘要输出预留）
-  # 压缩触发阈值 = 有效窗口 - 13000（plan 6.6.4）
+  # 有效窗口 = window - reserve_output（为摘要输出预留）
+  # L4/L5 触发阈值 = compact_threshold（= 有效窗口 - 13000，plan 6.6.4）
   window: 512000                 # agnes-3.0-flash 官方上下文长度；压缩实验时临时调小（如 16000）
-  compact_threshold: 479000      # window - 33000
+  reserve_output: 20000          # 为摘要/回答输出预留
+  compact_threshold: 479000      # L4 账本压缩触发阈值
   clear_at_least: 8000           # L3 存根化至少要释放的 token 数
+  l3_ratio: 0.5                  # L3 触发：视图 token 数 > 该比例 × 有效窗口
   stub_keep_last: 3              # L3 保留最近 N 个结果不压缩
   ledger_keep_recent_turns: 2    # L4 保留最近 N 轮
+  skill_reinject_max_tokens: 3000  # L4 之后重注入 skills 的 token 上限
+  reactive_max_retries: 3        # 上下文超长兜底：按轮次丢弃的最注重试次数（P4.5d）
   result_max_rows: 50            # L1 结果预算：工具结果最多显示行数
   result_max_tokens: 2000        # L1 结果预算：超过约多少 token 就只放引用+预览
