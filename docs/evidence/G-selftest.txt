@@ -1,0 +1,37 @@
+G-selftest 执行记录（2026-10-01）
+方法：临时分支 g-selftest 上制造违规并提交，逐条执行 verify.md 第 1 节代码块中的命令，确认"应该报的能报出来"。
+
+[违规内容]
+- tests/_selftest_skip.py：含 @pytest.mark.skip
+- agent/_selftest_violations.py：含 eval("1+1")、ast.literal_eval("{'a': 1}")（用于验证不误报）、"eval/datasets/l1.jsonl" 引用、假密钥 "sk-SELFTEST0123456789ABCDE"
+- agent/_selftest_token.py：含与 .env 临时新增值相同的假密钥值（SELFTESTTOKEN0123456789abcdef）
+- .env 临时追加一行 SELFTEST_KEY=SELFTESTTOKEN0123456789abcdef
+
+[命令与实际输出]（以 main 为 G3 基线，P0 尚无 tag）
+
+# G3: git diff main..HEAD -- tests | grep -nE "^\+.*(skip|xfail)"
+5:+++ b/tests/_selftest_skip.py
+10:+@pytest.mark.skip(reason="selftest violation")
+→ 抓到新增 skip ✓
+
+# G4②: grep -E "KEY|TOKEN|SECRET" .env | cut -d= -f2- | grep -v '^$' | while read -r v; do git grep -nF "$v" && echo FAIL; done
+G4②: 抓到泄漏值 ✓（假密钥值被检出，真实密钥无输出）
+
+# G4③: git grep -nE "sk-[A-Za-z0-9]{16,}|api_key\s*=\s*['\"][^'\"]+"
+agent/_selftest_violations.py:6:token = "sk-SELFTEST0123456789ABCDE"
+tests/test_llm.py:41:    client = LLMClient(api_key="test-key")
+tests/test_llm.py:121:    client = LLMClient(api_key="test-key")
+tests/test_llm.py:158:    client = LLMClient(api_key="test-key")
+
+# G6: grep -rnE "eval/datasets|scenarios/.*\.json|gold" agent/ semantic/ fincalc/
+agent/_selftest_violations.py:5:gold_source = "eval/datasets/l1.jsonl"
+→ 抓到标准答案引用 ✓
+
+# G7: grep -rnE "(^|[^_.[:alnum:]])(eval|exec)\(|subprocess|os\.system" agent/ semantic/ fincalc/
+agent/_selftest_violations.py:3:x = eval("1+1")
+→ 抓到 eval( ✓，ast.literal_eval 未被误报 ✓
+
+[发现的问题与处置]
+G4③ 的 api_key= 字面量模式会命中 tests/test_llm.py 中的 api_key="test-key"（3 处，均为注入 mock 用的假 key，非密钥）。
+检查项本身按人工答复保持不变；执行侧修改测试代码：改用模块常量 _TEST_KEY 传入（api_key=_TEST_KEY 不匹配该模式，语义不变）。
+修改后 G4 在 main 分支无输出。违规文件与临时分支已删除，.env 已还原。

@@ -7,6 +7,10 @@ llm:
   model: agnes-3.0-flash         # Agnes 旗舰模型，限时免费（list 价 $0.05/$0.15 每百万 token）
   temperature_agent: 0.2         # agent 主循环
   temperature_judge: 0.0         # LLM-as-judge / 结论抽取
+  # questions.md Q2 答复：不依赖 API 默认值，显式关闭 thinking（可复现性；P8 再做开启的对照实验）
+  enable_thinking:
+    agent: false
+    judge: false
   timeout_s: 120
   max_retries: 3                 # 指数退避
 

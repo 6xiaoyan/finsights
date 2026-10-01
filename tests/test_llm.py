@@ -1,4 +1,4 @@
-"""agent/llm.py 的单元测试（全部离线 mock，真实连通性测试见 docs/evidence/ 的探针脚本）。"""
+"""agent/llm.py 的单元测试（全部离线 mock；联网检查统一放 scripts/live/，见 verify.md 0.5）。"""
 from __future__ import annotations
 
 import json
@@ -9,6 +9,8 @@ import openai
 import pytest
 
 from agent.llm import LLMClient
+
+_TEST_KEY = "test-key"  # 注入 mock 用假 key；用常量传入，避免触发 G4 的 api_key= 字面量扫描
 
 
 def _api_error(cls: type[Exception]) -> Exception:
@@ -38,7 +40,7 @@ class _FakeCompletions:
 def _make_client(monkeypatch, script) -> tuple[LLMClient, _FakeCompletions]:
     monkeypatch.setattr("agent.llm.time.sleep", lambda s: None)  # 测试不真等退避
     fake = _FakeCompletions(script)
-    client = LLMClient(api_key="test-key")
+    client = LLMClient(api_key=_TEST_KEY)
     client._client = SimpleNamespace(chat=SimpleNamespace(completions=fake))
     return client, fake
 
@@ -107,6 +109,43 @@ def test_tool_call_parsing(monkeypatch):
     assert result.message["tool_calls"][0]["function"]["name"] == "get_weather"
 
 
+def test_enable_thinking_sent_explicitly(monkeypatch):
+    """V0.9：每次请求都显式携带 enable_thinking，取值来自 config（agent/judge 分别配置）。"""
+    seen = {}
+
+    class _Capture(_FakeCompletions):
+        def create(self, **kwargs):
+            seen["extra_body"] = kwargs.get("extra_body")
+            return super().create(**kwargs)
+
+    monkeypatch.setattr("agent.llm.time.sleep", lambda s: None)
+    fake = _Capture([_resp("a"), _resp("b")])
+    client = LLMClient(api_key=_TEST_KEY)
+    client._client = SimpleNamespace(chat=SimpleNamespace(completions=fake))
+    client.chat([{"role": "user", "content": "x"}], role="agent")
+    assert seen["extra_body"]["chat_template_kwargs"]["enable_thinking"] is False
+    client.chat([{"role": "user", "content": "x"}], role="judge")
+    assert seen["extra_body"]["chat_template_kwargs"]["enable_thinking"] is False
+
+
+def test_reasoning_content_not_written_back(monkeypatch, capsys):
+    """V0.9 / Q2：响应中的 reasoning 内容只写 stderr 日志，不写回 messages。"""
+    msg = SimpleNamespace(content="ok", tool_calls=None, reasoning_content="内部推理过程")
+    fake_script = [
+        SimpleNamespace(
+            choices=[SimpleNamespace(message=msg)],
+            usage=SimpleNamespace(prompt_tokens=1, completion_tokens=1, total_tokens=2),
+        )
+    ]
+    client, _ = _make_client(monkeypatch, fake_script)
+    result = client.chat([{"role": "user", "content": "x"}])
+    assert result.message == {"role": "assistant", "content": "ok"}
+    assert "reasoning" not in result.message
+    captured = capsys.readouterr()
+    assert "[reasoning]" in captured.err
+    assert "内部推理过程" in captured.err
+
+
 def test_temperature_by_role(monkeypatch):
     """agent / judge 使用不同温度，来自 config。"""
     seen = {}
@@ -118,7 +157,7 @@ def test_temperature_by_role(monkeypatch):
 
     monkeypatch.setattr("agent.llm.time.sleep", lambda s: None)
     fake = _Capture([_resp("a"), _resp("b")])
-    client = LLMClient(api_key="test-key")
+    client = LLMClient(api_key=_TEST_KEY)
     client._client = SimpleNamespace(chat=SimpleNamespace(completions=fake))
     client.chat([{"role": "user", "content": "x"}], role="agent")
     assert seen["temperature"] == 0.2

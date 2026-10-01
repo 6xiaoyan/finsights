@@ -1,0 +1,4 @@
+time: 2026-10-01T13:58:39.796781
+model: agnes-3.0-flash
+tool_calls: [{"name": "get_weather", "arguments": "{\"city\": \"北京\"}"}]
+V0.6: PASS

@@ -61,6 +61,12 @@ class LLMClient:
             "agent": llm.get("temperature_agent", 0.2),
             "judge": llm.get("temperature_judge", 0.0),
         }
+        # thinking 显式配置（verify V0.9）：不依赖 API 默认值，每次请求都传
+        thinking_cfg = llm.get("enable_thinking") or {}
+        self.enable_thinking: dict[str, bool] = {
+            "agent": bool(thinking_cfg.get("agent", False)),
+            "judge": bool(thinking_cfg.get("judge", False)),
+        }
         self.timeout_s: float = llm.get("timeout_s", 120)
         self.max_retries: int = llm.get("max_retries", 3)  # 重试次数；总尝试 = max_retries + 1
 
@@ -89,6 +95,7 @@ class LLMClient:
             "model": self.model,
             "messages": messages,
             "temperature": temp,
+            "extra_body": {"chat_template_kwargs": {"enable_thinking": self.enable_thinking[role]}},
         }
         if tools:
             kwargs["tools"] = tools
@@ -110,6 +117,10 @@ class LLMClient:
     @staticmethod
     def _parse(resp: Any) -> ChatResult:
         msg = resp.choices[0].message
+        # reasoning 内容只写日志，不写回对话（questions.md Q2 答复）
+        reasoning = getattr(msg, "reasoning_content", None) or getattr(msg, "reasoning", None)
+        if reasoning:
+            print(f"[reasoning] {reasoning}", file=sys.stderr)
         usage = {}
         if resp.usage is not None:
             usage = {
