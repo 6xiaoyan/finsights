@@ -87,6 +87,10 @@ class FinalAnswerArgs(BaseModel):
     status: Literal["answered", "clarify", "refuse"] = "answered"
 
 
+class LoadSkillArgs(BaseModel):
+    name: str = Field(description="skill 名称（见 system prompt 的可用 skills 列表）")
+
+
 # 描述统一包含"何时使用"（V4.4 关键词测试）
 DESCRIPTIONS: dict[str, str] = {
     "list_metrics": "返回指标目录（名称、中文名、类型、单位、可用维度）。何时使用：开始分析前、"
@@ -116,6 +120,8 @@ DESCRIPTIONS: dict[str, str] = {
     "final_answer": "给出最终答案并结束。何时使用：所有数字都已由数据工具查出或经 calc 计算、"
                     "并且每个数字都在 claims 里引用了 result_id。何时不用：还没查到数据。"
                     "status=clarify 时 answer_md 写澄清问题；无法回答用 refuse。",
+    "load_skill": "读取一个 skill 的全文（步骤/判断规则/输出要求）。何时使用：问题命中某个"
+                  "skill 的描述场景时，先加载再按其流程做。何时不用：简单取数不需要流程指导。",
 }
 
 # 产生 rid 并进入 store 的工具（L3 可压缩白名单，plan 6.6.3）
@@ -145,6 +151,7 @@ ARGS_MODELS: dict[str, type[BaseModel]] = {
 LOOP_ARGS_MODELS: dict[str, type[BaseModel]] = {
     "todo_write": TodoWriteArgs,
     "final_answer": FinalAnswerArgs,
+    "load_skill": LoadSkillArgs,
 }
 
 
@@ -166,7 +173,7 @@ def tool_schemas() -> list[dict]:
 
 
 def all_tool_schemas() -> list[dict]:
-    """主循环用的完整工具声明：数据类 + todo_write + final_answer（load_skill 在 P4.3，forecast 在 P6）。"""
+    """主循环用的完整工具声明：数据类 + todo_write + final_answer + load_skill（forecast 在 P6）。"""
     out = tool_schemas()
     for name, model in LOOP_ARGS_MODELS.items():
         schema = model.model_json_schema()

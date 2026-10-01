@@ -21,12 +21,12 @@ from typing import Any, Callable
 import yaml
 
 from agent import context as context_manager
-from agent import hooks
+from agent import hooks, skills
 from agent.context import ContextTooLong
 from agent.result_store import ResultStore
 from agent.tools import data as tool_data
-from agent.tools.base import (ARGS_MODELS, READ_ONLY_TOOLS, FinalAnswerArgs, TodoItem,
-                              TodoWriteArgs, all_tool_schemas)
+from agent.tools.base import (ARGS_MODELS, READ_ONLY_TOOLS, FinalAnswerArgs, LoadSkillArgs,
+                              TodoItem, TodoWriteArgs, all_tool_schemas)
 from agent.tools.data import ToolContext
 from eval.schema import Answer
 
@@ -113,8 +113,13 @@ def make_run_ctx(db_path: str, llm: Any, *, run_id: str = "test-run",
                       llm=llm, verifier=verifier, stop_max_retries=stop_retries)
 
 
+def build_system_prompt() -> str:
+    """稳定 system prompt：skills 清单（只有 name+description）由代码注入，无动态内容（V4.13/V4.16）。"""
+    return SYSTEM_PATH.read_text(encoding="utf-8").replace("{{skills}}", skills.skills_prompt_block())
+
+
 def system_message() -> dict:
-    return {"role": "system", "content": SYSTEM_PATH.read_text(encoding="utf-8")}
+    return {"role": "system", "content": build_system_prompt()}
 
 
 def user_message(question: str, ctx: RunContext) -> dict:
@@ -155,6 +160,15 @@ def _exec_call(call, ctx: RunContext, step: int) -> dict:
                 ctx.todos = todo_args.items
                 done = sum(1 for t in todo_args.items if t.status == "done")
                 text = f"计划已更新：共 {len(ctx.todos)} 项，已完成 {done} 项。"
+        elif call.name == "load_skill":
+            try:
+                skill_args = LoadSkillArgs(**args)
+                body = skills.load_skill_body(skill_args.name)
+            except Exception as e:
+                text = f"工具错误: {type(e).__name__}: {e}"
+            else:
+                ctx.loaded_skills[skill_args.name] = body   # 已加载 skills（压缩时永不存根化）
+                text = f"<skill name={skill_args.name}>\n{body}\n</skill>"
         else:
             out = tool_data.execute(call.name, args, ctx.tool_ctx, step)
             text = out.text

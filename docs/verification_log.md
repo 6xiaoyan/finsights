@@ -179,4 +179,9 @@ P0: [x] 全局 G1–G8  [x] V0.1–V0.9（G3 按验证文档 P0 跳过）   tag:
 | V4.11 | PASS | `tests/test_loop.py`（mock LLM 按脚本返回）六场景全过：a 查数→final_answer，trace 含 usage/result_id/latency；b 不调工具先提醒 1 次、再犯按预算 refuse（视图中 NUDGE 恰好 1 条）；c 工具报错文本进上下文循环继续；d 步数/token 预算耗尽 → refuse，claims 空、正文无数字；e 核验连败 3 次第 3 次返回并标注"未通过验证"（stop_reject attempt=[1,2]）；f 未调过数据工具而答案含数字 → pre_tool 拦截，取数后同样答案放行 | （本次） |
 | V4.12 | PASS | 一条 assistant 消息含 3 个只读工具调用：`ThreadPoolExecutor` 并发执行（`ResultStore.put` 加锁保证 rid 分配原子），3 个 tool_call_id 与结果一一对应、rid 互不相同 | （本次） |
 
-**回归**：`pytest -q` → **81 passed**（P0–P3 的 71 例全部未受影响；V4.4/V4.5 测试同时加强为遍历全部 13 个工具）。
+| V4.13 | PASS | `tests/test_skills.py::test_v4_13`：system prompt 含全部 3 个 skill 的 `- name: description` 行；逐行检查 3 个 SKILL.md 正文（≥12 字符的行）没有任何一句出现在 prompt | （本次） |
+| V4.14 | PASS | `test_v4_14_*`：`load_skill("attribution")` 返回正文与 SKILL.md 去掉 frontmatter 后逐字一致（直调 + 经主循环两条路径都测）；不存在的 skill（forecast）返回 KeyError 错误文本并列出可用 3 个 | （本次） |
+| V4.15 | PASS(自动)+待人工 | 关键词测试：attribution 正文含 7 步骤全部要素（variance/seasonal_check/peer_compare/对手科目/get_filing_notes/contribution/根因标签枚举）、"必须回答 `no_anomaly`" 规则、6 个标签、答案 JSON 格式、"可检验假设"软先验小节。表述是否清楚需 `HUMAN` 批阅（随 P4 关闭材料提交） | （本次） |
+| V4.16 | PASS | `test_v4_16`：不同 as_of、不同问题、不同 db（另一文件）构建的 system prompt sha256 一致、逐字节相同；动态内容（as_of）只出现在首条 user 消息（test_loop 的 as_of 测试） | （本次） |
+
+**回归**：`pytest -q` → **87 passed**（P0–P3 既有用例全部未受影响；V4.4/V4.5 测试加强为遍历全部 14 个工具）。

@@ -124,7 +124,7 @@ def test_v4_3_small_result_not_truncated(ctx):
 
 # ---------------- V4.4 / V4.5 schema
 
-PLAN_TOOLS_P4 = set(STORED_TOOLS) | {"recall", "todo_write", "final_answer"}  # load_skill P4.3；forecast P6
+PLAN_TOOLS_P4 = set(STORED_TOOLS) | {"recall", "todo_write", "final_answer", "load_skill"}  # forecast P6
 
 
 def test_v4_4_schemas_complete_with_usage_hints():

@@ -11,6 +11,9 @@
 三家公司财年不同（联想 3 月底结束、戴尔 1 月底结束、惠普 10 月底结束）。
 "FY24Q2"按该公司财年理解；"2024 年第三季度"按自然季度理解（query_metric 用 period_basis=calendar）。
 
+## 可用 skills
+{{skills}}
+
 ## 工作方式
 复杂问题先用 todo_write 列计划；做归因先 load_skill("attribution")。
 取数首选 query_metric；表达不了再用 run_sql。
