@@ -16,7 +16,7 @@
 | 工具调用 | 支持 OpenAI 风格 `tools` / `tool_choice`；文档描述了多步工具编排。**未提及并行工具调用** → 与 DeepSeek 结论一致：执行采用串行，代码兼容多个 tool_calls | [模型页](https://wiki.agnes-ai.com/en/docs/agnes-30-flash.md) |
 | 缓存 | cached input 单独计价（list 价的 10%），说明存在自动前缀缓存；但触发机制未文档化。plan 6.6.2 "修改历史会使前缀缓存失效、应攒批" 的假设保留，待 V4.44 冒烟测试用实际账单/命中率验证 | [定价页](https://wiki.agnes-ai.com/en/docs/pricing.md) |
 | 限速 | 免费档约 **20 RPM**（第三方汇总，以控制台为准）。影响：eval runner 并发 4 × 每题 3 次可能触顶；`agent/llm.py` 的 429 指数退避重试可吸收，runner 设计长任务并发时需加客户端限速 | [Free-LLM-Collection](https://github.com/for-the-zero/Free-LLM-Collection) |
-| 端点与密钥 | base_url `https://apihub.agnes-ai.com/v1`；密钥在 `platform.agnes-ai.com` 申请。2026-10-01 用户提供的首把 key 被网关拒绝（401 Invalid token），已请用户核对 | [wiki](https://wiki.agnes-ai.com/) |
+| 端点与密钥 | base_url `https://apihub.agnes-ai.com/v1`；密钥在 `platform.agnes-ai.com` 申请。**认证诊断（2026-10-01）**：用户的 key 在推理端点持续 401 "Invalid token"，仅一次用裸 token（去 `sk-` 前缀）访问 /v1/models 得 200，随后恢复 401——请求形式（前缀、认证头、端点、模型 id）均已排除，指向 key 本身的激活/同步/归属问题，诊断明细见 verification_log V0.5 | [wiki](https://wiki.agnes-ai.com/) |
 
 ### DeepSeek V4.1 Flash 模型信息（已被 2026-10-01 的模型切换取代，留档备查）
 
@@ -49,6 +49,8 @@ G4: git grep -nE "sk-[A-Za-z0-9]{16,}\|api_key\s*=\s*['\"][^'\"]+"
 
 **影响**：不影响任何已实现功能；若确认修改，从 P0 起即可用正确正则执行全局检查。
 
+> **人工答复（2026-10-01）：确认，已修改。** 问题的根源是：表格单元格中的 `|` 必须写成 `\|`，被你当成了命令原文。现在 G2–G7 的命令移到了 verify.md 第 1 节表格上方的代码块中，以代码块为准。G4 也改为检查 `.env` 中的实际密钥值（Agnes 的 key 不是 `sk-` 开头）。G7 改为不会误报 `ast.literal_eval`。另外新增了 `G-selftest`：第一次执行时，先在临时分支上故意制造违规，确认命令有输出。变更已记入 verify.md 第 12 节。**状态：已关闭。**
+
 ### Q2（P0 提出）：agnes-3.0-flash 的 thinking 模式默认状态与使用策略
 
 官方文档确认可通过 `chat_template_kwargs: {"enable_thinking": true}` 开启 thinking；但**默认是否开启**未文档化，开启后 tool_calls 响应结构是否变化也未说明。
@@ -57,8 +59,18 @@ G4: git grep -nE "sk-[A-Za-z0-9]{16,}\|api_key\s*=\s*['\"][^'\"]+"
 
 **影响**：P0 不阻塞；只影响 `agent/llm.py` 是否显式传参。
 
+> **人工答复（2026-10-01）：不要依赖默认值，显式关闭 thinking。**
+> - `config.yaml` 增加 `llm.enable_thinking`，agent 和 judge 分别配置，**都设为 false**；`agent/llm.py` 每次请求都显式传这个参数。
+> - 原因：①默认值没有文档，以后可能悄悄改变，影响评测的可复现性；②版本对比时需要控制变量；③thinking 增加延迟和 token，20 RPM 的限速下评测会更慢；④开启后 tool_calls 的响应结构没有文档。
+> - 如果响应中出现 reasoning 内容，**只写进 trace，不写回 messages**。
+> - 能力探针中增加一项：分别用 true/false 跑一次带工具的请求，记录响应结构和延迟，作为证据。
+> - thinking 开或关作为 P8 的一个对照实验（v1 + thinking），用评测数据决定是否开启。
+> - 对应的检查项：verify.md 新增的 V0.9。**状态：已关闭。**
+
 ### Q3（P0 提出）：V0.6 真实工具调用测试的实现位置
 
 verify.md V0.6 要求"测试 `tests/test_llm.py::test_tool_call`"用真实 LLM 验证工具调用。但如果把它放进 pytest 收集，会带来两个冲突：① G1 要求 `pytest -q` 全过，而真实调用依赖网络与有效 key，离线/限速（20 RPM）时必然失败或超时；② 往套件里加 skip/xfail 会违反 0.3 规则 2。
 
 **建议**：真实工具调用测试以**独立探针脚本**实现（`docs/evidence/P0_capability_probe.py`，含 V0.6 的 get_weather/北京用例），运行输出存为 `docs/evidence/P0_capability_probe_output.txt` 作为 V0.6 证据；`tests/test_llm.py` 保留全部离线 mock 测试（工具调用的解析逻辑由 mock 覆盖）。即 V0.6 的证据形式从 pytest 改为脚本，请人工确认是否接受。
+
+> **人工答复（2026-10-01）：接受，并推广为通用规则。** verify.md 新增 0.5 节"联网检查"：所有需要真实 LLM 或网络的检查（V0.5、V0.6、V4.44、所有评测运行）都放在 `scripts/live/<检查ID>_*.py` 中单独运行，输出存为 `docs/evidence/<检查ID>_output.txt`；pytest 中全部是离线测试。G1 改为"离线运行 pytest -q 全部通过"。请把现有的 `docs/evidence/P0_capability_probe.py` 移到 `scripts/live/V0.6_capability_probe.py`（证据目录只放输出，不放代码）。**状态：已关闭。**
