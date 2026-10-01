@@ -12,6 +12,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from agent.hooks import Verdict  # noqa: E402
 from agent.llm import ChatResult, ToolCallOut  # noqa: E402
 from agent.loop import NUDGE_TEXT, make_run_ctx, run  # noqa: E402
+from agent.tools import data as tool_data  # noqa: E402
 
 DB = "data/finsights.duckdb"
 
@@ -48,10 +49,20 @@ class MockLLM:
         return self.script.pop(0)
 
 
-def _final(cid="cf", md="Lenovo 存货数据已取到（r1）。", ref="r1"):
+def _claim(value: float, ref: str, unit: str = "usd_mn", text: str = "结论数字") -> dict:
+    return {"text": text, "value": value, "unit": unit, "ref": ref}
+
+
+def _final(cid="cf", md="结论已给出，不含数值主张。", claims=()):
     return call(cid, "final_answer", {"answer_md": md, "status": "answered",
-                                      "claims": [{"text": "最新存货", "value": 1.0,
-                                                  "unit": "usd_mn", "ref": ref}]})
+                                      "claims": list(claims)})
+
+
+def _seed(ctx, tool: str, args: dict):
+    """run 之前预填 store（rid 从 r1 起）；循环里同参数调用会缓存命中同一个 rid。"""
+    out = tool_data.execute(tool, args, ctx.tool_ctx)
+    assert out.ok, out.text
+    return out
 
 
 def _tool_msgs(view: list[dict]):
@@ -61,11 +72,14 @@ def _tool_msgs(view: list[dict]):
 # ---------------- V4.11 a 正常：查数 → final_answer
 
 def test_v4_11_a_normal_flow():
+    qargs = {"metrics": ["inventory"], "companies": ["Lenovo"], "last_n": 2}
     ctx = make_run_ctx(DB, MockLLM([
-        asst(calls=[call("c1", "query_metric",
-                         {"metrics": ["inventory"], "companies": ["Lenovo"], "last_n": 2})]),
-        asst(calls=[_final()]),
+        asst(calls=[call("c1", "query_metric", qargs)]),
     ]))
+    seeded = _seed(ctx, "query_metric", qargs)
+    v = float(seeded.stored.df["inventory"].iloc[-1])
+    ctx.llm.script.append(asst(calls=[_final(md=f"联想最新存货 {v:.6g} 百万美元（r1）。",
+                                             claims=[_claim(v, "r1")])]))
     out = run("联想最新存货是多少？", ctx)
     assert out.answer.status == "answered" and out.verified
     assert ctx.store.get("r1") is not None
@@ -155,20 +169,24 @@ def test_v4_11_e_stop_retries_capped():
 # ---------------- V4.11 f 有数字但没调用过数据工具 → pre_tool 拦截
 
 def test_v4_11_f_numbers_without_data_blocked():
-    bad = _final(cid="c1", md="戴尔存货增长了 18.2%，达到 6123.4 百万美元。", ref="r9")
-    ctx = make_run_ctx(DB, MockLLM([
-        asst(calls=[bad]),
-        asst(calls=[call("c2", "query_metric",
-                         {"metrics": ["inventory"], "companies": ["Dell"], "last_n": 4})]),
-        asst(calls=[_final(cid="c3", md="戴尔最新存货为 6123.4 百万美元（r1）。")]),
-    ]))
+    dargs = {"metrics": ["inventory"], "companies": ["Dell"], "last_n": 4}
+    bad = _final(cid="c1", md="戴尔存货增长了 18.2%，达到 6123.4 百万美元。",
+                 claims=[_claim(6123.4, "r9")])
+    ctx = make_run_ctx(DB, MockLLM([asst(calls=[bad])]))
+    seeded = _seed(ctx, "query_metric", dargs)
+    v = float(seeded.stored.df["inventory"].iloc[-1])
+    ctx.llm.script += [
+        asst(calls=[call("c2", "query_metric", dargs)]),
+        asst(calls=[_final(cid="c3", md=f"戴尔最新存货为 {v:.6g} 百万美元（r1）。",
+                           claims=[_claim(v, "r1")])]),
+    ]
     out = run("戴尔存货", ctx)
     blocked = [e for e in ctx.trace.events if e["type"] == "tool_blocked"]
     assert len(blocked) == 1 and blocked[0]["tool"] == "final_answer"
     first_tool_msg = _tool_msgs(ctx.llm.views[1])[0]
     assert "没有任何出处" in first_tool_msg["content"]
-    # 取数之后同样的答案被放行
-    assert out.answer.status == "answered"
+    # 取数之后同样口径的答案被放行并通过核验
+    assert out.answer.status == "answered" and out.verified
     assert ctx.tools_run == ["query_metric"]
 
 

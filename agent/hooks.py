@@ -1,9 +1,8 @@
-"""P4.2：hooks（plan 6.8）。
+"""P4.2/P4.4：hooks（plan 6.8）。
 
 pre_tool：final_answer 之前没调用过任何数据工具而答案里有数字 → 直接打回（V4.11 f）。
-  run_sql 的 SQL 护栏在 tools/guard 内强制执行（execute 路径），此处不重复。
-stop：护栏核验。完整 verifier（引用核验/未引用数字扫描/勾稽/归因标签）在 P4.4（agent/verifier.py），
-  此处提供接口与默认放行；verifier 可从 RunContext.verifier 注入（测试与 P4.4 都走这个口）。
+  run_sql 的 SQL 护栏在 tools/guard 内强制执行（execute 路径）；db/as_of 不是工具参数，模型不可改。
+stop：护栏核验，默认走 agent/verifier.verify_answer（P4.4）；测试可从 RunContext.verifier 注入替换。
 """
 from __future__ import annotations
 
@@ -56,7 +55,8 @@ def pre_tool(call: Any, ctx: Any) -> HookResult:
 
 
 def stop(args: Any, ctx: Any) -> Verdict:
-    """final_answer 护栏：委托给注入的 verifier（P4.4），默认放行。"""
+    """final_answer 护栏：默认 agent/verifier 的完整四项核验；ctx.verifier 可注入覆盖。"""
     if ctx.verifier is not None:
         return ctx.verifier(args, ctx)
-    return Verdict(ok=True)
+    from agent.verifier import verify_answer   # 延迟导入避免环
+    return verify_answer(args, ctx)

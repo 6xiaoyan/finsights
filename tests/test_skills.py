@@ -51,7 +51,7 @@ def test_v4_14_load_skill_through_loop():
     body = sk.load_skill_body("attribution")
     ctx = make_run_ctx(DB, MockLLM([
         asst(calls=[call("c1", "load_skill", {"name": "attribution"})]),
-        asst(calls=[_final(md="按归因流程完成了分析（见证据）。")]),
+        asst(calls=[_final(md="按归因流程完成了分析，结论标签 seasonal。")]),
     ]))
     out = run("联想 FY24Q2 存货为什么上升？", ctx)
     tool_msg = [m for m in ctx.llm.views[1] if m["role"] == "tool"][0]

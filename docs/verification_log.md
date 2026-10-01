@@ -184,4 +184,7 @@ P0: [x] 全局 G1–G8  [x] V0.1–V0.9（G3 按验证文档 P0 跳过）   tag:
 | V4.15 | PASS(自动)+待人工 | 关键词测试：attribution 正文含 7 步骤全部要素（variance/seasonal_check/peer_compare/对手科目/get_filing_notes/contribution/根因标签枚举）、"必须回答 `no_anomaly`" 规则、6 个标签、答案 JSON 格式、"可检验假设"软先验小节。表述是否清楚需 `HUMAN` 批阅（随 P4 关闭材料提交） | （本次） |
 | V4.16 | PASS | `test_v4_16`：不同 as_of、不同问题、不同 db（另一文件）构建的 system prompt sha256 一致、逐字节相同；动态内容（as_of）只出现在首条 user 消息（test_loop 的 as_of 测试） | （本次） |
 
-**回归**：`pytest -q` → **87 passed**（P0–P3 既有用例全部未受影响；V4.4/V4.5 测试加强为遍历全部 14 个工具）。
+| V4.17 | PASS | `tests/test_verifier.py`（真实 verifier 直接调用 + 主循环集成）六用例全过：①数字与引用都对 → 通过；②claim 数值 v×1.5 → 不通过且反馈给出 r1 最接近值；③正文多出一个 9876543.21 无 claim → 不通过并指名该数字；④正文只有 "FY24Q2"、"2024 年"、"第 3 点"、"r1/r2" → 不误报；⑤引用不存在的 r42 → 不通过；⑥构造坏数据库（A=100, L+E=90）→ 提示"勾稽违反 A-L-E"。另：attribution 加载后答案缺根因标签 → 不通过（补 seasonal 后通过） | （本次） |
+| V4.18 | PASS | `test_v4_18_feedback_is_specific`：反馈含 "claim 1"（哪个 claim）、"r1"（哪个 rid）、"期望 {claim 值}" 与 "最接近的是 {store 候选值}"（期望值与实际值）、"容差 0.5%"；主循环集成测试确认反馈原文作为工具结果送回模型，模型据此第二次提交通过核验 | （本次） |
+
+**回归**：`pytest -q` → **96 passed**（P4.2 的 mock 测试改为默认走真实 verifier 后仍全过；V4.4/V4.5 遍历全部 14 个工具）。
