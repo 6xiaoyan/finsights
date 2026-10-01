@@ -7,6 +7,7 @@ plan P0：封装 chat 调用（支持 tools），带重试（指数退避，最�
 from __future__ import annotations
 
 import os
+import re
 import sys
 import time
 from dataclasses import dataclass, field
@@ -18,14 +19,22 @@ from dotenv import load_dotenv
 from openai import (
     APIConnectionError,
     APITimeoutError,
+    BadRequestError,
     InternalServerError,
     OpenAI,
     RateLimitError,
 )
 
+from agent.context import ContextTooLong
+
 # 可重试：限流 / 超时 / 连接问题 / 服务端 5xx。
 # 认证、参数、权限错误不重试，立即抛出（重试也不会成功）。
 RETRYABLE_ERRORS = (RateLimitError, APITimeoutError, APIConnectionError, InternalServerError)
+
+# 上下文超长类报错：不重试，转成 ContextTooLong 交给压缩层做 reactive/PTL（plan 6.6.3）
+_CONTEXT_LENGTH_RE = re.compile(
+    r"maximum context length|context (?:length|window)|too many tokens|exceed\w*.{0,40}token"
+    r"|超过.{0,16}(?:上下文|窗口|长度)", re.I)
 
 DEFAULT_CONFIG_PATH = Path(__file__).resolve().parents[1] / "config.yaml"
 
@@ -105,6 +114,10 @@ class LLMClient:
         for attempt in range(attempts):
             try:
                 resp = self._client.chat.completions.create(**kwargs)
+            except BadRequestError as e:
+                if _CONTEXT_LENGTH_RE.search(str(e)):
+                    raise ContextTooLong(f"API 报上下文超长: {e}") from e
+                raise   # 其他参数错误不重试，立即抛出
             except RETRYABLE_ERRORS as e:
                 last_err = e
                 if attempt < attempts - 1:

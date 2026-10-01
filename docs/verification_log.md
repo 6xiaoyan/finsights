@@ -230,3 +230,29 @@ P0: [x] 全局 G1–G8  [x] V0.1–V0.9（G3 按验证文档 P0 跳过）   tag:
 主循环提交标记测试：`test_loop_appends_submit_markers`（通过 → `答案已提交（通过护栏核验）`；注入 verifier 连败到上限 → `…（⚠ 未通过验证）`）。
 
 **回归**：`pytest -q` → **114 passed**；G6/G7 grep 无输出。
+
+## P4.5d L5 全量摘要 + reactive/PTL/熔断（V4.36–V4.43，2026-10-01）
+
+实现：`agent/context.py` 增加 L5（领域版 9 段模板，第 2/3/6/7 段由代码从证据账本与历史原文填写，
+LLM 只写第 1/4/5/8/9 段推理；`<analysis>` 由代码删除；摘要数字逐个核验——必须带 rid 且能在
+Result Store 中找到，不过则重生成一次，仍不过退回 L4 视图并置 `summary_gave_up`，两种结局都写
+trace 事件；摘要冻结进 `CompState`，重建不再调 LLM、视图逐字节不变）。
+`on_context_overflow` 升级为完整 PTL（每次溢出比上一次多丢弃一个最早的轮次组，
+`ptl_drop` 累积进 L4 投影）；主循环对压缩失败计数（`comp.failures`，成功归零），
+连续 `compact_fail_limit` 次 → 熔断 → `status=refuse` 并说明原因（V4.42）。
+`agent/llm.py` 把 API 的上下文超长 4xx（BadRequestError 且报文命中长度类关键词）转抛
+`ContextTooLong`，其余参数错误维持立即抛出。config 新增 `l5_enabled` /
+`l5_keep_last_turns` / `compact_fail_limit`（阈值全部来自配置）。
+
+| 检查 ID | 状态 | 证据 | commit |
+|---|---|---|---|
+| V4.36 | PASS | `tests/test_context.py::test_v4_36_37_39_l5_domain_template`：mock 摘要在第 2/3/6/7 段写入 POISON-2/3/6/7 错误内容 → 最终视图序列化后不含任何 POISON 串；摘要第 2 段实为账本口径行（"期间口径: fiscal"）、第 3 段为账本 rid 索引（"r1 query_metric"）、第 5 段 = 账本记录 + "推理补充:" | （本次） |
+| V4.37 | PASS | 同测试：mock 返回 `<analysis>…ANALYSIS-MARKER-甲…</analysis><summary>…</summary>`，压缩后视图不含 ANALYSIS-MARKER-甲 | （本次） |
+| V4.38 | PASS | `test_v4_38_l5_summary_verification`：摘要含编造数字 987.65(r2) → 两次都不过时恰好调用摘要器 2 次、写 2 条 `level=L5, applied=false` trace 事件、视图退回 L4 结构（无摘要消息、987.65 不在视图）；第一次坏/第二次好 → 采用摘要（1 条 applied=false + 1 条正常 L5 compact 事件） | （本次） |
+| V4.39 | PASS | 同 V4.36 测试：历史中每一条 user 消息原文（含 3 条追问）都逐字出现在摘要第 6 段 | （本次） |
+| V4.40 | PASS | `test_v4_40_reactive_retry_once_per_turn`：`FirstOverflowLLM` 第一次 chat 抛 ContextTooLong → 主循环本轮只做 1 次兜底重发（成功请求共 2 次视图记录），run 正常走完并过护栏；`overflow_retries==1`、`failures==0`、无 compact_fail 事件 | （本次） |
+| V4.41 | PASS | `test_v4_41_ptl_dumps_oldest_groups_each_retry`：4 组历史，第 1 次溢出投影到最近 1 组（保留含 c3 的组），第 2 次溢出再丢最早组（0 组、est_tokens 严格下降）；`test_reactive_overflow_degrades_then_gives_up` 复核重试上限 3 次后抛 ContextTooLong | （本次） |
+| V4.42 | PASS | `test_v4_42_circuit_breaker_refuses`：`AlwaysTooLongLLM` 下 run 以 `status=refuse` 结束，拒答原因含"熔断"，compact_fail 事件数 == compact_fail_limit（config 读取），API 调用恰为 2×limit（每轮原始+1 次兜底），熔断后不再尝试 | （本次） |
+| V4.43 | PASS | `re.findall(r'(?<![\w.])\d{4,}', agent/context.py)` → `[]`：L5/PTL 新代码不含任何写死的 4 位以上数值阈值 | （本次） |
+
+**回归**：`pytest -q` → **119 passed**；G6/G7 grep 无输出。V4.44（真实 LLM 16K 窗口冒烟）见下方 live 记录。

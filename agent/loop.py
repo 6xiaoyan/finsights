@@ -237,10 +237,22 @@ def run(question: str, ctx: RunContext) -> FinalAnswer:
             view = context_manager.build_view(messages, ctx)   # 6.6：只改发送视图
             t0 = time.perf_counter()
             try:
-                resp = ctx.llm.chat(view, tools=TOOL_SCHEMAS)
-            except ContextTooLong:
-                resp = ctx.llm.chat(context_manager.on_context_overflow(view, ctx),
-                                    tools=TOOL_SCHEMAS)
+                try:
+                    resp = ctx.llm.chat(view, tools=TOOL_SCHEMAS)
+                except ContextTooLong:
+                    # reactive（V4.40）：同一轮最多兜底 1 次；PTL 逐组丢弃在状态里累积（V4.41）
+                    resp = ctx.llm.chat(context_manager.on_context_overflow(view, ctx),
+                                        tools=TOOL_SCHEMAS)
+            except ContextTooLong as e:
+                ctx.comp.failures += 1
+                ctx.trace.event(type="compact_fail", step=step,
+                                attempt=ctx.comp.failures, error=str(e)[:200])
+                if ctx.comp.failures >= int(ctx.cfg["compact_fail_limit"]):
+                    # 熔断（V4.42）：连续 N 次压缩失败 → 不再尝试压缩，拒答并说明原因
+                    return _refuse(ctx, f"上下文压缩连续失败 {ctx.comp.failures} 次，"
+                                         "已熔断停止压缩，以避免无谓的 API 消耗。")
+                continue
+            ctx.comp.failures = 0
             ctx.stats["prompt_tokens"] += resp.usage.get("prompt_tokens", 0)
             ctx.stats["completion_tokens"] += resp.usage.get("completion_tokens", 0)
             ctx.trace.event(type="assistant", step=step, content=resp.content,

@@ -1,4 +1,4 @@
-"""P4.5b/c：上下文压缩流水线（plan 6.6.3）——L2 轮次折叠 / L3 结果存根化 / L4 账本压缩。
+"""P4.5b/c/d：上下文压缩流水线（plan 6.6.3）——L2 轮次折叠 / L3 结果存根化 / L4 账本压缩 / L5 全量摘要。
 
 L1（结果预算）在 tools/data.render 里每次工具返回时已强制执行，本文件不需要重复。
 
@@ -48,7 +48,12 @@ class CompState:
     ledger_cut: int = 0            # L4：视图开头的 API 轮次组被账本替换的组数
     ledger_text: str = ""          # 触发时刻冻结的账本渲染（避免每步变动前缀）
     overflow_retries: int = 0      # reactive 兜底已用次数
-    force: bool = False            # 超长兜底：本步起无视阈值全量存根 + 账本投影到最近 1 组
+    ptl_drop: int = 0              # PTL：已溢出的次数，每次比上一次多丢弃最早的一个轮次组
+    failures: int = 0              # 连续压缩失败计数（达 cfg compact_fail_limit → 熔断）
+    force: bool = False            # 超长兜底：本步起无视阈值全量存根 + 账本投影
+    summary_text: str = ""         # L5 冻结摘要（第 2/3/6/7 段为代码生成）
+    summary_cut: int = 0           # L5：L4 视图开头的多少个轮次组被摘要替换
+    summary_gave_up: bool = False  # L5 摘要核验两次都不通过 → 本次运行退回只用账本
 
 
 def est_tokens(msgs: list[dict[str, Any]]) -> int:
@@ -241,7 +246,9 @@ def _skills_block(ctx: Any) -> str:
 def _apply_l4(view: list[dict], ctx: Any) -> list[dict]:
     cfg, comp = ctx.cfg, ctx.comp
     head, groups = split_groups(view)
-    keep = 1 if comp.force else int(cfg["ledger_keep_recent_turns"])
+    base_keep = 1 if comp.force else int(cfg["ledger_keep_recent_turns"])
+    # PTL（V4.41）：每次溢出比上一次多丢弃一个最早的轮次组
+    keep = max(0, base_keep - max(0, comp.ptl_drop - 1))
     tokens = est_tokens(view)
     if (groups and len(groups) > keep
             and (comp.force or tokens > int(cfg["compact_threshold"]))):
@@ -279,24 +286,214 @@ def _l4_view(head: list[dict], groups: list[list[dict]], comp: CompState, ctx: A
     return out
 
 
+# ---------------- L5：全量摘要（领域版 9 段模板，plan 6.6.3）
+# 第 2/3/6/7 段由代码从证据账本与历史原文填写；LLM 只写第 1/4/5/8/9 段的推理。
+# 摘要中的数字必须带 rid 且能在 Result Store 中找到；核验不过 → 重生成一次 →
+# 仍不过 → 退回 L4 视图（只用账本），两种结局都写 trace 事件（V4.38）。
+
+_L5_TITLES = {1: "用户问题与意图", 2: "口径与约定", 3: "已取得的数据", 4: "错误与修复",
+              5: "假设检验记录", 6: "用户的所有消息", 7: "待办任务", 8: "当前工作",
+              9: "可选的下一步"}
+_LLM_SECTIONS = (1, 4, 5, 8, 9)
+
+_L5_INSTRUCTION = """\
+把下面的 agent 对话历史压缩成结构化摘要。先在 <analysis> 标签内按时间顺序梳理对话\
+（这部分会被程序删除），再在 <summary> 标签内输出恰好 9 段，每段以 "## <编号>. <段名>" 开头：
+## 1. 用户问题与意图
+## 2. 口径与约定（程序会覆盖，写占位即可）
+## 3. 已取得的数据（程序会覆盖，写占位即可）
+## 4. 错误与修复（报错、被护栏打回的原因及修正方式）
+## 5. 假设检验记录（程序会附上代码生成的记录，你补充推理）
+## 6. 用户的所有消息（程序会覆盖，写占位即可）
+## 7. 待办任务（程序会覆盖，写占位即可）
+## 8. 当前工作
+## 9. 可选的下一步
+硬约束：第 1、4、5、8、9 段中出现的每个数字都必须能在证据账本里找到出处，\
+数字后紧跟 (rN)；没有出处支撑就只写定性结论，绝不写具体数值。"""
+
+_ANALYSIS_RE = re.compile(r"<analysis>.*?</analysis>", re.S)
+_SUMMARY_RE = re.compile(r"<summary>(.*?)</summary>", re.S)
+_SECTION_HEAD_RE = re.compile(r"^##\s*(\d+)\b")
+
+
+def _strip_analysis(text: str) -> str:
+    """V4.37：删除 <analysis> 块；取 <summary> 正文。"""
+    text = _ANALYSIS_RE.sub("", text)
+    m = _SUMMARY_RE.search(text)
+    return (m.group(1) if m else text).strip()
+
+
+def _split_llm_sections(body: str) -> dict[int, str]:
+    secs: dict[int, str] = {}
+    cur: int | None = None
+    buf: list[str] = []
+    for line in body.splitlines():
+        m = _SECTION_HEAD_RE.match(line)
+        if m is not None:
+            if cur is not None:
+                secs[cur] = "\n".join(buf).strip()
+            cur = int(m.group(1))
+            buf = []
+        elif cur is not None:
+            buf.append(line)
+    if cur is not None:
+        secs[cur] = "\n".join(buf).strip()
+    return secs
+
+
+def _ledger_parts(ledger_text: str) -> dict[str, str]:
+    """把账本按 "## 节名" 拆开（节名去掉括号后缀，与 ledger.verify_ledger 同规则）。"""
+    parts: dict[str, str] = {}
+    cur: str | None = None
+    buf: list[str] = []
+    for line in ledger_text.splitlines():
+        if line.startswith("## "):
+            if cur is not None:
+                parts[cur] = "\n".join(buf).strip()
+            cur = line[3:].split("（")[0].strip()
+            buf = []
+        elif line.startswith("# "):
+            if cur is not None:
+                parts[cur] = "\n".join(buf).strip()
+            cur, buf = None, []
+        elif cur is not None:
+            buf.append(line)
+    if cur is not None:
+        parts[cur] = "\n".join(buf).strip()
+    return parts
+
+
+def _serialize_for_llm(msgs: list[dict]) -> str:
+    lines = []
+    for m in msgs:
+        text = str(m.get("content") or "")
+        calls = "; ".join(
+            f"{tc.get('function', {}).get('name', '')}({tc.get('function', {}).get('arguments', '')})"
+            for tc in m.get("tool_calls") or [])
+        lines.append(f"[{m.get('role')}] {text}" + (f" 调用: {calls}" if calls else ""))
+    return "\n".join(lines)
+
+
+def _verify_summary(secs: dict[int, str], store: Any) -> list[str]:
+    """只核验 LLM 撰写（第 4、5 段推理、8、9 段）的文字：含数字的行必须带 rid 且数字在该 rid 结果中。"""
+    problems: list[str] = []
+    for k in _LLM_SECTIONS:
+        for line in secs.get(k, "").splitlines():
+            nums = ledger_mod._signed_numbers(line)
+            if not nums:
+                continue
+            rids = _RID_REF_RE.findall(line)
+            if not rids:
+                problems.append(f"摘要第 {k} 段有数字但无 rid: {line[:60]}")
+                continue
+            rid = rids[-1]
+            for n in nums:
+                if not store.find_value(rid, n):
+                    problems.append(f"摘要第 {k} 段: rid {rid} 中找不到 {n}（行: {line[:60]}）")
+    return problems
+
+
+def _summarize_once(tail_text: str, ctx: Any) -> tuple[dict[int, str], list[str]]:
+    prompt = (_L5_INSTRUCTION + "\n\n=== 证据账本（数字出处参考，均可 recall）===\n"
+              + ctx.comp.ledger_text + "\n\n=== 需要压缩的对话历史 ===\n" + tail_text)
+    resp = ctx.llm.chat([{"role": "system", "content": "你是会话压缩器，只输出规定格式的摘要文本。"},
+                         {"role": "user", "content": prompt}])
+    secs = _split_llm_sections(_strip_analysis(resp.content or ""))
+    return secs, _verify_summary(secs, ctx.store)
+
+
+def _assemble_summary(secs: dict[int, str], ctx: Any, user_texts: list[str]) -> str:
+    lp = _ledger_parts(ctx.comp.ledger_text)
+    out = ["# 会话摘要（L5：第 2、3、6、7 段及第 5 段的记录部分由代码生成，数字均可 recall 核验）"]
+    for i in range(1, 10):
+        out.append(f"## {i}. {_L5_TITLES[i]}")
+        if i == 2:
+            out.append(lp.get("口径", "（无）"))
+        elif i == 3:
+            out.append(lp.get("已取得的数据", "（无）"))
+        elif i == 5:
+            extra = secs.get(5, "")
+            out.append(lp.get("假设检验记录", "（无）")
+                       + (("\n推理补充: " + extra) if extra else ""))
+        elif i == 6:
+            out += [f"- {t}" for t in user_texts] or ["- （无）"]
+        elif i == 7:
+            out.append(lp.get("计划", "（无）"))
+        else:
+            out.append(secs.get(i, "（模型未提供）"))
+    return "\n".join(out)
+
+
+def _l5_view(head: list[dict], groups: list[list[dict]], comp: CompState) -> list[dict]:
+    """L4 视图头部之后插入摘要消息；被摘要覆盖的轮次组不再进入视图。"""
+    return ([head[0], {"role": "user", "content": comp.summary_text}] + head[1:]
+            + [m for g in groups[comp.summary_cut:] for m in g])
+
+
+def _apply_l5(view: list[dict], ctx: Any, history: list[dict]) -> list[dict]:
+    cfg, comp = ctx.cfg, ctx.comp
+    if not cfg.get("l5_enabled") or getattr(ctx, "llm", None) is None or not view:
+        return view
+    head, groups = split_groups(view)
+    if comp.summary_text:
+        if head and len(groups) >= comp.summary_cut:
+            return _l5_view(head, groups, comp)
+        return view
+    if comp.summary_gave_up or not head:
+        return view
+    tokens = est_tokens(view)
+    if tokens <= int(cfg["compact_threshold"]):
+        return view
+    target = len(groups) - int(cfg["l5_keep_last_turns"])
+    if not groups or target < 1:
+        return view
+    if not comp.ledger_text:
+        comp.ledger_text = ctx.ledger.render(ctx.store, ctx.todos)
+    tail = [m for g in groups[:target] for m in g]
+    dropped_rids = sorted(set(_RID_REF_RE.findall(
+        " ".join(str(m.get("content") or "") +
+                  " ".join(str((tc.get("function", tc)).get("arguments", ""))
+                           for tc in m.get("tool_calls") or [])
+                  for m in tail))))
+    user_texts = [str(m.get("content") or "") for m in history if m.get("role") == "user"]
+    ok = False
+    for attempt in (1, 2):        # V4.38：核验不通过只重新生成一次
+        secs, problems = _summarize_once(_serialize_for_llm(tail), ctx)
+        if not problems:
+            comp.summary_text = _assemble_summary(secs, ctx, user_texts)
+            comp.summary_cut = target
+            ok = True
+            break
+        ctx.trace.event(type="compact", level="L5", attempt=attempt, applied=False,
+                        tokens_before=tokens, tokens_after=tokens, rids=dropped_rids,
+                        problems=problems[:5])
+    if not ok:
+        comp.summary_gave_up = True     # 退回 L4 的结果，只用账本
+        return view
+    new_view = _l5_view(head, groups, comp)
+    _log_compact(ctx, "L5", tokens, est_tokens(new_view), dropped_rids)
+    return new_view
+
+
 # ---------------- 流水线入口
 
 def build_view(history: list[dict[str, Any]], ctx: Any) -> list[dict[str, Any]]:
-    """每次调用模型前按 L2→L3→L4 生成投影视图；原始 history 永不被修改。"""
+    """每次调用模型前按 L2→L3→L4→L5 生成投影视图；原始 history 永不被修改。"""
     view = _apply_l2(history, ctx)
     view = _apply_l3(view, ctx)
     view = _apply_l4(view, ctx)
+    view = _apply_l5(view, ctx, history)
     return view
 
 
 def on_context_overflow(view: list[dict[str, Any]], ctx: Any) -> list[dict[str, Any]]:
-    """reactive 兜底（plan 6.6.3）：强制全量存根 + 账本投影到最近 1 组，最多 reactive_max_retries 次。
-
-    完整的 PTL（按轮次分组丢弃）与熔断在 P4.5d 实现；这里先保证能按批降级重试。
-    """
+    """reactive/PTL 兜底（plan 6.6.3，V4.40/V4.41）：强制全量压缩，\
+每次溢出比上一次多丢弃一个最早的轮次组；超过 reactive_max_retries 抛 ContextTooLong\
+（由主循环累计进熔断计数，V4.42）。"""
     cfg = ctx.cfg
     ctx.comp.overflow_retries += 1
     if ctx.comp.overflow_retries > int(cfg["reactive_max_retries"]):
-        raise ContextTooLong(f"上下文超长：reactive 压缩已重试 {cfg['reactive_max_retries']} 次仍不够")
-    ctx.comp.force = True   # L3 全量存根 + L4 投影到最近 1 组，由下一次 build_view 攒批执行
+        raise ContextTooLong(f"上下文超长：reactive/PTL 已重试 {cfg['reactive_max_retries']} 次仍不够")
+    ctx.comp.force = True
+    ctx.comp.ptl_drop += 1
     return build_view(ctx.messages, ctx)

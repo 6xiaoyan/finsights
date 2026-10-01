@@ -1,4 +1,4 @@
-"""P4.5b/c 验收：上下文压缩流水线（verify 6.1：V4.19–V4.31、V4.35）。全部离线（合成历史/真实 DB 播种）。"""
+"""P4.5b/c/d 验收：上下文压缩流水线（verify 6.1：V4.19–V4.31、V4.35–V4.42）。全部离线（合成历史/真实 DB 播种/mock LLM）。"""
 from __future__ import annotations
 
 import json
@@ -393,3 +393,184 @@ def test_loop_appends_submit_markers():
     out2 = run("随便问问？", bad_ctx)
     assert not out2.verified
     assert bad_ctx.messages[-1]["content"] == SUBMIT_BAD
+
+
+# ---------------- V4.36–V4.39 L5 全量摘要（领域版 9 段模板）
+
+L5_CFG = dict(TRIG_CFG, compact_threshold=400, l5_enabled=True, l5_keep_last_turns=1)
+
+
+class SummaryLLM:
+    """L5 摘要器用的 LLM：按脚本返回 content，并记录每次 prompt（离线 mock）。"""
+
+    def __init__(self, replies):
+        self.replies = list(replies)
+        self.calls: list = []
+
+    def chat(self, messages, tools=None, **kw):
+        self.calls.append(deepcopy(messages))
+        text = self.replies.pop(0)
+        if isinstance(text, Exception):
+            raise text
+        return type("R", (), {"content": text, "usage": {}})()
+
+
+def _l5_history(ctx):
+    """4 个取数轮（r1..r4，每轮结果 ~1200 字符）+ 多条用户消息：
+    L4 之后视图仍 > compact_threshold → 必然触发 L5。"""
+    msgs = [{"role": "system", "content": "S"},
+            {"role": "user", "content": "问题：联想存货为什么上升？"}]
+    for i in range(4):
+        if i:
+            msgs.append({"role": "user", "content": f"追问{i}：再查一季，重点是季度对比。"})
+        res = ctx.store.put("query_metric", {"i": i},
+                            pd.DataFrame({"company": ["Lenovo"], "fiscal_year": [24 + i],
+                                          "fiscal_quarter": [1], "value": [6123.0 + i * 500]}))
+        msgs.append(_amsg(f"c{i}", "query_metric", {"i": i}))
+        msgs.append(_tmsg(f"c{i}", tool_data.render(res, ctx.cfg) + "\n备注 " + "填。" * 600))
+    return msgs
+
+
+def _l5_reply(bad=False):
+    fab = " 库存周转 987.65 (r2)" if bad else ""
+    return ("<analysis>按时间梳理：连续取数四次后需要归因。ANALYSIS-MARKER-甲</analysis>\n"
+            "<summary>\n"
+            "## 1. 用户问题与意图\n调查联想存货上升的原因（参考 r1）。\n"
+            "## 2. 口径与约定\nPOISON-2 错误口径：港币计价 88888888.5\n"
+            "## 3. 已取得的数据\nPOISON-3 r99 中值为 1234567.0\n"
+            "## 4. 错误与修复\nrun_sql 曾报表不存在，改用 query_metric 后成功，无数字主张。\n"
+            "## 5. 假设检验记录\n最新值 6123 (r1)，需继续验证季节性。" + fab + "\n"
+            "## 6. 用户的所有消息\nPOISON-6 编造的用户消息\n"
+            "## 7. 待办任务\nPOISON-7 编造的计划\n"
+            "## 8. 当前工作\n正在做存货归因，r1 显示最新 6123。\n"
+            "## 9. 可选的下一步\n调用 seasonal_check 与 peer_compare 补证据，无需新数字。\n"
+            "</summary>")
+
+
+def test_v4_36_37_39_l5_domain_template():
+    ctx = FakeCtx(L5_CFG)
+    history = _l5_history(ctx)
+    ctx.llm = SummaryLLM([_l5_reply()])
+    view = build_view(history, ctx)
+    dump = json.dumps(view, ensure_ascii=False)
+    assert ctx.comp.summary_text and ctx.comp.summary_cut == 1
+    assert view[0] == history[0] and view[1]["role"] == "user"
+    assert view[1]["content"].startswith("# 会话摘要")
+    # V4.37：<analysis> 由代码删除，不进入视图
+    assert "ANALYSIS-MARKER-甲" not in dump
+    # V4.36：第 2/3/6/7 段以代码内容为准，LLM 写错的内容没有进入摘要
+    for p in ("POISON-2", "POISON-3", "POISON-6", "POISON-7"):
+        assert p not in dump
+    summary = view[1]["content"]
+    assert "期间口径: fiscal" in summary              # 第 2 段来自账本（代码）
+    assert "r1 query_metric" in summary              # 第 3 段 rid 索引来自账本（代码）
+    assert "推理补充: 最新值 6123 (r1)" in summary     # 第 5 段=代码记录+LLM推理
+    # V4.39：每一条用户消息的原文都在第 6 段
+    for m in history:
+        if m["role"] == "user":
+            assert m["content"] in summary
+    assert check_invariants(history, view, ctx) == []
+    evs = [e for e in ctx.trace.events if e["type"] == "compact" and e["level"] == "L5"]
+    assert evs and evs[0]["tokens_after"] < evs[0]["tokens_before"]
+    # 冻结复用：重建不再调 LLM，视图逐字节不变（前缀稳定）
+    n_calls = len(ctx.llm.calls)
+    assert build_view(history, ctx) == view and len(ctx.llm.calls) == n_calls
+
+
+def test_v4_38_l5_summary_verification():
+    # 摘要含编造数字 → 重生成一次仍不过 → 退回 L4 视图（只用账本）；都写 trace 事件
+    ctx = FakeCtx(L5_CFG)
+    history = _l5_history(ctx)
+    ctx.llm = SummaryLLM([_l5_reply(bad=True), _l5_reply(bad=True)])
+    view = build_view(history, ctx)
+    assert ctx.comp.summary_gave_up and not ctx.comp.summary_text
+    assert not any((m.get("content") or "").startswith("# 会话摘要") for m in view)
+    fails = [e for e in ctx.trace.events
+             if e["type"] == "compact" and e["level"] == "L5" and e.get("applied") is False]
+    assert len(fails) == 2 and len(ctx.llm.calls) == 2
+    assert "987.65" not in json.dumps(view, ensure_ascii=False)
+
+    # 第一次编造、重新生成后合格 → 采用摘要
+    ctx2 = FakeCtx(L5_CFG)
+    h2 = _l5_history(ctx2)
+    ctx2.llm = SummaryLLM([_l5_reply(bad=True), _l5_reply()])
+    v2 = build_view(h2, ctx2)
+    assert ctx2.comp.summary_text and v2[1]["content"].startswith("# 会话摘要")
+    assert len(ctx2.llm.calls) == 2
+    evs = [e for e in ctx2.trace.events if e["type"] == "compact" and e["level"] == "L5"]
+    assert any(e.get("applied") is False for e in evs) and any("applied" not in e for e in evs)
+
+
+# ---------------- V4.40–V4.42 reactive / PTL / 熔断
+
+class FirstOverflowLLM(MockLLM):
+    """第一次 chat 抛 ContextTooLong（模拟 API 超长），之后按脚本正常返回。"""
+
+    def __init__(self, script):
+        super().__init__(script)
+        self.raised = False
+
+    def chat(self, messages, tools=None, **kw):
+        if not self.raised:
+            self.raised = True
+            raise ContextTooLong("mock: maximum context length exceeded")
+        return super().chat(messages, tools, **kw)
+
+
+class AlwaysTooLongLLM:
+    """所有 chat 都抛 ContextTooLong：驱动熔断路径（V4.42）。"""
+
+    def __init__(self):
+        self.calls = 0
+
+    def chat(self, messages, tools=None, **kw):
+        self.calls += 1
+        raise ContextTooLong("mock: maximum context length exceeded")
+
+
+def test_v4_40_reactive_retry_once_per_turn():
+    qargs = {"metrics": ["inventory"], "companies": ["Lenovo"], "last_n": 2}
+    llm = FirstOverflowLLM([asst(calls=[call("c1", "query_metric", qargs)])])
+    ctx = make_run_ctx(DB, llm)
+    seeded = _seed(ctx, "query_metric", qargs)     # 预填 store：重试调用会缓存命中同一 rid
+    v = float(seeded.stored.df["inventory"].iloc[-1])
+    llm.script.append(asst(calls=[_final(md=f"最新存货 {v:.6g} 百万美元（r1）。",
+                                        claims=[{"text": "存货", "value": v,
+                                                 "unit": "usd_mn", "ref": "r1"}])]))
+    out = run("联想最新存货是多少？", ctx)
+    assert out.verified
+    assert ctx.comp.overflow_retries == 1 and ctx.comp.force
+    assert ctx.comp.failures == 0
+    assert not [e for e in ctx.trace.events if e["type"] == "compact_fail"]
+    # 同一轮最多兜底 1 次：超长那轮只有"压缩后的重试"一次成功调用被记录
+    assert len(llm.views) == 2
+
+
+def test_v4_41_ptl_dumps_oldest_groups_each_retry():
+    ctx = FakeCtx(TRIG_CFG)
+    history = _many_results(ctx, 4)
+    ctx.messages = history
+    assert len(split_groups(history)[1]) == 4
+    v1 = on_context_overflow(history, ctx)         # 第 1 次溢出：投影到最近 1 组
+    g1 = split_groups(v1)[1]
+    assert len(g1) == 1 and '"c3"' in json.dumps(g1, ensure_ascii=False)
+    v2 = on_context_overflow(v1, ctx)              # 第 2 次：再丢弃最早的组
+    assert len(split_groups(v2)[1]) == 0
+    assert est_tokens(v2) < est_tokens(v1)
+    assert ctx.comp.ptl_drop == 2
+    assert check_invariants(history, v2, ctx) == []
+
+
+def test_v4_42_circuit_breaker_refuses():
+    llm = AlwaysTooLongLLM()
+    ctx = make_run_ctx(DB, llm)
+    out = run("联想最新存货是多少？", ctx)
+    assert out.answer.status == "refuse"
+    assert "熔断" in ctx.stats["refuse_reason"]
+    limit = int(ctx.cfg["compact_fail_limit"])
+    fails = [e for e in ctx.trace.events if e["type"] == "compact_fail"]
+    assert len(fails) == limit
+    assert ctx.comp.failures == limit
+    # 每轮 = 原始请求 + 1 次 reactive 兜底；熔断后不再尝试（run 已结束）
+    assert llm.calls == 2 * limit
+    assert ctx.comp.overflow_retries == limit
