@@ -87,3 +87,38 @@ P0: [x] 全局 G1–G8  [x] V0.1–V0.9（G3 按验证文档 P0 跳过）   tag:
 | V1.17 | HUMAN-进行中 | 人工（Claude）独立核对 151/151 通过 + 整库交叉核对 909 格一致（docs/evidence/V1.17_claude_check.csv）；第二模型独立抽检进行中，完成后由用户确认 | — |
 
 > 回归：pytest 14 用例通过（新增 days_since_prev_pe、q4_backout 测试）；G 系列于阶段关闭时统一执行。
+
+## P2 语义层 + 计算库（2026-10-01）
+
+> 交接说明：P2 由 GLM-5.3-Flash 完成大部分（synth_detail、metrics.yaml、compiler、catalog、calc、forecast 占位、两套测试），收尾与 bug 修复由本执行者完成。修复三处：①compiler 对两位/四位财年混用的解析（+2000 只用于两位年份）；②**compiler 真实缺陷**——请求区间只含单期时，LAG 窗口内只有过滤后的行，derived 指标（dio/dso/dpo/ccc）取不到上期值返回 NULL → period_from 过滤下沉到窗口之后（外层 WHERE，别名 t）；③synth_detail 份额漂移收敛——原实现先 clip 步长再归一化，归一化把单格净变化放大到 3.04pp（V2.2 违例）→ 改为归一化后复核、步长对折迭代直到净变化 ≤3pp。
+
+| 检查 ID | 状态 | 证据 | commit |
+|---|---|---|---|
+| V2.1 | PASS | `Q "SELECT … SUM(d.value)-MAX(f.value) diff … HAVING ABS(diff)>1e-6"` → **0 行**（3 科目 × 3 公司 × 全部期 × 9 格，最后一格吸收舍入） | （本次） |
+| V2.2 | PASS | 相邻季度单格份额变化：3024 对，最大 **2.9245pp** < 3pp（修复前 3.0387pp 违例） | （本次） |
+| V2.3 | PASS | `etl/synth_detail.py` 连跑两次，facts_detail 按主键排序后 SHA-256 前 16 位均为 `9e99f531b31a4e17`（3105 行） | （本次） |
+| V2.4 | PASS | `SELECT COUNT(*) FROM facts_detail WHERE synthetic IS NOT TRUE` → **0**（总行 3105，全部 TRUE） | （本次） |
+| V2.5 | PASS | `tests/test_semantic.py::test_v2_5_metrics_completeness`：附录 A 全部 30 个 base + 7 个 derived，均有 unit 与 dims | （本次） |
+| V2.6 | PASS | `test_v2_6_compiler_error_suggests_nearby`：`metrics=["inventroy"]` 抛错信息含 `inventory`（difflib） | （本次） |
+| V2.7 | PASS | `test_v2_7_compiler_single_select`：10 个请求（含 detail、lag、last_n、日历/财年区间）sqlglot 解析均为单条 SELECT | （本次） |
+| V2.8 | PASS | `test_v2_8_semantic_matches_direct_sql`：seed=42 随机 20 个 (公司,期间,base 指标)，语义层 vs 直接查 facts 差 <1e-9 | （本次） |
+| V2.9 | PASS | `test_v2_9_derived_matches_hand_calc`：Lenovo FY2024Q3 / HP FY2023Q4 / Dell FY2025Q2，手算 DIO/DSO/毛利率与编译 SQL 差 <1e-6。修此测试时发现并修复 compiler 的 LAG 单期缺陷（见交接说明②）；手算上期值须经 periods 关联取 period_end（facts 无该列） | （本次） |
+| V2.10 | PASS | `test_v2_10_calendar_alignment`：自然季度 2024Q3 存货 → 恰好 3 行、每公司 1 行 | （本次） |
+| V2.11 | PASS | `test_v2_11_contribution_closes`：随机 100 组（6 期 × 4 分项），各分项贡献之和 = 总变化，误差 <1e-9；contribution 剔除首期（无上期不产生贡献），残差按 \|Δpart\| 比例分摊 | （本次） |
+| V2.12 | PASS | `grep -rnE "duckdb\|open\(\|requests\|httpx\|read_csv" fincalc/` → 无输出（forecast.py 为 P6 占位，仅 raise NotImplementedError） | （本次） |
+| V2.13 | PASS | `test_v2_13_seasonal_baseline`：5 组历史 Q2 环比（+4%~+6%）+ 当期 +20% → z>2、分位=100%；当前值不进基线样本 | （本次） |
+| P1 回归 | PASS | `check_identities` 115 期 0 失败；`check_gaps` 三公司 0 gaps；`check_continuity` 映射变化 17 处（均有说明）、跳变 0、营收跳变 0 | （本次） |
+
+## P2 全局检查（2026-10-01）
+
+| 检查 ID | 状态 | 证据 | commit |
+|---|---|---|---|
+| G1 | PASS | `pytest -q` → **28 passed**（全离线） | （本次） |
+| G2 | PASS | `pytest --collect-only` → 28 tests ≥ 基线 7 | （本次） |
+| G3 | PASS | `git diff phase-P0-done..HEAD -- tests \| grep -nE "^\+.*(skip\|xfail)"` → 无输出 | （本次） |
+| G4 | BLOCKED-待人工 | ①.env 未被跟踪 ✓；②.env 实际密钥值 `git grep -nF` → 无输出 ✓；③通用模式在**代码区无输出**，但命中 docs/ 下 3 处历史证据文本（`sk-SELFTEST…` 假 key、引述 `api_key="test-key"`）——均非真实密钥。检查项不能改、证据文件不宜改写 → 记 questions.md **Q8** 等人工裁定 | — |
+| G5 | PASS | 提交后 `git status --porcelain` 无输出；提交均 `[P<n>.<m>] …` 格式 | （本次） |
+| G6 | PASS | `grep -rnE "eval/datasets\|scenarios/.*\.json\|gold" agent/ semantic/ fincalc/` → 无输出 | （本次） |
+| G7 | PASS | `grep -rnE "(^\|[^_.[:alnum:]])(eval\|exec)\(\|subprocess\|os\.system" agent/ semantic/ fincalc/` → 无输出 | （本次） |
+| G8 | 待 Q8 | 与本阶段相关的新问题仅 Q8（G4③ 误报范围），已登记等人工答复 | — |
+
