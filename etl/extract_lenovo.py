@@ -47,9 +47,16 @@ def _load_map() -> dict:
     return _nfkc_all(raw)
 
 
+_FOLD = str.maketrans({"內": "内"})  # 內→内：字形变体，NFKC 不折叠
+
+
+def _norm_text(s: str) -> str:
+    return unicodedata.normalize("NFKC", s).translate(_FOLD)
+
+
 def _nfkc_all(obj):
     if isinstance(obj, str):
-        return unicodedata.normalize("NFKC", obj)
+        return _norm_text(obj)
     if isinstance(obj, list):
         return [_nfkc_all(x) for x in obj]
     if isinstance(obj, dict):
@@ -124,7 +131,7 @@ def _parse_bs_pages(pdf, amap: dict, bs_main: int, bs_cont: int) -> tuple[list[d
     ignored = set(amap.get("lenovo_bs_ignored", []))
     pending = ""
     for page_idx, state0 in ((bs_main, "非流動資產"), (bs_cont, "權益")):
-        text = unicodedata.normalize("NFKC", pdf.pages[page_idx].extract_text() or "")
+        text = _norm_text(pdf.pages[page_idx].extract_text() or "")
         state = state0
         for raw in text.splitlines():
             line = raw.strip()
@@ -161,15 +168,32 @@ def _parse_bs_pages(pdf, amap: dict, bs_main: int, bs_cont: int) -> tuple[list[d
 
 
 def _parse_is_page(pdf, amap: dict, is_page: int, tag: str) -> tuple[list[dict], list[str], str]:
-    text = unicodedata.normalize("NFKC", pdf.pages[is_page].extract_text() or "")
+    text = _norm_text(pdf.pages[is_page].extract_text() or "")
     lines = text.splitlines()
     header = "\n".join(lines[:8])
     n_cols = _is_n_cols(header)
     # 年报表头只写"二零一八年"而不写"止十二個月"，按公告类型判定：Q4 公告的损益表 = 全年数
     period_type = "12m" if tag.endswith("Q4") else "3m"
+    # Q3 公告第 2 列 = 止九個月（本期 YTD）：Q4 倒算的标准输入（全年 − 9M YTD，Q4-2 答复）
+    has_9m = "止九個月" in header and tag.endswith("Q3")
     rows: list[dict] = []
     warnings: list[str] = []
     is_map = {k.replace(" ", ""): v for k, v in amap["lenovo_is"].items()}
+    # 损益表可能跨页：扫描后续页的行，遇到下一种报表标题行即停（净利行可能在标题之前的行中）
+    all_lines = list(lines)
+    stop_tokens = ("全面收益表", "現金流量表", "資產負債表", "權益變動表")
+    for j in range(is_page + 1, min(is_page + 3, len(pdf.pages))):
+        t2 = _norm_text(pdf.pages[j].extract_text() or "")
+        stopped = False
+        for ln in t2.splitlines():
+            if any(k in ln for k in stop_tokens):
+                stopped = True
+                break
+            all_lines.append(ln)
+        if stopped:
+            break
+    seen_keys: set = set()
+    lines = all_lines
     for raw in lines:
         line = raw.strip()
         if not line or "千美元" in line or "附註" in line or line.startswith("綜合損益表"):
@@ -181,9 +205,19 @@ def _parse_is_page(pdf, amap: dict, is_page: int, tag: str) -> tuple[list[dict],
         label, vals = _split_line(line, n_cols)
         code = is_map.get(label)
         if code and vals and vals[0] is not None:
-            rows.append({"line": label, "account": code, "value_k": abs(vals[0])})
+            key1 = (code, period_type, abs(vals[0]))
+            if key1 not in seen_keys:  # 去重：后续报表（如全面收益表）会重复期內溢利行
+                seen_keys.add(key1)
+                rows.append({"line": label, "account": code, "value_k": abs(vals[0]), "ptype": period_type})
+            if has_9m and len(vals) >= 2 and vals[1] is not None:
+                key2 = (code, "9m", abs(vals[1]))
+                if key2 not in seen_keys:
+                    seen_keys.add(key2)
+                    rows.append({"line": label, "account": code, "value_k": abs(vals[1]), "ptype": "9m"})
         elif code and vals and vals[0] is None:
             warnings.append(f"IS {tag} {label}: 本期值为空")
+        elif label and vals:
+            warnings.append(f"IS 未映射行[{tag}]: {label[:44]} ({vals[0]})")
     return rows, warnings, period_type
 
 
@@ -235,7 +269,7 @@ def main() -> int:
                 fy_end_from_annual[fy] = {r["account"]: r["value_k"] for r in bs if not r["account"].startswith("_subtotal_")}
             # 损益表
             isr, warn2, ptype = _parse_is_page(pdf, amap, is_page, f"{fy}{q}")
-            problems += [f"{fname}: {w}" for w in warn2]
+            problems += [f"{fname}: {w}" for w in warn2 if "本期值为空" in w]  # 未映射行为信息项，不算失败
             by_acct = {r["account"]: r["value_k"] for r in isr}
             if {"revenue", "cogs", "gross_profit"} <= by_acct.keys():
                 if abs(by_acct["gross_profit"] - (by_acct["revenue"] - by_acct["cogs"])) > 1:
@@ -243,7 +277,7 @@ def main() -> int:
             else:
                 problems.append(f"{fname}: IS 关键行不全 {list(by_acct)}")
             for r in isr:
-                is_rows.append([fy, q, _period_end(fy, q), ptype, r["line"], r["account"], r["value_k"], fname])
+                is_rows.append([fy, q, _period_end(fy, q), r["ptype"], r["line"], r["account"], r["value_k"], fname])
 
     # 校验 4：下一财年 Q1 资产负债表第 2 列（上财年末） vs 本财年年报期末列
     # （第 2 列在 _parse_bs_pages 中未保留，这里用独立轻量解析补一次）
@@ -259,7 +293,7 @@ def main() -> int:
                 continue
             vals = {}
             for page_idx in (pages[0], pages[0] + 1):
-                t = unicodedata.normalize("NFKC", pdf.pages[page_idx].extract_text() or "")
+                t = _norm_text(pdf.pages[page_idx].extract_text() or "")
                 for raw in t.splitlines():
                     line = raw.strip()
                     if line.startswith(("總資產", "總負債", "總權益")):

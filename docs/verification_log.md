@@ -63,3 +63,27 @@ P0: [x] 全局 G1–G8  [x] V0.1–V0.9（G3 按验证文档 P0 跳过）   tag:
 | V1.17-A | HUMAN-待确认（Claude 部分已完成） | Claude 独立核对：用 xpdf `pdftotext -table` 提取（与执行者的 pdfplumber 不同），151/151 一致、0 错误，明细见 `docs/evidence/V1.17_claude_check.csv`，脚本见 `V1.17_claude_check_script.py.txt`；整库交叉核对：资产负债表 740 格、利润表 169 格（含 Q4 倒算）全部一致。另发现 5 个系统性问题，见 questions.md Q7。等第二个模型独立核对后由用户确认 | — |
 
 > 附注：本阶段共 7 个 pytest 文件级测试通过（13 个用例，含 6 个新 ETL 纯函数测试）。V1.9/V1.14 的 BLOCKED 不阻塞 P2 开工（缺口科目不影响语义层与计算库的任何接口），但 P1 tag 待 Q4–Q6 人工确认后补打。
+
+## P1 批阅修复（2026-10-01，Q4–Q6 落地 + Q7 五项修复）
+
+| 检查 ID | 状态 | 证据 | commit |
+|---|---|---|---|
+| Q7-1 (V1.18) | PASS | fiscal_year 统一 4 位数：Lenovo 2018–2027、HP 2017–2026、Dell 2017–2027（`SELECT MIN/MAX(fiscal_year) FROM periods GROUP BY 1`） | （本次） |
+| Q7-2 (V1.19) | PASS | days = 本期期末 − 上期期末：`DATEDIFF(LAG(period_end), period_end) <> days` 违例 **0**；窗口第一期用窗口外真实期末日核对：Dell FY2017Q4 = **98**、HP FY2017Q1 = **92**、Lenovo FY2018Q1 = **91** | （本次） |
+| Q7-3 (V1.20) | PASS | `etl/check_continuity.py` → data/continuity_report.md：①映射来源变化 17 处，全部有说明（标签演化/回退机制/修复，0 待说明；Lenovo FY23 应付口径已统一——應付票據计入 AP——且 filing_notes 已记录）；②环比超历年同季度 3σ 跳变 = **0** | （本次） |
+| Q7-4 | PASS | net_income 补齐：根因为盈亏方向导致的标签排列变体（期內溢利/期內(虧損)/溢利/期內溢利/(虧損)/年內(虧損)/溢利）+ "內/内" 字形变体 + 损益表跨页；现 3m 28 期（Q1–Q3 全齐）+ 9m 9 + 12m 9，Q4 全部由 q4_backout 生成；FY19Q4 operating_income 的旧值系按 0 补齐的错误倒算产物，已随新倒算逻辑（缺输入即跳过）消灭 | （本次） |
+| Q4-1 | PASS | Dell FY2024Q2/Q3 AR/AP 人工补录（data/manual/dell_patch.csv，4 条，source=manual_edgar，accn 见 questions.md）；补录后残差假异常消失（other_current_liabilities 不再出现 594→21,221 跳变，见 continuity_report） | （本次） |
+| Q4-2 | PASS | Dell FY2024Q4 AR/AP available_date 修正为 2024-03-25（10-K accn=0001571996-24-000036，数值不变，data/manual/available_date_patch.csv）；Dell FY2017Q4 revenue/cogs 按 9M-YTD 倒算补录（20,074 / 15,543，data/manual/dell_fy2017q4_is.csv，derivation=q4_backout） | （本次） |
+| Q6-1 | PASS | HP total_liabilities 改为分项加总（tcl + ltd + other_ncl，derivation=sum_of_parts）；实测 HP "Other liabilities" 行已含非流动递延收入/递延税/退休福利，故 dr_nc 为子项不入和；A=L+E 检查对 HP 恢复真实性（分项缺失即失败） | （本次） |
+| Q6-3 | PASS | facts 表新增 derivation 字段（附录 B 已改）：分布 reported 2280 / sum_of_parts 350 / residual 273 / q4_backout 83 / rev_minus_cogs 78 / manual_patch 4；is_derived = (derivation IS NOT NULL)；残差 >5% 总资产者已在 identity_report 按报送标签拆解（V1.22） | （本次） |
+| Q6 补充 | PASS | 新增标准科目 financing_receivables（仅流动）与 deferred_revenue_noncurrent；Dell 的 NotesAndLoansReceivableNetCurrent / ContractWithCustomerLiabilityNoncurrent 及 HP 的对应科目（606 前后回退）已映射；未报送的不填 0 | （本次） |
+| V1.9 | PASS | 核心科目缺失 0（6 条缺口已按 Q4 答复补齐） | （本次） |
+| V1.10 | PASS | ①营收 5,000–100,000 ✓；②相邻季度环比 ±50% 违例 0（check_continuity 第③节） | （本次） |
+| V1.11 | PASS | q4_backout 仅出现在利润表 Q4（83 = Lenovo 45 + HP 18 + Dell 18 + 人工 2）；BS 无 q4_backout；is_derived=(derivation IS NOT NULL) 全表成立 | （本次） |
+| V1.14 | PASS | 原 20 条"超 150 天"重分类：全部为比较期补报（保守方向）；`etl/check_disclosure_dates.py`（V1.21）→ docs/evidence/V1.21_report.md：与自身申报日相等 1160 条、晚 32 条（逐期明细+原因）、**早 0 条（无泄露）** | （本次） |
+| V1.20 | PASS | 见 Q7-3 行 | （本次） |
+| V1.21 | PASS | 见 V1.14 行：early=0；late=32 逐条原因（companyfacts 比较期补报 / 人工修正） | （本次） |
+| V1.22 | PASS | identity_report 新增残差拆解段：>5% 残差均按报送标签列出构成（子集和，容差 1%），如 Dell FY2024Q4 other_noncurrent_liabilities = OtherLiabilitiesNoncurrent(3,065) | （本次） |
+| V1.17 | HUMAN-进行中 | 人工（Claude）独立核对 151/151 通过 + 整库交叉核对 909 格一致（docs/evidence/V1.17_claude_check.csv）；第二模型独立抽检进行中，完成后由用户确认 | — |
+
+> 回归：pytest 14 用例通过（新增 days_since_prev_pe、q4_backout 测试）；G 系列于阶段关闭时统一执行。

@@ -4,9 +4,10 @@ from __future__ import annotations
 from datetime import date
 
 from etl.load_db import (
-    derive_q4,
+    days_since_prev_pe,
     fiscal_quarter,
     fy_anchor_for,
+    q4_backout,
     quarter_dates,
     select_versions,
 )
@@ -44,9 +45,17 @@ def test_fy_anchor_implied_for_latest_fy():
     assert fiscal_quarter(date(2026, 7, 31), a) == 3
 
 
-def test_derive_q4():
-    assert derive_q4({1: 100.0, 2: 120.0, 3: 110.0}, 500.0) == 170.0
-    assert derive_q4({}, 90.0) == 90.0
+def test_q4_backout():
+    """Q4-2 答复：Q4 = 全年 − 9M YTD（Dell FY2017Q4 实测值 20,074 = 61,642 − 41,568）。"""
+    assert q4_backout(500.0, 330.0) == 170.0
+    assert q4_backout(61642.0, 41568.0) == 20074.0
+
+
+def test_days_since_prev_pe():
+    """Q7-2：days = 本期期末 − 上期期末（含 52/53 周长季度）。"""
+    assert days_since_prev_pe(date(2017, 2, 3), date(2016, 10, 28)) == 98   # Dell FY2017Q4（14 周）
+    assert days_since_prev_pe(date(2018, 3, 31), date(2017, 12, 31)) == 90  # 联想 FY18Q4
+    assert days_since_prev_pe(date(2024, 10, 31), date(2024, 7, 31)) == 92  # HP Q4
 
 
 def test_quarter_dates_span():

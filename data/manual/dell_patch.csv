@@ -1,0 +1,5 @@
+company_id,fiscal_year,fiscal_quarter,account_code,value,available_date,source_ref
+Dell,2024,2,accounts_receivable,10351.0,2023-09-12,accn=0001571996-23-000032;R2.htm;Accounts receivable, net of allowance & Due from related party, net
+Dell,2024,2,accounts_payable,19969.0,2023-09-12,accn=0001571996-23-000032;R2.htm;Accounts payable & Due to related party
+Dell,2024,3,accounts_receivable,9720.0,2023-12-08,accn=0001571996-23-000046;R2.htm;Accounts receivable, net of allowance & Due from related party, net
+Dell,2024,3,accounts_payable,19478.0,2023-12-08,accn=0001571996-23-000046;R2.htm;Accounts payable & Due to related party

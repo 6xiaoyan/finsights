@@ -9,6 +9,7 @@ accounts:
   - {code: cash,                        name_zh: 现金及现金等价物,      name_en: Cash and cash equivalents,           statement: BS, parent_code: total_current_assets,  is_total: false, sign: 1}
   - {code: short_term_investments,      name_zh: 短期投资,              name_en: Short-term investments,               statement: BS, parent_code: total_current_assets,  is_total: false, sign: 1}
   - {code: accounts_receivable,         name_zh: 应收账款,              name_en: Accounts receivable,                  statement: BS, parent_code: total_current_assets,  is_total: false, sign: 1}
+  - {code: financing_receivables,       name_zh: 融资应收款（流动）,    name_en: Financing receivables, current,       statement: BS, parent_code: total_current_assets,  is_total: false, sign: 1}
   - {code: inventory,                   name_zh: 存货,                  name_en: Inventory,                            statement: BS, parent_code: total_current_assets,  is_total: false, sign: 1}
   - {code: other_current_assets,        name_zh: 其他流动资产,          name_en: Other current assets,                 statement: BS, parent_code: total_current_assets,  is_total: false, sign: 1}
   - {code: total_current_assets,        name_zh: 流动资产合计,          name_en: Total current assets,                 statement: BS, parent_code: total_assets,          is_total: true,  sign: 1}
@@ -22,6 +23,7 @@ accounts:
   - {code: short_term_debt,             name_zh: 短期借款,              name_en: Short-term debt,                      statement: BS, parent_code: total_current_liabilities, is_total: false, sign: 1}
   - {code: accrued_liabilities,         name_zh: 应计费用,              name_en: Accrued liabilities,                  statement: BS, parent_code: total_current_liabilities, is_total: false, sign: 1}
   - {code: deferred_revenue_current,    name_zh: 合同负债（流动）,      name_en: Deferred revenue, current,            statement: BS, parent_code: total_current_liabilities, is_total: false, sign: 1}
+  - {code: deferred_revenue_noncurrent, name_zh: 合同负债（非流动）,    name_en: Deferred revenue, noncurrent,         statement: BS, parent_code: total_liabilities,     is_total: false, sign: 1}
   - {code: other_current_liabilities,   name_zh: 其他流动负债,          name_en: Other current liabilities,            statement: BS, parent_code: total_current_liabilities, is_total: false, sign: 1}
   - {code: total_current_liabilities,   name_zh: 流动负债合计,          name_en: Total current liabilities,            statement: BS, parent_code: total_liabilities,     is_total: true,  sign: 1}
   - {code: long_term_debt,              name_zh: 长期借款,              name_en: Long-term debt,                       statement: BS, parent_code: total_liabilities,     is_total: false, sign: 1}
@@ -78,14 +80,14 @@ lenovo_bs_sections:
   非流動負債:
     貸款: long_term_debt
     保修費撥備: other_noncurrent_liabilities
-    遞延收益: other_noncurrent_liabilities
+    遞延收益: deferred_revenue_noncurrent
     退休福利責任: other_noncurrent_liabilities
     遞延所得稅項負債: other_noncurrent_liabilities
     衍生金融負債: other_noncurrent_liabilities
     其他非流動負債: other_noncurrent_liabilities
   流動負債:
     應付貿易賬款: accounts_payable
-    應付票據: other_current_liabilities
+    應付票據: accounts_payable   # FY18–FY22 单列、FY23 起并入應付貿易賬款及票據；统一计入 AP（Q7-3）
     應付貿易賬款及票據: accounts_payable
     衍生金融負債: other_current_liabilities
     其他應付賬款及應計費用: accrued_liabilities
@@ -107,9 +109,13 @@ lenovo_is:
   毛利: gross_profit
   經營(虧損)/溢利: operating_income
   經營溢利: operating_income
-  經營(虧損)/溢利除稅前: ""
+  經營溢利/(虧損): operating_income
   期內(虧損)/溢利: net_income
   期內溢利: net_income
+  期內溢利/(虧損): net_income
+  年內(虧損)/溢利: net_income
+  年內溢利: net_income
+  年內溢利/(虧損): net_income
 
 # 权益组件行：不映射为标准科目（已包含在"總權益"合计中，total_equity 直接取合计行）
 lenovo_bs_ignored:
@@ -129,6 +135,8 @@ xbrl_tags:
   AccountsPayableCurrent: accounts_payable
   AccruedLiabilitiesCurrent: accrued_liabilities
   ContractWithCustomerLiabilityCurrent: deferred_revenue_current
+  ContractWithCustomerLiabilityNoncurrent: deferred_revenue_noncurrent
+  NotesAndLoansReceivableNetCurrent: financing_receivables
   Goodwill: goodwill
   IntangibleAssetsNetExcludingGoodwill: intangibles
   PropertyPlantAndEquipmentNet: ppe_net
@@ -154,10 +162,10 @@ xbrl_tags:
 
 # 残差吸收：reported_total − Σ已映射子项 → other_*（plan 3.3）
 residual_rules:
-  - {total: total_current_assets,  known: [cash, short_term_investments, accounts_receivable, inventory], absorb: other_current_assets}
+  - {total: total_current_assets,  known: [cash, short_term_investments, accounts_receivable, financing_receivables, inventory], absorb: other_current_assets}
   - {total: total_assets,          known: [total_current_assets, ppe_net, goodwill, intangibles],          absorb: other_noncurrent_assets}
   - {total: total_current_liabilities, known: [accounts_payable, short_term_debt, accrued_liabilities, deferred_revenue_current], absorb: other_current_liabilities}
-  - {total: total_liabilities,     known: [total_current_liabilities, long_term_debt],                     absorb: other_noncurrent_liabilities}
+  - {total: total_liabilities,     known: [total_current_liabilities, long_term_debt, deferred_revenue_noncurrent], absorb: other_noncurrent_liabilities}
 
 # 回退标签：主标签在该期缺失时启用（如 HP 2022 起权益改用 StockholdersEquity 报送）。
 # 回退只在主标签完全缺失时使用，不会与主标签求和。
@@ -166,7 +174,16 @@ xbrl_fallback_tags:
     - StockholdersEquity
   deferred_revenue_current:
     - DeferredRevenueCurrent
+  deferred_revenue_noncurrent:
+    - DeferredRevenueNoncurrent
   # HP 2017–FY22Q3 用 LongTermDebtAndCapitalLeaseObligations 报长期债务，之后改用 LongTermDebtNoncurrent
   # （两段重叠期若求和会翻倍，故走回退而非求和）
   long_term_debt:
     - LongTermDebtAndCapitalLeaseObligations
+
+# 每公司专属标签（不进通用表）：HP 的"Other liabilities"行（非流动负债的兜底分项，Q6-1 分项加总用）
+xbrl_tags_per_company:
+  HP:
+    OtherLiabilitiesNoncurrent: other_noncurrent_liabilities
+    # 注意：HP 的 Other liabilities 行已包含递延税与退休福利（FY17Q1 实测：另加 Pension 会重复 3,493），
+    # 故 DeferredTaxLiabilities / Pension* 不映射。
