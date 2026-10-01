@@ -8,7 +8,7 @@
 P0: [x] 全局 G1–G8  [x] V0.1–V0.9（G3 按验证文档 P0 跳过）   tag: phase-P0-done
 ```
 
-> P1/P2/P3 暂不勾选：P1 待 V1.17 第二模型抽检；P2/P3 的全局 G4 因 Q8（docs 历史证据误报范围）BLOCKED 待人工；P3 另待 V3.12 人工逐题审阅。详见各阶段小节。
+> P1/P2/P3 暂不勾选：P1 待 V1.17 第二模型抽检；P2/P3 的全局 G4 因 Q8（docs 历史证据误报范围）BLOCKED 待人工。V3.12 已人工通过（2026-10-01）。详见各阶段小节。
 
 ## 全局检查（P0 关闭时执行，2026-10-01）
 
@@ -140,7 +140,7 @@ P0: [x] 全局 G1–G8  [x] V0.1–V0.9（G3 按验证文档 P0 跳过）   tag:
 | V3.9 | PASS | `python -m eval.compare 20261001-183059 20261001-183059`：全部指标"不显著"（eval/reports/compare_20261001-183059_vs_20261001-183059.md）；离线 `test_v3_9` 同过 | （本次） |
 | V3.10 | PASS | `test_v3_10`：`[t["function"]["name"] for t in v0.TOOLS] == ["run_sql","final_answer"]`，无其他工具 | （本次） |
 | V3.11 | PASS | leaderboard v0 行：L1 1.00±0.00、L2 0.78±0.10，注明 run_id=20261001-183059、commit=71933af | （本次） |
-| V3.12 | HUMAN-待审 | 全部 10 题 + gold 值 + gold_sql/gold_method 已导出 `docs/evidence/V3.12.md`，等人工逐题过目 | — |
+| V3.12 | PASS | 人工批阅：用户 2026-10-01 对 10 题审阅答复"通过"（材料 docs/evidence/V3.12.md） | — |
 
 **v0 基线 bad case（P4 改进输入，均为真实失败样本，未做任何针对性特判）**
 1. l2_0002（t1、t3）：题目未钉死 DSO 口径，v0 用"期末应收÷单季收入"，gold 用编译器平均余额口径 → 值与同比符号都算偏（+0.35/+0.90 天 vs gold −2.90 天）。启示：口径应由 skills/fincalc 统一，或 agent 应 clarify。
@@ -160,4 +160,4 @@ P0: [x] 全局 G1–G8  [x] V0.1–V0.9（G3 按验证文档 P0 跳过）   tag:
 | G5 | PASS | 提交后 `git status --porcelain` 无输出；提交 `[P3.5] …` 格式 | （本次） |
 | G6 | PASS | `grep -rnE "eval/datasets\|scenarios/.*\.json\|gold" agent/ semantic/ fincalc/` → 无输出（gold 只存在于 eval/ 内） | （本次） |
 | G7 | PASS | `grep -rnE "(^\|[^_.[:alnum:]])(eval\|exec)\(\|subprocess\|os\.system" agent/ semantic/ fincalc/` → 无输出（runner 的 subprocess 仅调 git rev-parse，且在 eval/，不在禁扫目录） | （本次） |
-| G8 | 待人工 | 未决：Q8（G4③ 范围）、V3.12 逐题审阅、V1.17 第二模型抽检（P1 关闭项）；均已在 questions.md/证据中登记 | — |
+| G8 | 待人工 | 未决：Q8（G4③ 范围）、V1.17 第二模型抽检（P1 关闭项）；均已在 questions.md/证据中登记。V3.12 已人工通过 | — |

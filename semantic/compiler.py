@@ -182,8 +182,9 @@ FROM ({inner}) t{where_outer}
 ORDER BY t.company, t.fiscal_year, t.fiscal_quarter"""
 
     if req.last_n:
+        # last_n = 最近 N 期（ROW_NUMBER 按时间倒序编号后取前 N），外层再恢复升序输出
         sql = f"""SELECT * FROM (
-SELECT ROW_NUMBER() OVER (PARTITION BY company ORDER BY fiscal_year, fiscal_quarter) AS _rn, *
+SELECT ROW_NUMBER() OVER (PARTITION BY company ORDER BY fiscal_year DESC, fiscal_quarter DESC) AS _rn, *
 FROM ({sql})
 ) WHERE _rn <= {int(req.last_n)} ORDER BY company, fiscal_year, fiscal_quarter"""
     return sql

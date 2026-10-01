@@ -31,3 +31,5 @@ context:
   clear_at_least: 8000           # L3 存根化至少要释放的 token 数
   stub_keep_last: 3              # L3 保留最近 N 个结果不压缩
   ledger_keep_recent_turns: 2    # L4 保留最近 N 轮
+  result_max_rows: 50            # L1 结果预算：工具结果最多显示行数
+  result_max_tokens: 2000        # L1 结果预算：超过约多少 token 就只放引用+预览
