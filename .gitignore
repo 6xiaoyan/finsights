@@ -1,0 +1,16 @@
+# ---- 密钥与本地配置 ----
+.env
+
+# ---- 数据与运行产物（可由 etl 重新生成或体积过大）----
+data/*.duckdb
+data/snapshots/
+data/raw/
+runs/
+
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.pytest_cache/
+.ipynb_checkpoints/
