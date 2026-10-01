@@ -13,6 +13,10 @@ llm:
     judge: false
   timeout_s: 120
   max_retries: 3                 # 指数退避
+  rate_limit_rpm: 18             # 客户端限速（免费档约 20 RPM，留余量；runner 令牌桶用）
+  pricing_usd_per_mtok:          # list 价（推广期实际 $0，按 list 价记账作为成本上界）
+    input: 0.05
+    output: 0.15
 
 agent:
   max_steps: 20
