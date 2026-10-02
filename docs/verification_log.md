@@ -423,3 +423,18 @@ GLM 按交接实现（A1 计量与输出上限、A2 活动证据保护、A3 显�
 | 新发现缺陷（本轮修复） | none 题面前提与数据矛盾 | l3_022 取证：HP FY23Q1 AR 环比 −234，题面写"上升"（旧生成器 none 恒"上升"）。修复：make_l3 题面方向=基础库真实环比（`_qoq_delta`）；l3.jsonl 5 条 none 题面按同规则就地修正（sid/场景/gold 不变）；`test_questions_direction_matches_footprint` none 断言从"恒上升"改为"与数据方向一致"（增强，非放宽）。l3_022 的 3 条 clarify/refuse trial 判无效，阴性题复验由用户排期（交接 §2：完成后不自动启动长跑）。 |
 | 判读限制 | 新旧分数不可直接比 | 首轮 162949（0.67）为无效 harness 行；本轮 0.43 含 3 条无效阴性 trial（修正后估计上界 (9+3)/21≈0.57）。agent 侧真实错误集中在"原始 % 直比同行"与"mix_shift 漏查对冲科目"两族，按交接 §5 留作人工选案例议题，未自动写入任何规则。 |
 | G 检查 | G1–G9 局部 | G3：tests diff 无 skip/xfail；G4：密钥全库扫描 hits 均登记；G6：agent/semantic/fincalc 无 gold/datasets 引用（新 cli 亦无）；G7：三目录无 eval/exec/subprocess（cli 的 git 探测委托 eval 侧）；回归 `pytest -q` **182 passed**（含新增 test_cli.py×7）。 |
+
+## P5.10-MVP V7.3 最小鲁棒检查 + CLI 真实端到端（run 193108–193914，2026-10-02）
+
+按 mvp_handoff_qwen.md §3.3 最小集合（六问顺序过 `python -m agent.cli` 同一路径，每题五件套落盘，证据 `docs/evidence/V7.3_min_output.txt`）：
+
+| 问 | 结果 | 判定 |
+|---|---|---|
+| e2e_fetch 简单取数 | answered/核验通过，exit 0；营收 17850.1、存货 9118.82（与基础库分毫不差，claim→r1 可回查） | 链路通 |
+| e2e_calc 计算分析（营运资本） | answered/核验通过，exit 0 | 链路通 |
+| e2e_attrib 披露归因（FY2023Q3 真实事件） | answered/核验**未通过**，exit 2（正文裸数字/引用页码未入 claims，18 步修正穷尽后如实报未核验） | 非阻断（失败状态展示正确、不冒充成功）；bad case 入档：归因长文的 claim 覆盖纪律 |
+| robust_false_premise（FY25Q1"下滑"实为 +19.75% 同比） | clarify，exit 3；数据核对纠正前提并列出三类真实歧义 | 通过（正确行为） |
+| robust_unsupported（滴滴） | refuse，exit 3；声明库仅三家并邀请改问 | 通过 |
+| robust_fy_ambiguity（戴尔"2024 年第三季度"） | answered，核验通过；显式声明"按自然季对应 FY25Q2"口径作答（=25026，与 Dell FY25Q2 revenue 一致） | 通过（选择"声明口径"而非澄清，可接受；歧义处理偏好留人工裁定） |
+
+无阻断缺陷：六问全部产生完整运行包；dirty 标志、数据哈希、commit 均如实记录（attrib run 记录 dirty=True 因取证文件当时未提交）。run_meta 抽查 model=agnes-3.0-flash、data_version、usage（attrib 18 步/39.7 万 token/275s——归因题步数成本案例）。
