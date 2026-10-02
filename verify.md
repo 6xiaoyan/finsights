@@ -75,12 +75,16 @@ grep -rnE "(^|[^_.[:alnum:]])(eval|exec)\(|subprocess|os\.system" agent/ semanti
 | G1 | 全部测试通过（离线） | 断网或不设置 API key 的情况下运行 `pytest -q` | 0 failed, 0 error（见 0.5：pytest 中不能有联网测试） |
 | G2 | 测试数量没有减少 | 见上方代码块，与上一阶段日志中记录的数量比较 | 数量 ≥ 上一阶段 |
 | G3 | 没有新增的 skip/xfail | 见上方代码块 | 无输出 |
-| G4 | 没有提交密钥 | 见上方代码块 | 无输出 |
+| G4 | 没有提交密钥 | 见上方代码块及下方 Q8 裁定 | 实际密钥无命中；模式扫描无未登记命中 |
 | G5 | 工作区干净，提交格式正确 | `git status --porcelain`；`git log --format=%s phase-P<n-1>-done..HEAD` | 无未提交的改动；每条提交都符合 `[P<n>.<m>] ...` |
 | G6 | agent 不读取标准答案 | 见上方代码块 | 无输出 |
 | G7 | 没有执行任意代码的入口 | 见上方代码块 | 无输出（calc 用 AST 实现，不能用 eval） |
 | G8 | 本阶段的问题都已关闭 | 查看 `docs/questions.md` | 没有与本阶段相关的未决问题 |
 | G9 | 合规 | 人工确认 `data/` 中只有公开财报数据和合成数据 | `HUMAN`（仅 P1 和 P5 结束时检查） |
+
+**Q8 裁定（2026-10-02，用户授权 Codex，选 B）**：保留全库模式扫描，原「无输出」标准仅对 G4③增加已审阅历史示例行例外。例外以 `docs/evidence/G4_example_allowlist.json` 的文件路径及整行 SHA256 为准，不豁免整个 docs，不豁免真实密钥检查。当前 11 个模式命中均已逐行审阅（包括检查语法和示例的引述）。执行 `.venv/Scripts/python scripts/review_20261002.py` 复核：脚本扫描跟踪文件和非忽略未跟踪文件，不输出密钥，检测到 env 被跟踪、真实密钥命中或未登记模式命中时返回非零。禁止执行者自行追加例外；新命中需单独审阅。历史扫描原输出不改写。
+
+**Q10 裁定（同日，选 B）**：允许 GLM 现在修复 prompt/skill 与确认的实现缺陷，不再等待该决策。V4.44 三项验收标准保留，当前结果仍 FAIL-待修复。V4.15/V4.47 已批阅为 FAIL-待修复；修复后重新提交批阅，不得自动标 PASS。完整批注见 `docs/evidence/review_20261002.md`。
 
 ---
 
@@ -125,7 +129,7 @@ Q() { python -c "import duckdb,sys;print(duckdb.connect('data/finsights.duckdb',
 | V1.14 | 披露日期合理 | `Q "SELECT COUNT(*) FROM facts f JOIN periods p USING(company_id,fiscal_year,fiscal_quarter) WHERE f.version='original' AND (f.available_date <= p.period_end OR f.available_date > p.period_end + INTERVAL 150 DAY)"` | 0 |
 | V1.15 | 重述数据处理正确 | `Q "SELECT company_id,fiscal_year,fiscal_quarter,account_code,version,COUNT(*) c FROM facts GROUP BY 1,2,3,4,5 HAVING c>1"`；另外检查每条 restated 的 available_date 都晚于对应 original | 第一条查询 0 行；第二项全部满足 |
 | V1.16 | 来源可追溯 | `Q "SELECT COUNT(*) FROM facts WHERE source_ref IS NULL OR source_ref=''"` | 0 |
-| V1.17 | 联想数据抽检 | 随机抽取 10% 的联想数字（用固定种子生成抽样清单 `docs/evidence/V1.17_sample.csv`，包含 PDF 文件名和页码），由人工核对 | `HUMAN`：人工在清单上逐条标注 ✓/✗，错误率为 0 才通过。2026-10-01 起由两个 AI 模型分别独立核对（不能使用执行者的抽取代码），用户确认最终结果 |
+| V1.17 | 联想数据抽检 | 固定种子抽样清单 `docs/evidence/V1.17_sample.csv` 与既有独立核对记录 | `HUMAN`：2026-10-02 用户直接确认已看过，明确取消第二轮 AI 抽检；本项按用户人工终确认通过，依据见 `docs/evidence/review_20261002.md`。不得描述为两个模型均已完成核对。 |
 | V1.18 | fiscal_year 写法统一 | `Q "SELECT company_id, MIN(fiscal_year), MAX(fiscal_year) FROM periods GROUP BY 1"` | 全部是 4 位数（2017–2027）；联想 FY18 记为 2018 |
 | V1.19 | days 正确 | `Q "SELECT company_id, fiscal_year, fiscal_quarter, days, d FROM (SELECT *, DATEDIFF('day', LAG(period_end) OVER (PARTITION BY company_id ORDER BY period_end), period_end) d FROM periods) WHERE d IS NOT NULL AND d <> days"`；窗口第一期的 days 单独用窗口外那一期的期末日核对 | 0 行；Dell FY2017 Q4 = 98 |
 | V1.20 | 口径连续性 | 脚本 `etl/check_continuity.py`：①列出每个 (公司, 标准科目) 在各年映射的报表行或 XBRL 标签，报表行发生变化的位置标出来；②列出每个科目环比变化超过历年同季度 3σ 的跳变 | 输出 `data/continuity_report.md`；每个映射变化和每个跳变都有一句说明（"真实经营变化"并附证据，或者"口径变化"并已写入 filing_notes，或者"映射错误"并已修复） |
@@ -182,7 +186,7 @@ Q() { python -c "import duckdb,sys;print(duckdb.connect('data/finsights.duckdb',
 | V4.2 | 单位换算核验 | 测试 `find_value`，至少覆盖以下用例 | 全部符合预期 |
 | | | 存储 6123.4 (usd_mn)，claim 61.234 (usd_100mn) | 找到 |
 | | | 存储 0.182 (ratio)，claim 18.2 (pct) | 找到 |
-| | | 存储 6123.4，claim 6150 (usd_mn) | 找不到（超出 0.5%） |
+| | | 存储 6123.4，claim 6250 (usd_mn) | 找不到（超出 0.5%；Q9 于 2026-10-02 裁定 A，修正用例数字，容差不变） |
 | | | claim 引用不存在的 rid | 返回错误，不抛异常 |
 | V4.3 | 渲染格式 | 测试：第一行符合正则 `^\[r\d+\] \w+\(.*\)$`；60 行的结果只显示 50 行，并出现 `recall(` 提示 | 通过 |
 | V4.4 | 工具 schema | 测试：遍历所有工具 | 每个工具都有 pydantic 参数模型；描述中包含"何时使用"；工具列表与 plan 6.4 一致（forecast 在 P6 加入） |
@@ -370,6 +374,7 @@ P4 的任务比较多，可以按 plan 6.11 的子任务分批检查：
 |---|---|---|
 | 2026-10-01 | 初版 | — |
 | 2026-10-01 | G2–G7 的命令移到表格外的代码块；G4 改为按 .env 中的实际密钥值检查；新增正则自检 `G-selftest` | questions.md Q1：表格中的 `\|` 在 ERE 中是字面竖线，导致检查失效 |
+| 2026-10-02 | Q8 全库扫描保留，仅固定路径+行哈希历史例外；Q9 负向用例改 6250、容差不变；Q10 授权修复、验收不放宽；V1.17 用户确认并取消第二轮 AI 抽检 | 用户授权裁定与后续明确指示；见 review_20261002.md |
 | 2026-10-01 | 新增 0.5 联网检查规则；V0.5/V0.6/V4.44 改为 live check；G1 要求离线通过 | questions.md Q3 |
 | 2026-10-01 | 新增 V0.9 thinking 模式显式配置；V0.4/V0.8 不再写死 DeepSeek | questions.md Q2；模型已切换为 agnes-3.0-flash |
 | 2026-10-01 | V1.10 改为 5,000–100,000 加环比 ±50%；V1.11 改用 derivation 字段；V1.17 改为由两个 AI 模型独立核对；新增 V1.18–V1.22 | questions.md Q5、Q6、Q7 |

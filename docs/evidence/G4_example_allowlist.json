@@ -1,0 +1,46 @@
+[
+  {
+    "path": "docs/evidence/G-selftest.txt",
+    "line_sha256": "679002ba3bec5070ebb41fba05539dd0eaa053b0c72de37141f01972daa34a69"
+  },
+  {
+    "path": "docs/evidence/G-selftest.txt",
+    "line_sha256": "ab8990286a3f538fea2bbfdd19a52543afad7caa0a1e7058b5a76fa9f6630be9"
+  },
+  {
+    "path": "docs/evidence/G-selftest.txt",
+    "line_sha256": "1432d7615b13b9ba6f36cea6e9b8d5dc3967429c3ce5659f7c06fdb9c8eec022"
+  },
+  {
+    "path": "docs/evidence/G-selftest.txt",
+    "line_sha256": "d25661f507f5aa093652da88af2b640ced1c8d98e94a47deee5a2716d55a6f5d"
+  },
+  {
+    "path": "docs/evidence/G-selftest.txt",
+    "line_sha256": "e3123758f11a21ebbc9dabe1f1a833481c93d4140a22f93ca6b39a5733ffdaef"
+  },
+  {
+    "path": "docs/evidence/G-selftest.txt",
+    "line_sha256": "b38da36fd0e312dd2d75876452cdee843fc48674a533c18e4d6f41dde37b52e7"
+  },
+  {
+    "path": "docs/questions.md",
+    "line_sha256": "93c1a151ecb9f15bcbb2e03ad4db44dd4a3ec4924b1d597e34aa264570e839b5"
+  },
+  {
+    "path": "docs/questions.md",
+    "line_sha256": "93c1a151ecb9f15bcbb2e03ad4db44dd4a3ec4924b1d597e34aa264570e839b5"
+  },
+  {
+    "path": "docs/verification_log.md",
+    "line_sha256": "254c7416933dc6ca7bbe9c6ffa8ffd72fbc8e2cf6ff217e690fffd695c20d2da"
+  },
+  {
+    "path": "docs/verification_log.md",
+    "line_sha256": "763ead4df14a65b62598b92440c672007c84c4685590e5aff19adbc785121a70"
+  },
+  {
+    "path": "docs/verification_log.md",
+    "line_sha256": "350b4ce24914c82faa96c89a5c1b82a060138e9bcaa7ca82f93d831a647e74cc"
+  }
+]

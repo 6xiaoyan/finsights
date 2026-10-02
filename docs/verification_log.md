@@ -8,7 +8,21 @@
 P0: [x] 全局 G1–G8  [x] V0.1–V0.9（G3 按验证文档 P0 跳过）   tag: phase-P0-done
 ```
 
-> P1/P2/P3 暂不勾选：P1 待 V1.17 第二模型抽检；P2/P3 的全局 G4 因 Q8（docs 历史证据误报范围）BLOCKED 待人工。V3.12 已人工通过（2026-10-01）。详见各阶段小节。
+> 2026-10-02 最新状态：V1.17 已由用户人工终确认，第二轮 AI 抽检已按用户指示取消；Q8/Q9/Q10 决策关闭，G4 复核通过、V4.2 通过。V4.15/V4.47 本次批阅不通过，V4.44 仍待修复；P4 不关闭。各阶段全局验收和 tag 不随这些单项裁定自动通过。下文历史日志保留，最新批阅见下表。
+
+## 2026-10-02 用户授权批阅（最新状态）
+
+| 检查 ID | 状态 | 证据 |
+|---|---|---|
+| Q8 / G4 | CLOSED / PASS | 选 B，精确路径+行哈希例外；只读复核 `.env` 未跟踪、实际密钥命中 0、模式命中 11 个且均已审阅登记；见 `docs/evidence/G4_example_allowlist.json`、`review_20261002.json` |
+| Q9 / V4.2 | CLOSED / PASS | 选 A，将错误负向用例 6150 改为 6250，0.5% 容差不变；已有双向测试覆盖；本轮 123 测试通过 |
+| Q10 / V4.44 | CLOSED / FAIL-待修复 | 选 B，授权现在修 prompt/skill 和相关已确认实现缺陷，重跑同一长任务；不换题、不改通过标准 |
+| V4.15 | REVIEWED-FAIL | no_anomaly 与 seasonal 条件冲突、步骤结论优先级不明确；具体批注与修复要求见 `docs/evidence/review_20261002.md` |
+| V4.47 | REVIEWED-FAIL | 三样本 final.verified 为 false/false/true；SQL 和正文截断、计算输入 SQL 缺失、勾稽差额无结构化数字证据；HP 1473 误报已定位为运行时重复加总 |
+| V1.17 | PASS-USER-CONFIRMED | 用户直接确认已看过并取消第二轮抽检；未宣称第二模型已完成；既有 151/151 Claude 核对记录保留 |
+| G1（本次回归） | PASS | 初次沙箱临时目录权限导致 6 errors；获准沙箱外重跑 `.venv/Scripts/python -m pytest -q` → 123 passed in 19.71s，无阈值/测试改动 |
+
+批阅证据与 GLM 下一步：[review_20261002.md](evidence/review_20261002.md)。本轮未改业务实现、未打阶段 tag；G5 不自判通过，本次批阅修改尚待提交。
 
 ## 全局检查（P0 关闭时执行，2026-10-01）
 

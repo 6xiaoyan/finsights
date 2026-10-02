@@ -1,0 +1,218 @@
+{
+  "date": "2026-10-02",
+  "reviewer": "Codex",
+  "db_sha256": "860558522f16e57c9463ef7b3b0230c7c3f77e3cf9a5e079a3d1b7b68056cac0",
+  "env_tracked": false,
+  "actual_key_match_paths": [],
+  "generic_hits_redacted": [
+    {
+      "path": "docs/evidence/G-selftest.txt",
+      "line": 6,
+      "line_sha256": "679002ba3bec5070ebb41fba05539dd0eaa053b0c72de37141f01972daa34a69",
+      "registered_example": true
+    },
+    {
+      "path": "docs/evidence/G-selftest.txt",
+      "line": 21,
+      "line_sha256": "ab8990286a3f538fea2bbfdd19a52543afad7caa0a1e7058b5a76fa9f6630be9",
+      "registered_example": true
+    },
+    {
+      "path": "docs/evidence/G-selftest.txt",
+      "line": 22,
+      "line_sha256": "1432d7615b13b9ba6f36cea6e9b8d5dc3967429c3ce5659f7c06fdb9c8eec022",
+      "registered_example": true
+    },
+    {
+      "path": "docs/evidence/G-selftest.txt",
+      "line": 23,
+      "line_sha256": "d25661f507f5aa093652da88af2b640ced1c8d98e94a47deee5a2716d55a6f5d",
+      "registered_example": true
+    },
+    {
+      "path": "docs/evidence/G-selftest.txt",
+      "line": 24,
+      "line_sha256": "e3123758f11a21ebbc9dabe1f1a833481c93d4140a22f93ca6b39a5733ffdaef",
+      "registered_example": true
+    },
+    {
+      "path": "docs/evidence/G-selftest.txt",
+      "line": 35,
+      "line_sha256": "b38da36fd0e312dd2d75876452cdee843fc48674a533c18e4d6f41dde37b52e7",
+      "registered_example": true
+    },
+    {
+      "path": "docs/questions.md",
+      "line": 221,
+      "line_sha256": "93c1a151ecb9f15bcbb2e03ad4db44dd4a3ec4924b1d597e34aa264570e839b5",
+      "registered_example": true
+    },
+    {
+      "path": "docs/questions.md",
+      "line": 221,
+      "line_sha256": "93c1a151ecb9f15bcbb2e03ad4db44dd4a3ec4924b1d597e34aa264570e839b5",
+      "registered_example": true
+    },
+    {
+      "path": "docs/verification_log.md",
+      "line": 31,
+      "line_sha256": "254c7416933dc6ca7bbe9c6ffa8ffd72fbc8e2cf6ff217e690fffd695c20d2da",
+      "registered_example": true
+    },
+    {
+      "path": "docs/verification_log.md",
+      "line": 35,
+      "line_sha256": "763ead4df14a65b62598b92440c672007c84c4685590e5aff19adbc785121a70",
+      "registered_example": true
+    },
+    {
+      "path": "docs/verification_log.md",
+      "line": 135,
+      "line_sha256": "350b4ce24914c82faa96c89a5c1b82a060138e9bcaa7ca82f93d831a647e74cc",
+      "registered_example": true
+    }
+  ],
+  "hp_identity": {
+    "sql": "SELECT account_code, value FROM facts\nWHERE company_id='HP' AND fiscal_year=2024 AND fiscal_quarter=3 AND version='original'\nAND account_code IN ('total_liabilities','total_current_liabilities','long_term_debt',\n'other_noncurrent_liabilities','deferred_revenue_noncurrent') ORDER BY 1",
+    "values": {
+      "deferred_revenue_noncurrent": 1473.0,
+      "long_term_debt": 8229.0,
+      "other_noncurrent_liabilities": 4179.0,
+      "total_current_liabilities": 27043.0,
+      "total_liabilities": 39451.0
+    },
+    "sum_without_nested_deferred_revenue": 39451.0,
+    "sum_with_nested_deferred_revenue": 40924.0
+  },
+  "v447_traces": [
+    {
+      "file": "l2_0003_3.jsonl",
+      "final": {
+        "qid": "l2_0003",
+        "trial": 3,
+        "type": "final",
+        "status": "answered",
+        "verified": false,
+        "claims": [
+          {
+            "text": "HP FY2025Q3 DIO",
+            "value": 68.6243,
+            "unit": "天",
+            "ref": "r1"
+          },
+          {
+            "text": "存货平均余额",
+            "value": 8265.5,
+            "unit": "百万美元",
+            "ref": "r1"
+          },
+          {
+            "text": "销售成本",
+            "value": 11081.0,
+            "unit": "百万美元",
+            "ref": "r1"
+          },
+          {
+            "text": "该季实际天数",
+            "value": 92.0,
+            "unit": "天",
+            "ref": "r1"
+          }
+        ]
+      },
+      "result": {
+        "qid": "l2_0003",
+        "trial": 3,
+        "type": "result",
+        "category": "L2",
+        "correct": true,
+        "status": "answered",
+        "steps": 7,
+        "tool_calls": 8,
+        "sql_errors": 1,
+        "prompt_tokens": 31597,
+        "completion_tokens": 1315,
+        "cost_usd": 0.001777,
+        "latency_s": 105.08,
+        "detail": "claim 68.6243 ≈ gold 68.62",
+        "answer_md": "**HP FY2025Q3 的存货周转天数（DIO）为 68.62 天。**\n\n计算口径（工具统一，平均余额口径）：\n- 存货平均余额 = 8265.5 百万美元\n- 销售成本 = 11081 百万美元\n- 该季实际天数 = 92 天\n- DIO = 8265.5 ÷ 11081 × 92 = 68.62 天\n\n补充：核验阶段发现 HP 资产负债表在 FY25Q2 与 FY25Q3 存在 total_liabilities 与其分项之和不一致（勾稽校验命中），且对应期间附注为空。该差异不涉及存货与销售成本，DIO 计算不受影响；如需进一步排查负债口径差异请告知。\n\n⚠ 未通过验证（护栏反馈：答案未通过核验，请修正后重新提交 final_answer：\n1. 勾稽违反：HP FY2025Q2: total_liabilities 分项和 41619.0 ≠ 40075.0\n2. 勾稽违反：HP FY2025Q3: total_liabilities 分项和 42343.0 ≠ 40755.0）"
+      }
+    },
+    {
+      "file": "l1_0002_1.jsonl",
+      "final": {
+        "qid": "l1_0002",
+        "trial": 1,
+        "type": "final",
+        "status": "answered",
+        "verified": false,
+        "claims": [
+          {
+            "text": "2024Q3（自然季度）末 HP 总资产",
+            "value": 38059.0,
+            "unit": "百万美元",
+            "ref": "r1"
+          },
+          {
+            "text": "HP FY2024Q3 负债勾稽差异（分项和-总额）",
+            "value": 1473.0,
+            "unit": "百万美元",
+            "ref": "r2"
+          }
+        ]
+      },
+      "result": {
+        "qid": "l1_0002",
+        "trial": 1,
+        "type": "result",
+        "category": "L1",
+        "correct": true,
+        "status": "answered",
+        "steps": 6,
+        "tool_calls": 6,
+        "sql_errors": 0,
+        "prompt_tokens": 23731,
+        "completion_tokens": 661,
+        "cost_usd": 0.001286,
+        "latency_s": 56.05,
+        "detail": "claim 38059.0 ≈ gold 38059.0",
+        "answer_md": "按自然季度计算，2024 年第三季度末，HP 的总资产为 **38,059 百万美元**。\n\n（注：HP FY2024Q3 资产负债表存在勾稽异常：负债分项合计 40,924 ≠ 总负债 39,451，差额 1,473 百万美元，可能涉及数据质量问题，建议以原始披露为准。）\n\n⚠ 未通过验证（护栏反馈：答案未通过核验，请修正后重新提交 final_answer：\n1. claim 2 的数值 1473.0（百万美元）在 r2 中找不到——结果中没有数值\n2. 正文中的数字 40,924 没有对应的 claim（应来自工具结果并在 claims 里引用 rid）\n3. 正文中的数字 39,451 没有对应的 claim（应来自工具结果并在 claims 里引用 rid）\n4. 勾稽违反：HP FY2024Q3: total_liabilities 分项和 40924.0 ≠ 39451.0）"
+      }
+    },
+    {
+      "file": "l1_0001_1.jsonl",
+      "final": {
+        "qid": "l1_0001",
+        "trial": 1,
+        "type": "final",
+        "status": "answered",
+        "verified": true,
+        "claims": [
+          {
+            "text": "联想 FY2024Q3 存货",
+            "value": 6218.91,
+            "unit": "usd_mn",
+            "ref": "r1"
+          }
+        ]
+      },
+      "result": {
+        "qid": "l1_0001",
+        "trial": 1,
+        "type": "result",
+        "category": "L1",
+        "correct": true,
+        "status": "answered",
+        "steps": 3,
+        "tool_calls": 3,
+        "sql_errors": 0,
+        "prompt_tokens": 10907,
+        "completion_tokens": 354,
+        "cost_usd": 0.000598,
+        "latency_s": 61.98,
+        "detail": "claim 6218.91 ≈ gold 6218.91",
+        "answer_md": "联想 FY2024 第三季度（对应自然季度 2023Q4）的存货为 **6,218.91 百万美元**。"
+      }
+    }
+  ]
+}
