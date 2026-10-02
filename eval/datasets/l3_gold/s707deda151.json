@@ -1,0 +1,21 @@
+{
+  "type": "company_specific",
+  "label": "company_specific",
+  "account": "inventory",
+  "direction": "down",
+  "companies": [
+    "HP"
+  ],
+  "calendar_quarter": "2024Q2",
+  "deltas_mn": {
+    "HP": -2863.837
+  },
+  "notes": [],
+  "scenario_id": "s707deda151",
+  "seed": 396895722,
+  "magnitude_sigma": 3.171,
+  "must_not_claim": [
+    "seasonal",
+    "industry_wide"
+  ]
+}

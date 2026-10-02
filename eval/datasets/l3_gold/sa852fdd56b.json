@@ -1,0 +1,21 @@
+{
+  "type": "none",
+  "label": "no_anomaly",
+  "account": "inventory",
+  "direction": "up",
+  "companies": [
+    "Lenovo"
+  ],
+  "calendar_quarter": "2022Q1",
+  "deltas_mn": {},
+  "notes": [],
+  "scenario_id": "sa852fdd56b",
+  "seed": 1007619108,
+  "magnitude_sigma": 3.06,
+  "must_not_claim": [
+    "company_specific",
+    "industry_wide",
+    "mix_shift",
+    "reclassification"
+  ]
+}

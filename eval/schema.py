@@ -24,7 +24,7 @@ class Question(BaseModel):
     question: str
     db: str = "base"                       # base 或场景 id（P5）
     as_of: str | None = None               # P6 使用
-    gold: Gold
+    gold: Gold | None = None               # L3 的 gold 在 eval/datasets/l3_gold/<db>.json（此处置空）
     gold_sql: str | None = None            # 标准答案 SQL（L1；L2 可为输入取数 SQL）
     gold_method: dict | None = None        # L2：{"fn": "working_capital.ccc", "args": {...}}，V3.2 复算依据
     tags: list[str] = []

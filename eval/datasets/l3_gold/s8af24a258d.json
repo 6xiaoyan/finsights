@@ -1,0 +1,24 @@
+{
+  "type": "mix_shift",
+  "label": "mix_shift",
+  "account": "accounts_payable",
+  "direction": "down",
+  "companies": [
+    "HP"
+  ],
+  "calendar_quarter": "2021Q2",
+  "deltas_mn": {
+    "HP": 2474.616
+  },
+  "notes": [],
+  "mix": {
+    "from": "accounts_receivable",
+    "to": "other_current_assets"
+  },
+  "scenario_id": "s8af24a258d",
+  "seed": 921285523,
+  "magnitude_sigma": 3.071,
+  "must_not_claim": [
+    "industry_wide"
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "type": "mix_shift",
+  "label": "mix_shift",
+  "account": "accounts_receivable",
+  "direction": "down",
+  "companies": [
+    "Dell"
+  ],
+  "calendar_quarter": "2024Q4",
+  "deltas_mn": {
+    "Dell": 6633.346
+  },
+  "notes": [],
+  "mix": {
+    "from": "accounts_receivable",
+    "to": "other_current_assets"
+  },
+  "scenario_id": "sdb10630d82",
+  "seed": 204161584,
+  "magnitude_sigma": 2.542,
+  "must_not_claim": [
+    "industry_wide"
+  ]
+}

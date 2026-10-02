@@ -28,7 +28,7 @@ RUNS = Path("runs")
 REPORTS = Path("eval/reports")
 DATASETS = Path("eval/datasets")
 
-AgentFn = Callable[[str], tuple[Answer, dict]]  # (question_text) -> (Answer, info)
+AgentFn = Callable[[Question], tuple[Answer, dict]]  # (Question) -> (Answer, info)；db 路由在 make_agent 内
 
 
 def load_questions(datasets: str) -> list[Question]:
@@ -63,12 +63,18 @@ def make_agent(name: str, limiter: RateLimiter) -> AgentFn:
         from agent.llm import LLMClient
         from agent.v0 import run as run_v0
         client = LLMClient()
-        return lambda q: run_v0(q, llm=client, limiter=limiter)
+        return lambda q: run_v0(q.question, llm=client, limiter=limiter)
     if name == "v1":
         from agent.llm import LLMClient
         from agent.v1 import run as run_v1
         client = LLMClient()
-        return lambda q: run_v1(q, llm=client, limiter=limiter)
+
+        def _v1(q):
+            from agent.v1 import DB_PATH
+            from eval.generators.inject import SCENARIO_DIR
+            db = DB_PATH if q.db in ("", "base") else SCENARIO_DIR / f"{q.db}.duckdb"
+            return run_v1(q.question, llm=client, limiter=limiter, db_path=db)
+        return _v1
     raise KeyError(f"未知 agent: {name}（可用: v0, v1；更后面的版本在对应阶段加入）")
 
 
@@ -76,7 +82,7 @@ RATE_RETRY_MAX = 3        # 429 耗尽 llm 内部重试后，整个 trial 重做
 RATE_RETRY_WAIT_S = 180   # 重做前等待秒数 × 次数（免费档配额按分钟窗口恢复）
 
 
-def _call_with_rate_retry(agent_fn: AgentFn, question: str) -> tuple[Answer, dict]:
+def _call_with_rate_retry(agent_fn: AgentFn, question) -> tuple[Answer, dict]:
     """429 属于配额窗口问题，等待后整 trial 重做；其他异常原样抛出（由 one() 记为 error）。"""
     for attempt in range(RATE_RETRY_MAX + 1):
         try:
@@ -120,8 +126,8 @@ def run_suite(questions: list[Question], agent_fn: AgentFn, trials: int, run_id:
         answer: Answer | None = None
         info: dict = {}
         try:
-            answer, info = _call_with_rate_retry(agent_fn, q.question)
-            grade = get_grader(q.category)(q, answer)
+            answer, info = _call_with_rate_retry(agent_fn, q)
+            grade = get_grader(q.category)(q, answer, info.get("trace", []))
             latency = info.get("latency_s", round(time.time() - t0, 2))
             cost = (info.get("prompt_tokens", 0) * pin + info.get("completion_tokens", 0) * pout) / 1e6
             rec = {"qid": q.id, "category": q.category, "trial": trial,

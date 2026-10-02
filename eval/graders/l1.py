@@ -4,7 +4,7 @@ from __future__ import annotations
 from eval.schema import Answer, Question
 
 
-def grade(question: Question, answer: Answer) -> dict:
+def grade(question: Question, answer: Answer, trace: list | None = None) -> dict:
     gold = question.gold
     if answer.status != "answered":
         return {"correct": False, "detail": f"status={answer.status}"}

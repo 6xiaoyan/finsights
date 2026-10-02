@@ -4,8 +4,8 @@ from __future__ import annotations
 from importlib import import_module
 from typing import Callable
 
-_REGISTRY: dict[str, str] = {"L1": "eval.graders.l1", "L2": "eval.graders.l2"}
-# L3–L6 在 P5/P6/P7 加入：eval.graders.l3 …（届时在此登记）
+_REGISTRY: dict[str, str] = {"L1": "eval.graders.l1", "L2": "eval.graders.l2", "L3": "eval.graders.l3"}
+# L4–L6 在 P6/P7 加入。
 
 
 def get_grader(category: str) -> Callable[[object, object], dict]:

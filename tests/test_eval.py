@@ -65,8 +65,7 @@ def test_v3_3_coverage():
 # ---------- V3.4–V3.6 打分器自检（mock agent） ----------
 
 def _mock_agent_factory(qs: list[Question], multiplier: float):
-    def mock_agent(question_text: str) -> tuple[Answer, dict]:
-        q = next(x for x in qs if x.question == question_text)
+    def mock_agent(q) -> tuple[Answer, dict]:  # 现在直接收 Question 对象（runner 路由 db 用）
         ans = Answer(answer_md="mock 答案", status="answered",
                      claims=[Claim(text="值", value=q.gold.value * multiplier, unit=q.gold.unit)])
         return ans, {"trace": [{"type": "assistant", "step": 0}], "steps": 1,

@@ -319,3 +319,20 @@ trace 事件；摘要冻结进 `CompState`，重建不再调 LLM、视图逐字�
 | 步骤 6：再交批阅 | 部分 | 本表即 V4.15 修订与 V4.47 材料的提交说明；V4.44 未达标、两项批阅未回前不打 phase-P4-done |
 
 其他：verifier 勾稽反馈改用结构化数值（含 A-L-E 命名兼容、缺失清单）；result digest 排除布尔列；G4 allowlist 机制按 Q8-CLOSED 执行（G4_example_allowlist.json + 整行 SHA256）。回归：pytest 125 passed（新增 HP 口径回归/反向/NaN 三测试 + skills 新断言）。
+
+## P5 异常注入 + L3 评测集（2026-10-02，离线部分）
+
+| 检查 ID | 状态 | 证据 | commit |
+|---|---|---|---|
+| V5.1 | PASS | 30 个场景（company_specific/industry_wide/mix_shift/reclassification 各 5 + 阴性 10），gold 文件数一致（test_v5_1） | （本次） |
+| V5.2 | PASS | 30 个场景库逐期 A=L+E 与分项闭合（test_v5_2，HP 用不含 dr_nc 的树） | （本次） |
+| V5.3 | PASS | 30 个场景 vs 基础库 diff：改动仅落在 {注入科目, 对手科目, 各级合计} ∪ {mix/reclass 的两侧科目}，公司范围与类型一致（本轮脚本核对，全符合） | （本次） |
+| V5.4 | PASS | |Δ|/σ ∈ [2.5, 4]（industry_wide 含 ±20% 抖动为 [2.0, 4.8]）（test_v5_4） | （本次） |
+| V5.5 | PASS | 注入/阴性选期的真实 |z| < 1（test_v5_5） | （本次） |
+| V5.6 | PASS | 场景库文件名为随机 id、无类型词；库内表 = 附录 B 的 6 张表、无 gold 表；阴性对照 10 个独立场景库（test_v5_6） | （本次） |
+| V5.7 | PASS | 同种子重建同一场景，facts 的 MD5 一致（test_v5_7） | （本次） |
+| V5.8 | PASS | 三 mock 自检：标准答案 top-1=100%；永远 company_specific → 阴性误报率 100%；永远 no_anomaly → 注入题 top-1=0（test_v5_8） | （本次） |
+| V5.9 | PASS | must_not_claim 命中被计为误归因（test_v5_9） | （本次） |
+| V5.11 | PASS（附 Q11） | docs/evidence/V5.11.csv：|z|>2.0 候选 2 条；阈值偏离原因与裁定选项见 questions.md Q11 | （本次） |
+| V5.10 | 待 live | L3 报告在 v1 跑完 3 次 × 30 题后生成（打分器与聚合函数已就绪：aggregate） | — |
+| 附注 | — | 联想 net_income 标签变体（期内/年内、內/内 字形、跨页）已修复并纳入 extract；注入只动资产负债表科目（plan 7.2 第一版约束） | — |

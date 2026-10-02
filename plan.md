@@ -725,6 +725,8 @@ def inject(base_db, inj: Injection) -> tuple[str, dict]   # 返回场景库路�
 | 2026-10-01 | 评测集总规模固定为 30 题（L1 4、L2 6、L3 8、L4 4、L5 3、L6 5）；新增 bad case 档案；judge 改为参考，以人工阅读为准；压缩实验复用 L3 和 L5 的题 | 用户决策：用于面试，重点是 bad case 和改进 |
 | 2026-10-01 | 附录 A 新增 financing_receivables（只含流动部分）、deferred_revenue_noncurrent；附录 B 新增 derivation 字段；fiscal_year 统一为 4 位数；Q4 倒算优先用全年 − 9M YTD | questions.md Q4、Q6、Q7 |
 | 2026-10-02 | fincalc 勾稽接口拆分：check_identities（字符串列表，兼容）+ check_identities_detail（结构化数值行，供 verifier/V4.47 引用）；IDENTITY_TREES 增 HP 特例（total_liabilities 分项不含 deferred_revenue_noncurrent——其 "Other liabilities" 行已含该项）；working_capital / check_identities 工具保留底层取数 SQL；V4.47 导出增强（全文/全 claims/rid 对照/完整 SQL/派生公式/data_version/核验结果，重放 rid 加前缀） | 批阅 review_20261002.md：V4.15/V4.47 REVIEWED-FAIL 六步收尾清单 |
+| 2026-10-02 | P5：L3 gold 与题目分离（Question.gold 可选，标准答案存 eval/datasets/l3_gold/<scenario_id>.json）；打分器签名统一为 (question, answer, trace=None)；runner 按 question.db 路由 data/scenarios/<sid>.duckdb；阴性对照使用独立"空注入"场景库 | P5.1/P5.3 实现（plan 7.1/7.3） |
+| 2026-10-02 | V5.11 阈值 2.5 → 2.0：同季度样本 n≤8 时 z 上限 ≈ (n-1)/sqrt(n) ≈ 2.47，原阈值数学上不可达 | questions.md Q11（待人工确认或改稳健排序法） |
 | 2026-10-01 | 答复 questions.md Q1–Q3：thinking 显式关闭；live check 不进 pytest；verify.md 正则修正。正文中写死 DeepSeek 的地方改为模型无关的写法 | 人工答复 |
 | 2026-10-01 | LLM 由 DeepSeek V4.1 Flash 切换为 Agnes AI `agnes-3.0-flash`（限时免费）；`config.yaml` 的 base_url / model / context.window 同步更新（512K） | 用户决策：成本考虑；PRD 4.6 已加批注 |
 

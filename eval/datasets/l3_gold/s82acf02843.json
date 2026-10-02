@@ -1,0 +1,21 @@
+{
+  "type": "none",
+  "label": "no_anomaly",
+  "account": "accounts_receivable",
+  "direction": "up",
+  "companies": [
+    "HP"
+  ],
+  "calendar_quarter": "2018Q4",
+  "deltas_mn": {},
+  "notes": [],
+  "scenario_id": "s82acf02843",
+  "seed": 593711816,
+  "magnitude_sigma": 2.596,
+  "must_not_claim": [
+    "company_specific",
+    "industry_wide",
+    "mix_shift",
+    "reclassification"
+  ]
+}
