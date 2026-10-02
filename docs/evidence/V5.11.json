@@ -367,7 +367,7 @@
    ],
    "event_type": "unexplained_anomaly",
    "event_description": "accounts_payable 环比变化相对历年同季度基线 z=+3.505（|z|>2.0），方向上升",
-   "selection_reason": "数据路径：|z|=3.505>2.0（Q11 降阈值，基线上限≈2.47）",
+   "selection_reason": "数据路径：|z|=3.505>2.0（Q11 阈值 2.0；基线排除当前点后 |z| 无上界，旧 2.47 上限论仅适用于含当前点基线）",
    "affected_metrics": [
     "accounts_payable"
    ],
@@ -378,7 +378,7 @@
    "source_quote": null,
    "competing_explanations": null,
    "missing_data": "本地披露语料无此公司正文，无法核对管理层解释",
-   "evidence_limits": "z 基线样本仅 7–8 个同财季环比（|z| 理论上限≈2.47，Q11）；候选只说明“该期该科目变化异常”，原因须披露/人工佐证。 该公司/期叙述段未检索到对应正文。",
+   "evidence_limits": "z 基线为 7–9 个同财季环比且排除当前点（Q11 阈值 2.0；排除自身后 |z| 可超旧上限 2.47）；候选只说明“该期该科目变化异常”，原因须披露/人工佐证。 该公司/期叙述段未检索到对应正文。",
    "review_status": "pending_human(V5.12)",
    "method_version": "v511-r3（双路径汇合，全字段 schema，handoff 步骤3）",
    "split": "holdout"
@@ -395,7 +395,7 @@
    ],
    "event_type": "unexplained_anomaly",
    "event_description": "accounts_payable 环比变化相对历年同季度基线 z=-2.302（|z|>2.0），方向下降",
-   "selection_reason": "数据路径：|z|=2.302>2.0（Q11 降阈值，基线上限≈2.47）",
+   "selection_reason": "数据路径：|z|=2.302>2.0（Q11 阈值 2.0；基线排除当前点后 |z| 无上界，旧 2.47 上限论仅适用于含当前点基线）",
    "affected_metrics": [
     "accounts_payable"
    ],
@@ -406,7 +406,7 @@
    "source_quote": null,
    "competing_explanations": null,
    "missing_data": "本地披露语料无此公司正文，无法核对管理层解释",
-   "evidence_limits": "z 基线样本仅 7–8 个同财季环比（|z| 理论上限≈2.47，Q11）；候选只说明“该期该科目变化异常”，原因须披露/人工佐证。 该公司/期叙述段未检索到对应正文。",
+   "evidence_limits": "z 基线为 7–9 个同财季环比且排除当前点（Q11 阈值 2.0；排除自身后 |z| 可超旧上限 2.47）；候选只说明“该期该科目变化异常”，原因须披露/人工佐证。 该公司/期叙述段未检索到对应正文。",
    "review_status": "pending_human(V5.12)",
    "method_version": "v511-r3（双路径汇合，全字段 schema，handoff 步骤3）",
    "split": "holdout"
@@ -423,7 +423,7 @@
    ],
    "event_type": "unexplained_anomaly",
    "event_description": "inventory 环比变化相对历年同季度基线 z=+3.818（|z|>2.0），方向上升",
-   "selection_reason": "数据路径：|z|=3.818>2.0（Q11 降阈值，基线上限≈2.47）",
+   "selection_reason": "数据路径：|z|=3.818>2.0（Q11 阈值 2.0；基线排除当前点后 |z| 无上界，旧 2.47 上限论仅适用于含当前点基线）",
    "affected_metrics": [
     "inventory"
    ],
@@ -434,7 +434,7 @@
    "source_quote": null,
    "competing_explanations": null,
    "missing_data": "本地披露语料无此公司正文，无法核对管理层解释",
-   "evidence_limits": "z 基线样本仅 7–8 个同财季环比（|z| 理论上限≈2.47，Q11）；候选只说明“该期该科目变化异常”，原因须披露/人工佐证。 该公司/期叙述段未检索到对应正文。",
+   "evidence_limits": "z 基线为 7–9 个同财季环比且排除当前点（Q11 阈值 2.0；排除自身后 |z| 可超旧上限 2.47）；候选只说明“该期该科目变化异常”，原因须披露/人工佐证。 该公司/期叙述段未检索到对应正文。",
    "review_status": "pending_human(V5.12)",
    "method_version": "v511-r3（双路径汇合，全字段 schema，handoff 步骤3）",
    "split": "holdout"
@@ -451,7 +451,7 @@
    ],
    "event_type": "unexplained_anomaly",
    "event_description": "accounts_payable 环比变化相对历年同季度基线 z=+3.411（|z|>2.0），方向上升",
-   "selection_reason": "数据路径：|z|=3.411>2.0（Q11 降阈值，基线上限≈2.47）",
+   "selection_reason": "数据路径：|z|=3.411>2.0（Q11 阈值 2.0；基线排除当前点后 |z| 无上界，旧 2.47 上限论仅适用于含当前点基线）",
    "affected_metrics": [
     "accounts_payable"
    ],
@@ -462,7 +462,7 @@
    "source_quote": null,
    "competing_explanations": null,
    "missing_data": "本地披露语料无此公司正文，无法核对管理层解释",
-   "evidence_limits": "z 基线样本仅 7–8 个同财季环比（|z| 理论上限≈2.47，Q11）；候选只说明“该期该科目变化异常”，原因须披露/人工佐证。 该公司/期叙述段未检索到对应正文。",
+   "evidence_limits": "z 基线为 7–9 个同财季环比且排除当前点（Q11 阈值 2.0；排除自身后 |z| 可超旧上限 2.47）；候选只说明“该期该科目变化异常”，原因须披露/人工佐证。 该公司/期叙述段未检索到对应正文。",
    "review_status": "pending_human(V5.12)",
    "method_version": "v511-r3（双路径汇合，全字段 schema，handoff 步骤3）",
    "split": "holdout"
@@ -479,7 +479,7 @@
    ],
    "event_type": "unexplained_anomaly",
    "event_description": "accounts_payable 环比变化相对历年同季度基线 z=-4.250（|z|>2.0），方向下降",
-   "selection_reason": "数据路径：|z|=4.250>2.0（Q11 降阈值，基线上限≈2.47）",
+   "selection_reason": "数据路径：|z|=4.250>2.0（Q11 阈值 2.0；基线排除当前点后 |z| 无上界，旧 2.47 上限论仅适用于含当前点基线）",
    "affected_metrics": [
     "accounts_payable"
    ],
@@ -490,7 +490,7 @@
    "source_quote": null,
    "competing_explanations": null,
    "missing_data": "本地披露语料无此公司正文，无法核对管理层解释",
-   "evidence_limits": "z 基线样本仅 7–8 个同财季环比（|z| 理论上限≈2.47，Q11）；候选只说明“该期该科目变化异常”，原因须披露/人工佐证。 该公司/期叙述段未检索到对应正文。",
+   "evidence_limits": "z 基线为 7–9 个同财季环比且排除当前点（Q11 阈值 2.0；排除自身后 |z| 可超旧上限 2.47）；候选只说明“该期该科目变化异常”，原因须披露/人工佐证。 该公司/期叙述段未检索到对应正文。",
    "review_status": "pending_human(V5.12)",
    "method_version": "v511-r3（双路径汇合，全字段 schema，handoff 步骤3）",
    "split": "holdout"
@@ -507,7 +507,7 @@
    ],
    "event_type": "unexplained_anomaly",
    "event_description": "accounts_payable 环比变化相对历年同季度基线 z=+2.977（|z|>2.0），方向上升",
-   "selection_reason": "数据路径：|z|=2.977>2.0（Q11 降阈值，基线上限≈2.47）",
+   "selection_reason": "数据路径：|z|=2.977>2.0（Q11 阈值 2.0；基线排除当前点后 |z| 无上界，旧 2.47 上限论仅适用于含当前点基线）",
    "affected_metrics": [
     "accounts_payable"
    ],
@@ -518,7 +518,7 @@
    "source_quote": null,
    "competing_explanations": null,
    "missing_data": "本地披露语料无此公司正文，无法核对管理层解释",
-   "evidence_limits": "z 基线样本仅 7–8 个同财季环比（|z| 理论上限≈2.47，Q11）；候选只说明“该期该科目变化异常”，原因须披露/人工佐证。 该公司/期叙述段未检索到对应正文。",
+   "evidence_limits": "z 基线为 7–9 个同财季环比且排除当前点（Q11 阈值 2.0；排除自身后 |z| 可超旧上限 2.47）；候选只说明“该期该科目变化异常”，原因须披露/人工佐证。 该公司/期叙述段未检索到对应正文。",
    "review_status": "pending_human(V5.12)",
    "method_version": "v511-r3（双路径汇合，全字段 schema，handoff 步骤3）",
    "split": "holdout"
@@ -535,7 +535,7 @@
    ],
    "event_type": "unexplained_anomaly",
    "event_description": "accounts_receivable 环比变化相对历年同季度基线 z=-3.112（|z|>2.0），方向下降",
-   "selection_reason": "数据路径：|z|=3.112>2.0（Q11 降阈值，基线上限≈2.47）",
+   "selection_reason": "数据路径：|z|=3.112>2.0（Q11 阈值 2.0；基线排除当前点后 |z| 无上界，旧 2.47 上限论仅适用于含当前点基线）",
    "affected_metrics": [
     "accounts_receivable"
    ],
@@ -546,7 +546,7 @@
    "source_quote": null,
    "competing_explanations": null,
    "missing_data": "本地披露语料无此公司正文，无法核对管理层解释",
-   "evidence_limits": "z 基线样本仅 7–8 个同财季环比（|z| 理论上限≈2.47，Q11）；候选只说明“该期该科目变化异常”，原因须披露/人工佐证。 该公司/期叙述段未检索到对应正文。",
+   "evidence_limits": "z 基线为 7–9 个同财季环比且排除当前点（Q11 阈值 2.0；排除自身后 |z| 可超旧上限 2.47）；候选只说明“该期该科目变化异常”，原因须披露/人工佐证。 该公司/期叙述段未检索到对应正文。",
    "review_status": "pending_human(V5.12)",
    "method_version": "v511-r3（双路径汇合，全字段 schema，handoff 步骤3）",
    "split": "holdout"
@@ -563,7 +563,7 @@
    ],
    "event_type": "unexplained_anomaly",
    "event_description": "accounts_receivable 环比变化相对历年同季度基线 z=-2.311（|z|>2.0），方向下降",
-   "selection_reason": "数据路径：|z|=2.311>2.0（Q11 降阈值，基线上限≈2.47）",
+   "selection_reason": "数据路径：|z|=2.311>2.0（Q11 阈值 2.0；基线排除当前点后 |z| 无上界，旧 2.47 上限论仅适用于含当前点基线）",
    "affected_metrics": [
     "accounts_receivable"
    ],
@@ -574,7 +574,7 @@
    "source_quote": null,
    "competing_explanations": null,
    "missing_data": "本地披露语料无此公司正文，无法核对管理层解释",
-   "evidence_limits": "z 基线样本仅 7–8 个同财季环比（|z| 理论上限≈2.47，Q11）；候选只说明“该期该科目变化异常”，原因须披露/人工佐证。 该公司/期叙述段未检索到对应正文。",
+   "evidence_limits": "z 基线为 7–9 个同财季环比且排除当前点（Q11 阈值 2.0；排除自身后 |z| 可超旧上限 2.47）；候选只说明“该期该科目变化异常”，原因须披露/人工佐证。 该公司/期叙述段未检索到对应正文。",
    "review_status": "pending_human(V5.12)",
    "method_version": "v511-r3（双路径汇合，全字段 schema，handoff 步骤3）",
    "split": "holdout"
@@ -591,7 +591,7 @@
    ],
    "event_type": "unexplained_anomaly",
    "event_description": "accounts_receivable 环比变化相对历年同季度基线 z=-3.446（|z|>2.0），方向下降",
-   "selection_reason": "数据路径：|z|=3.446>2.0（Q11 降阈值，基线上限≈2.47）",
+   "selection_reason": "数据路径：|z|=3.446>2.0（Q11 阈值 2.0；基线排除当前点后 |z| 无上界，旧 2.47 上限论仅适用于含当前点基线）",
    "affected_metrics": [
     "accounts_receivable"
    ],
@@ -602,7 +602,7 @@
    "source_quote": null,
    "competing_explanations": null,
    "missing_data": "本地披露语料无此公司正文，无法核对管理层解释",
-   "evidence_limits": "z 基线样本仅 7–8 个同财季环比（|z| 理论上限≈2.47，Q11）；候选只说明“该期该科目变化异常”，原因须披露/人工佐证。 该公司/期叙述段未检索到对应正文。",
+   "evidence_limits": "z 基线为 7–9 个同财季环比且排除当前点（Q11 阈值 2.0；排除自身后 |z| 可超旧上限 2.47）；候选只说明“该期该科目变化异常”，原因须披露/人工佐证。 该公司/期叙述段未检索到对应正文。",
    "review_status": "pending_human(V5.12)",
    "method_version": "v511-r3（双路径汇合，全字段 schema，handoff 步骤3）",
    "split": "holdout"
@@ -619,7 +619,7 @@
    ],
    "event_type": "unexplained_anomaly",
    "event_description": "accounts_receivable 环比变化相对历年同季度基线 z=-2.398（|z|>2.0），方向下降",
-   "selection_reason": "数据路径：|z|=2.398>2.0（Q11 降阈值，基线上限≈2.47）",
+   "selection_reason": "数据路径：|z|=2.398>2.0（Q11 阈值 2.0；基线排除当前点后 |z| 无上界，旧 2.47 上限论仅适用于含当前点基线）",
    "affected_metrics": [
     "accounts_receivable"
    ],
@@ -630,7 +630,7 @@
    "source_quote": null,
    "competing_explanations": null,
    "missing_data": "本地披露语料无此公司正文，无法核对管理层解释",
-   "evidence_limits": "z 基线样本仅 7–8 个同财季环比（|z| 理论上限≈2.47，Q11）；候选只说明“该期该科目变化异常”，原因须披露/人工佐证。 该公司/期叙述段未检索到对应正文。",
+   "evidence_limits": "z 基线为 7–9 个同财季环比且排除当前点（Q11 阈值 2.0；排除自身后 |z| 可超旧上限 2.47）；候选只说明“该期该科目变化异常”，原因须披露/人工佐证。 该公司/期叙述段未检索到对应正文。",
    "review_status": "pending_human(V5.12)",
    "method_version": "v511-r3（双路径汇合，全字段 schema，handoff 步骤3）",
    "split": "holdout"
@@ -647,7 +647,7 @@
    ],
    "event_type": "unexplained_anomaly",
    "event_description": "inventory 环比变化相对历年同季度基线 z=-2.077（|z|>2.0），方向下降",
-   "selection_reason": "数据路径：|z|=2.077>2.0（Q11 降阈值，基线上限≈2.47）",
+   "selection_reason": "数据路径：|z|=2.077>2.0（Q11 阈值 2.0；基线排除当前点后 |z| 无上界，旧 2.47 上限论仅适用于含当前点基线）",
    "affected_metrics": [
     "inventory"
    ],
@@ -658,7 +658,7 @@
    "source_quote": null,
    "competing_explanations": null,
    "missing_data": "本地披露语料无此公司正文，无法核对管理层解释",
-   "evidence_limits": "z 基线样本仅 7–8 个同财季环比（|z| 理论上限≈2.47，Q11）；候选只说明“该期该科目变化异常”，原因须披露/人工佐证。 该公司/期叙述段未检索到对应正文。",
+   "evidence_limits": "z 基线为 7–9 个同财季环比且排除当前点（Q11 阈值 2.0；排除自身后 |z| 可超旧上限 2.47）；候选只说明“该期该科目变化异常”，原因须披露/人工佐证。 该公司/期叙述段未检索到对应正文。",
    "review_status": "pending_human(V5.12)",
    "method_version": "v511-r3（双路径汇合，全字段 schema，handoff 步骤3）",
    "split": "holdout"
@@ -675,7 +675,7 @@
    ],
    "event_type": "unexplained_anomaly",
    "event_description": "inventory 环比变化相对历年同季度基线 z=+3.356（|z|>2.0），方向上升",
-   "selection_reason": "数据路径：|z|=3.356>2.0（Q11 降阈值，基线上限≈2.47）",
+   "selection_reason": "数据路径：|z|=3.356>2.0（Q11 阈值 2.0；基线排除当前点后 |z| 无上界，旧 2.47 上限论仅适用于含当前点基线）",
    "affected_metrics": [
     "inventory"
    ],
@@ -686,7 +686,7 @@
    "source_quote": null,
    "competing_explanations": null,
    "missing_data": "本地披露语料无此公司正文，无法核对管理层解释",
-   "evidence_limits": "z 基线样本仅 7–8 个同财季环比（|z| 理论上限≈2.47，Q11）；候选只说明“该期该科目变化异常”，原因须披露/人工佐证。 该公司/期叙述段未检索到对应正文。",
+   "evidence_limits": "z 基线为 7–9 个同财季环比且排除当前点（Q11 阈值 2.0；排除自身后 |z| 可超旧上限 2.47）；候选只说明“该期该科目变化异常”，原因须披露/人工佐证。 该公司/期叙述段未检索到对应正文。",
    "review_status": "pending_human(V5.12)",
    "method_version": "v511-r3（双路径汇合，全字段 schema，handoff 步骤3）",
    "split": "holdout"
@@ -703,7 +703,7 @@
    ],
    "event_type": "unexplained_anomaly",
    "event_description": "inventory 环比变化相对历年同季度基线 z=+2.173（|z|>2.0），方向上升",
-   "selection_reason": "数据路径：|z|=2.173>2.0（Q11 降阈值，基线上限≈2.47）",
+   "selection_reason": "数据路径：|z|=2.173>2.0（Q11 阈值 2.0；基线排除当前点后 |z| 无上界，旧 2.47 上限论仅适用于含当前点基线）",
    "affected_metrics": [
     "inventory"
    ],
@@ -714,7 +714,7 @@
    "source_quote": null,
    "competing_explanations": null,
    "missing_data": "本地披露语料无此公司正文，无法核对管理层解释",
-   "evidence_limits": "z 基线样本仅 7–8 个同财季环比（|z| 理论上限≈2.47，Q11）；候选只说明“该期该科目变化异常”，原因须披露/人工佐证。 该公司/期叙述段未检索到对应正文。",
+   "evidence_limits": "z 基线为 7–9 个同财季环比且排除当前点（Q11 阈值 2.0；排除自身后 |z| 可超旧上限 2.47）；候选只说明“该期该科目变化异常”，原因须披露/人工佐证。 该公司/期叙述段未检索到对应正文。",
    "review_status": "pending_human(V5.12)",
    "method_version": "v511-r3（双路径汇合，全字段 schema，handoff 步骤3）",
    "split": "holdout"
@@ -731,7 +731,7 @@
    ],
    "event_type": "unexplained_anomaly",
    "event_description": "inventory 环比变化相对历年同季度基线 z=-2.622（|z|>2.0），方向下降",
-   "selection_reason": "数据路径：|z|=2.622>2.0（Q11 降阈值，基线上限≈2.47）",
+   "selection_reason": "数据路径：|z|=2.622>2.0（Q11 阈值 2.0；基线排除当前点后 |z| 无上界，旧 2.47 上限论仅适用于含当前点基线）",
    "affected_metrics": [
     "inventory"
    ],
@@ -742,7 +742,7 @@
    "source_quote": null,
    "competing_explanations": null,
    "missing_data": "本地披露语料无此公司正文，无法核对管理层解释",
-   "evidence_limits": "z 基线样本仅 7–8 个同财季环比（|z| 理论上限≈2.47，Q11）；候选只说明“该期该科目变化异常”，原因须披露/人工佐证。 该公司/期叙述段未检索到对应正文。",
+   "evidence_limits": "z 基线为 7–9 个同财季环比且排除当前点（Q11 阈值 2.0；排除自身后 |z| 可超旧上限 2.47）；候选只说明“该期该科目变化异常”，原因须披露/人工佐证。 该公司/期叙述段未检索到对应正文。",
    "review_status": "pending_human(V5.12)",
    "method_version": "v511-r3（双路径汇合，全字段 schema，handoff 步骤3）",
    "split": "holdout"
@@ -759,7 +759,7 @@
    ],
    "event_type": "unexplained_anomaly",
    "event_description": "inventory 环比变化相对历年同季度基线 z=-2.337（|z|>2.0），方向下降",
-   "selection_reason": "数据路径：|z|=2.337>2.0（Q11 降阈值，基线上限≈2.47）",
+   "selection_reason": "数据路径：|z|=2.337>2.0（Q11 阈值 2.0；基线排除当前点后 |z| 无上界，旧 2.47 上限论仅适用于含当前点基线）",
    "affected_metrics": [
     "inventory"
    ],
@@ -770,7 +770,7 @@
    "source_quote": null,
    "competing_explanations": null,
    "missing_data": "本地披露语料无此公司正文，无法核对管理层解释",
-   "evidence_limits": "z 基线样本仅 7–8 个同财季环比（|z| 理论上限≈2.47，Q11）；候选只说明“该期该科目变化异常”，原因须披露/人工佐证。 该公司/期叙述段未检索到对应正文。",
+   "evidence_limits": "z 基线为 7–9 个同财季环比且排除当前点（Q11 阈值 2.0；排除自身后 |z| 可超旧上限 2.47）；候选只说明“该期该科目变化异常”，原因须披露/人工佐证。 该公司/期叙述段未检索到对应正文。",
    "review_status": "pending_human(V5.12)",
    "method_version": "v511-r3（双路径汇合，全字段 schema，handoff 步骤3）",
    "split": "holdout"
@@ -787,7 +787,7 @@
    ],
    "event_type": "unexplained_anomaly",
    "event_description": "accounts_payable 环比变化相对历年同季度基线 z=-10.961（|z|>2.0），方向下降",
-   "selection_reason": "数据路径：|z|=10.961>2.0（Q11 降阈值，基线上限≈2.47）",
+   "selection_reason": "数据路径：|z|=10.961>2.0（Q11 阈值 2.0；基线排除当前点后 |z| 无上界，旧 2.47 上限论仅适用于含当前点基线）",
    "affected_metrics": [
     "accounts_payable"
    ],
@@ -798,7 +798,7 @@
    "source_quote": null,
    "competing_explanations": null,
    "missing_data": null,
-   "evidence_limits": "z 基线样本仅 7–8 个同财季环比（|z| 理论上限≈2.47，Q11）；候选只说明“该期该科目变化异常”，原因须披露/人工佐证。 该公司/期叙述段未检索到对应正文。",
+   "evidence_limits": "z 基线为 7–9 个同财季环比且排除当前点（Q11 阈值 2.0；排除自身后 |z| 可超旧上限 2.47）；候选只说明“该期该科目变化异常”，原因须披露/人工佐证。 该公司/期叙述段未检索到对应正文。",
    "review_status": "pending_human(V5.12)",
    "method_version": "v511-r3（双路径汇合，全字段 schema，handoff 步骤3）",
    "split": "dev"
@@ -815,7 +815,7 @@
    ],
    "event_type": "unexplained_anomaly",
    "event_description": "accounts_payable 环比变化相对历年同季度基线 z=-2.682（|z|>2.0），方向下降",
-   "selection_reason": "数据路径：|z|=2.682>2.0（Q11 降阈值，基线上限≈2.47）",
+   "selection_reason": "数据路径：|z|=2.682>2.0（Q11 阈值 2.0；基线排除当前点后 |z| 无上界，旧 2.47 上限论仅适用于含当前点基线）",
    "affected_metrics": [
     "accounts_payable"
    ],
@@ -826,7 +826,7 @@
    "source_quote": null,
    "competing_explanations": null,
    "missing_data": null,
-   "evidence_limits": "z 基线样本仅 7–8 个同财季环比（|z| 理论上限≈2.47，Q11）；候选只说明“该期该科目变化异常”，原因须披露/人工佐证。 该公司/期叙述段未检索到对应正文。",
+   "evidence_limits": "z 基线为 7–9 个同财季环比且排除当前点（Q11 阈值 2.0；排除自身后 |z| 可超旧上限 2.47）；候选只说明“该期该科目变化异常”，原因须披露/人工佐证。 该公司/期叙述段未检索到对应正文。",
    "review_status": "pending_human(V5.12)",
    "method_version": "v511-r3（双路径汇合，全字段 schema，handoff 步骤3）",
    "split": "dev"
@@ -843,7 +843,7 @@
    ],
    "event_type": "unexplained_anomaly",
    "event_description": "accounts_payable 环比变化相对历年同季度基线 z=-2.123（|z|>2.0），方向下降",
-   "selection_reason": "数据路径：|z|=2.123>2.0（Q11 降阈值，基线上限≈2.47）",
+   "selection_reason": "数据路径：|z|=2.123>2.0（Q11 阈值 2.0；基线排除当前点后 |z| 无上界，旧 2.47 上限论仅适用于含当前点基线）",
    "affected_metrics": [
     "accounts_payable"
    ],
@@ -854,7 +854,7 @@
    "source_quote": null,
    "competing_explanations": null,
    "missing_data": null,
-   "evidence_limits": "z 基线样本仅 7–8 个同财季环比（|z| 理论上限≈2.47，Q11）；候选只说明“该期该科目变化异常”，原因须披露/人工佐证。 该公司/期叙述段未检索到对应正文。",
+   "evidence_limits": "z 基线为 7–9 个同财季环比且排除当前点（Q11 阈值 2.0；排除自身后 |z| 可超旧上限 2.47）；候选只说明“该期该科目变化异常”，原因须披露/人工佐证。 该公司/期叙述段未检索到对应正文。",
    "review_status": "pending_human(V5.12)",
    "method_version": "v511-r3（双路径汇合，全字段 schema，handoff 步骤3）",
    "split": "dev"
@@ -871,7 +871,7 @@
    ],
    "event_type": "unexplained_anomaly",
    "event_description": "accounts_receivable 环比变化相对历年同季度基线 z=-4.620（|z|>2.0），方向下降",
-   "selection_reason": "数据路径：|z|=4.620>2.0（Q11 降阈值，基线上限≈2.47）",
+   "selection_reason": "数据路径：|z|=4.620>2.0（Q11 阈值 2.0；基线排除当前点后 |z| 无上界，旧 2.47 上限论仅适用于含当前点基线）",
    "affected_metrics": [
     "accounts_receivable"
    ],
@@ -882,7 +882,7 @@
    "source_quote": null,
    "competing_explanations": null,
    "missing_data": null,
-   "evidence_limits": "z 基线样本仅 7–8 个同财季环比（|z| 理论上限≈2.47，Q11）；候选只说明“该期该科目变化异常”，原因须披露/人工佐证。 该公司/期叙述段未检索到对应正文。",
+   "evidence_limits": "z 基线为 7–9 个同财季环比且排除当前点（Q11 阈值 2.0；排除自身后 |z| 可超旧上限 2.47）；候选只说明“该期该科目变化异常”，原因须披露/人工佐证。 该公司/期叙述段未检索到对应正文。",
    "review_status": "pending_human(V5.12)",
    "method_version": "v511-r3（双路径汇合，全字段 schema，handoff 步骤3）",
    "split": "dev"
@@ -899,7 +899,7 @@
    ],
    "event_type": "unexplained_anomaly",
    "event_description": "accounts_receivable 环比变化相对历年同季度基线 z=-3.830（|z|>2.0），方向下降",
-   "selection_reason": "数据路径：|z|=3.830>2.0（Q11 降阈值，基线上限≈2.47）",
+   "selection_reason": "数据路径：|z|=3.830>2.0（Q11 阈值 2.0；基线排除当前点后 |z| 无上界，旧 2.47 上限论仅适用于含当前点基线）",
    "affected_metrics": [
     "accounts_receivable"
    ],
@@ -910,7 +910,7 @@
    "source_quote": null,
    "competing_explanations": null,
    "missing_data": null,
-   "evidence_limits": "z 基线样本仅 7–8 个同财季环比（|z| 理论上限≈2.47，Q11）；候选只说明“该期该科目变化异常”，原因须披露/人工佐证。 该公司/期叙述段未检索到对应正文。",
+   "evidence_limits": "z 基线为 7–9 个同财季环比且排除当前点（Q11 阈值 2.0；排除自身后 |z| 可超旧上限 2.47）；候选只说明“该期该科目变化异常”，原因须披露/人工佐证。 该公司/期叙述段未检索到对应正文。",
    "review_status": "pending_human(V5.12)",
    "method_version": "v511-r3（双路径汇合，全字段 schema，handoff 步骤3）",
    "split": "dev"
@@ -927,7 +927,7 @@
    ],
    "event_type": "unexplained_anomaly",
    "event_description": "accounts_receivable 环比变化相对历年同季度基线 z=-2.322（|z|>2.0），方向下降",
-   "selection_reason": "数据路径：|z|=2.322>2.0（Q11 降阈值，基线上限≈2.47）",
+   "selection_reason": "数据路径：|z|=2.322>2.0（Q11 阈值 2.0；基线排除当前点后 |z| 无上界，旧 2.47 上限论仅适用于含当前点基线）",
    "affected_metrics": [
     "accounts_receivable"
    ],
@@ -938,7 +938,7 @@
    "source_quote": null,
    "competing_explanations": null,
    "missing_data": null,
-   "evidence_limits": "z 基线样本仅 7–8 个同财季环比（|z| 理论上限≈2.47，Q11）；候选只说明“该期该科目变化异常”，原因须披露/人工佐证。 该公司/期叙述段未检索到对应正文。",
+   "evidence_limits": "z 基线为 7–9 个同财季环比且排除当前点（Q11 阈值 2.0；排除自身后 |z| 可超旧上限 2.47）；候选只说明“该期该科目变化异常”，原因须披露/人工佐证。 该公司/期叙述段未检索到对应正文。",
    "review_status": "pending_human(V5.12)",
    "method_version": "v511-r3（双路径汇合，全字段 schema，handoff 步骤3）",
    "split": "dev"
@@ -956,7 +956,7 @@
    ],
    "event_type": "unexplained_anomaly",
    "event_description": "inventory 环比变化相对历年同季度基线 z=-3.030（|z|>2.0），方向下降",
-   "selection_reason": "数据路径：|z|=3.030>2.0（Q11 降阈值，基线上限≈2.47）",
+   "selection_reason": "数据路径：|z|=3.030>2.0（Q11 阈值 2.0；基线排除当前点后 |z| 无上界，旧 2.47 上限论仅适用于含当前点基线）",
    "affected_metrics": [
     "inventory"
    ],
@@ -967,7 +967,7 @@
    "source_quote": "2\r\n業務回顧及展望\r\n亮點\r\n截至 2022 年 12 月 31日止季度，聯想（集團）的經營表現受到個人電腦需求疲弱的影響，主要包括利\r\n率上升在內的宏觀逆風的持續影響。集團收入同比減少 24%至 153 億美元，其中，僅貨幣兌換即產生\r\n6%的負面影響。第三財政季度毛利率及經營溢利率分別同比增長 44 和 28 個基點至歷史新高水平。溢\r\n利率在市場動盪時仍錄得大幅改善，證明集團擁有卓越的運營及強勁的增長領域，減低了運營規模縮\r\n減及財務成本上升對盈利能力造成的部分影響。權益持有人應佔溢利下降 32%至 4.37 億美元。\r\n儘管面對各種市場挑戰，集團通過加速推動基礎建設方案集團及方案服務集團的增長，在非個人電腦\r\n投資的長期增長策略上仍取得關鍵進展。非個人電腦作為支柱業務，收入佔集團總收入的 41%。方案\r\n服務業務集團和基礎設施方案業務集團的收入均創新高，分別實現同比增長 23%及",
    "competing_explanations": null,
    "missing_data": null,
-   "evidence_limits": "z 基线样本仅 7–8 个同财季环比（|z| 理论上限≈2.47，Q11）；候选只说明“该期该科目变化异常”，原因须披露/人工佐证。来源为交易所公告正文（繁中），刊发日期取自文件名未逐份回验公告页；HP/Dell 无本地正文语料（SEC XBRL 不含叙述文），披露路径对公司覆盖不全。",
+   "evidence_limits": "z 基线为 7–9 个同财季环比且排除当前点（Q11 阈值 2.0；排除自身后 |z| 可超旧上限 2.47）；候选只说明“该期该科目变化异常”，原因须披露/人工佐证。来源为交易所公告正文（繁中），刊发日期取自文件名未逐份回验公告页；HP/Dell 无本地正文语料（SEC XBRL 不含叙述文），披露路径对公司覆盖不全。",
    "review_status": "pending_human(V5.12)",
    "method_version": "v511-r3（双路径汇合，全字段 schema，handoff 步骤3）",
    "split": "dev",
@@ -990,7 +990,7 @@
    ],
    "event_type": "unexplained_anomaly",
    "event_description": "inventory 环比变化相对历年同季度基线 z=+3.124（|z|>2.0），方向上升",
-   "selection_reason": "数据路径：|z|=3.124>2.0（Q11 降阈值，基线上限≈2.47）",
+   "selection_reason": "数据路径：|z|=3.124>2.0（Q11 阈值 2.0；基线排除当前点后 |z| 无上界，旧 2.47 上限论仅适用于含当前点基线）",
    "affected_metrics": [
     "inventory"
    ],
@@ -1001,7 +1001,7 @@
    "source_quote": null,
    "competing_explanations": null,
    "missing_data": null,
-   "evidence_limits": "z 基线样本仅 7–8 个同财季环比（|z| 理论上限≈2.47，Q11）；候选只说明“该期该科目变化异常”，原因须披露/人工佐证。 该公司/期叙述段未检索到对应正文。",
+   "evidence_limits": "z 基线为 7–9 个同财季环比且排除当前点（Q11 阈值 2.0；排除自身后 |z| 可超旧上限 2.47）；候选只说明“该期该科目变化异常”，原因须披露/人工佐证。 该公司/期叙述段未检索到对应正文。",
    "review_status": "pending_human(V5.12)",
    "method_version": "v511-r3（双路径汇合，全字段 schema，handoff 步骤3）",
    "split": "dev"

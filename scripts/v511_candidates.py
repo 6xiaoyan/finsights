@@ -60,7 +60,7 @@ MIN_SCORE = 5.0
 def _n_terms(query: str, text: str) -> int:
     return sum(1 for t in query.split() if t in text)
 
-LIMITS_DATA = ("z 基线样本仅 7–8 个同财季环比（|z| 理论上限≈2.47，Q11）；"
+LIMITS_DATA = ("z 基线为 7–9 个同财季环比且排除当前点（Q11 阈值 2.0；排除自身后 |z| 可超旧上限 2.47）；"
                "候选只说明“该期该科目变化异常”，原因须披露/人工佐证。")
 LIMITS_DISC = ("来源为交易所公告正文（繁中），刊发日期取自文件名未逐份回验公告页；"
                "HP/Dell 无本地正文语料（SEC XBRL 不含叙述文），披露路径对公司覆盖不全。")
@@ -121,7 +121,7 @@ def build() -> int:
             "event_type": "unexplained_anomaly",
             "event_description": f"{acct} 环比变化相对历年同季度基线 z={z:+.3f}"
                                  f"（|z|>2.0），方向{'上升' if z > 0 else '下降'}",
-            "selection_reason": f"数据路径：|z|={abs(z):.3f}>2.0（Q11 降阈值，基线上限≈2.47）",
+            "selection_reason": f"数据路径：|z|={abs(z):.3f}>2.0（Q11 阈值 2.0；基线排除当前点后 |z| 无上界，旧 2.47 上限论仅适用于含当前点基线）",
             "affected_metrics": [acct],
             "formula_or_query": "z=(本期环比−同财季历年环比均值)/该分布σ（排除当前点；n≥3 且方差>0）",
             "factor_coverage": "已计算因子：环比 z；未计算：同比/分部/价格-销量拆分",
