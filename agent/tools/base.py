@@ -3,7 +3,7 @@
 约束：
 - 任何工具参数中都不允许出现 db/as_of（运行时固定，模型不可改，V4.5）。
 - 描述必须写清"何时使用/何时不用"（V4.4）。
-- todo_write/final_answer 在 P4.2 注册（本文件 LOOP_ARGS_MODELS）；load_skill 在 P4.3，forecast 在 P6。
+- todo_write/final_answer 在 P4.2 注册；load_skill 在 P4.3，forecast 在 P6.4 注册。
 """
 from __future__ import annotations
 
@@ -72,6 +72,14 @@ class SearchDisclosureArgs(BaseModel):
     top_k: int = Field(default=5, description="返回页数（1–10）")
 
 
+class ForecastArgs(BaseModel):
+    company: str = Field(description="公司：Lenovo/HP/Dell")
+    metric: str = Field(description="要预测的指标名（见 list_metrics），按历史季度序列外推")
+    method: Literal["auto", "seasonal_naive", "ets", "sarima"] = Field(
+        default="auto", description="预测方法；无明确理由用 auto（滚动验证选 MASE 最低者）")
+    horizon: int = Field(default=4, ge=1, le=8, description="向未来外推的季度数（1–8）")
+
+
 class EmptyArgs(BaseModel):
     """list_metrics 无参数。"""
 
@@ -132,6 +140,10 @@ DESCRIPTIONS: dict[str, str] = {
                          "何时使用：需要核对管理层自己如何解释变化（归因第⑤步、事件证据）；"
                          "只返回数据截止日（as_of）前已发布的披露。何时不用：取数字（用 query_metric）；"
                          "没检索到就不要编造披露原文，如实说未找到。",
+    "forecast": "季度序列预测（数字由 fincalc 统计模型计算，不是模型估的）：自动取该公司该指标的"
+                "全部可见历史，返回未来各期的点预测、80% 区间、所用方法和训练段 MASE。"
+                "何时使用：预测类问题；答案中每个预测值都必须引用本工具结果的 rid，"
+                "禁止对工具数字做加减调整或另算。何时不用：查历史实际值（用 query_metric）。",
     "todo_write": "写入或更新任务计划（整体替换）。何时使用：复杂问题第一步拆任务；"
                   "推进中更新完成状态。何时不用：一步就能答完的简单问题。",
     "final_answer": "给出最终答案并结束。何时使用：所有数字都已由数据工具查出或经 calc 计算、"
@@ -144,10 +156,10 @@ DESCRIPTIONS: dict[str, str] = {
 # 产生 rid 并进入 store 的工具（L3 可压缩白名单，plan 6.6.3）
 STORED_TOOLS = ["list_metrics", "query_metric", "run_sql", "calc", "variance",
                 "seasonal_check", "peer_compare", "working_capital", "check_identities",
-                "get_filing_notes", "search_disclosure"]
+                "get_filing_notes", "search_disclosure", "forecast"]
 READ_ONLY_TOOLS = ["list_metrics", "recall", "query_metric", "variance", "seasonal_check",
                    "peer_compare", "working_capital", "check_identities", "get_filing_notes",
-                   "calc", "run_sql", "search_disclosure"]  # 主循环可并发执行（V4.12）
+                   "calc", "run_sql", "search_disclosure", "forecast"]  # 主循环可并发执行（V4.12）
 
 ARGS_MODELS: dict[str, type[BaseModel]] = {
     "list_metrics": EmptyArgs,
@@ -162,6 +174,7 @@ ARGS_MODELS: dict[str, type[BaseModel]] = {
     "get_filing_notes": GetFilingNotesArgs,
     "recall": RecallArgs,
     "search_disclosure": SearchDisclosureArgs,
+    "forecast": ForecastArgs,
 }
 
 
@@ -191,7 +204,7 @@ def tool_schemas() -> list[dict]:
 
 
 def all_tool_schemas() -> list[dict]:
-    """主循环用的完整工具声明：数据类 + todo_write + final_answer + load_skill（forecast 在 P6）。"""
+    """主循环用的完整工具声明：数据类（含 forecast）+ todo_write + final_answer + load_skill。"""
     out = tool_schemas()
     for name, model in LOOP_ARGS_MODELS.items():
         schema = model.model_json_schema()

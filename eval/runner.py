@@ -63,18 +63,30 @@ def make_agent(name: str, limiter: RateLimiter) -> AgentFn:
         from agent.llm import LLMClient
         from agent.v0 import run as run_v0
         client = LLMClient()
-        return lambda q: run_v0(q.question, llm=client, limiter=limiter)
+
+        def _v0(q):
+            if q.as_of:
+                # v0 无快照隔离能力：直接跑会看到未来数据，属于无效对比，禁止
+                raise ValueError(f"{q.id}: v0 不支持 as_of 题目（无快照隔离）")
+            return run_v0(q.question, llm=client, limiter=limiter)
+        return _v0
     if name == "v1":
         from agent.llm import LLMClient
-        from agent.v1 import run as run_v1
+        from agent.v1 import DB_PATH, run as run_v1
         client = LLMClient()
 
         def _v1(q):
             from datetime import date
-            from agent.v1 import DB_PATH
             from eval.generators.inject import SCENARIO_DIR
-            db = DB_PATH if q.db in ("", "base") else SCENARIO_DIR / f"{q.db}.duckdb"
             as_of = date.fromisoformat(q.as_of) if q.as_of else None
+            if q.db not in ("", "base"):
+                db = SCENARIO_DIR / f"{q.db}.duckdb"
+            elif as_of is not None:
+                # P6：as_of 题目走时点快照库（plan 8.1），agent 无任何途径访问基础库
+                from etl.snapshot import make_snapshot
+                db = make_snapshot(as_of)
+            else:
+                db = DB_PATH
             return run_v1(q.question, llm=client, limiter=limiter, db_path=db, as_of=as_of)
         return _v1
     raise KeyError(f"未知 agent: {name}（可用: v0, v1；更后面的版本在对应阶段加入）")
@@ -227,6 +239,22 @@ def write_report(summary: dict, reports_root: Path = REPORTS) -> Path:
                   f"- 证据完整性: seasonal_check {agg['evidence_seasonal']:.2f}"
                   f" ｜ peer_compare {agg['evidence_peer']:.2f}",
                   f"- trials: n={agg['n']}（注入 {agg['n_injected']} / 阴性 {agg['n_negative']}）"]
+    l4 = [r for r in summary["records"] if r["category"] == "L4"]
+    if l4:
+        from eval.graders.l4 import aggregate_agent, load_backtest
+        agg = aggregate_agent(l4)
+        f2 = lambda v: "n/a" if v is None else f"{v:.2f}"
+        lines += ["", "## L4 预测（V6.10：agent 组与 forecast 工具直接输出组，MASE 基线=seasonal_naive）",
+                  f"- agent 组: n={agg['n']} ｜ 正确率 {f2(agg['acc'])} ｜ MASE(均值) "
+                  f"{f2(agg['mase_mean'])} ｜ 80% 覆盖率 {f2(agg['coverage'])} ｜ "
+                  f"rid 溯源通过率 {f2(agg['provenance'])}"]
+        bt = load_backtest()
+        if bt:
+            for m, s in sorted(bt.items()):
+                lines.append(f"- forecast 直接输出[{m}]: n={s['n']} ｜ MASE {f2(s.get('mase'))}"
+                             f" ｜ 80% 覆盖率 {f2(s.get('coverage'))}")
+        else:
+            lines.append("- forecast 直接输出组: 未生成（先跑 scripts/backtest_forecast.py）")
     wrong = [r for r in summary["records"] if not r["correct"]]
     lines += ["", f"## 失败明细（{len(wrong)} 条 trial 记录）"]
     for r in wrong:
@@ -237,22 +265,39 @@ def write_report(summary: dict, reports_root: Path = REPORTS) -> Path:
     return path
 
 
+LB_HEADER = ("# Leaderboard\n\n| agent | 各类别准确率（每个 run 一行，互不覆盖） | "
+             "run_id | commit |\n|---|---|---|---|\n")
+
+
+def _lb_row(summary: dict) -> str:
+    st = category_stats(summary)
+    cells = "；".join(f"{cat} {s['acc_mean']:.2f}±{s['acc_std']:.2f}" for cat, s in st.items())
+    return f"| {summary['agent']} | {cells} | {summary['run_id']} | {summary['commit']} |"
+
+
 def update_leaderboard(summary: dict, reports_root: Path = REPORTS) -> None:
+    """按 run 追加行。旧版"每 agent 一行、按前缀替换"会让单类别补跑抹掉历史成绩
+    （2026-10-02 smoke run 实测抹掉 v1 的 L1/L2 行），改为不覆盖。"""
     reports_root.mkdir(parents=True, exist_ok=True)
     path = reports_root / "leaderboard.md"
-    st = category_stats(summary)
-    row = [f"| {summary['agent']} | " + " | ".join(
-        f"{s['acc_mean']:.2f} ± {s['acc_std']:.2f}" for s in st.values()) +
-        f" | {summary['run_id']} | {summary['commit']} |"]
-    if not path.exists():
-        cats = " | ".join(st.keys())
-        sep = "|---" * (len(st) + 3) + "|"
-        path.write_text(f"# Leaderboard\n\n| agent | {cats} | run_id | commit |\n{sep}\n",
-                        encoding="utf-8")
-    text = path.read_text(encoding="utf-8")
-    lines = [ln for ln in text.splitlines() if not ln.startswith(f"| {summary['agent']} |")]
-    lines += row
-    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    text = path.read_text(encoding="utf-8") if path.exists() else ""
+    if not text.startswith("# Leaderboard"):
+        text = LB_HEADER
+    if f"| {summary['run_id']} |" in text:
+        return
+    path.write_text(text.rstrip("\n") + "\n" + _lb_row(summary) + "\n", encoding="utf-8")
+
+
+def rebuild_leaderboard(runs_root: Path = RUNS, reports_root: Path = REPORTS) -> Path:
+    """从 runs/*/summary.json 重建 leaderboard（历史 run 全部一行一条）。"""
+    rows = []
+    for d in sorted(runs_root.iterdir()) if runs_root.exists() else []:
+        sj = d / "summary.json"
+        if sj.exists():
+            rows.append(_lb_row(json.loads(sj.read_text(encoding="utf-8"))))
+    path = reports_root / "leaderboard.md"
+    path.write_text(LB_HEADER + "\n".join(rows) + "\n", encoding="utf-8")
+    return path
 
 
 def _default_rpm() -> float:

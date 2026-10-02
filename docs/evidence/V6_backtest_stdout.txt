@@ -1,0 +1,5 @@
+written eval\reports\forecast_backtest.json  records=432
+seasonal_naive   n=108 MASE=1.7017 coverage=0.6574 MAE=2569.03
+ets              n=108 MASE=0.9253 coverage=0.6389 MAE=1337.51
+sarima           n=108 MASE=1.0412 coverage=0.6296 MAE=1521.49
+auto             n=108 MASE=0.91 coverage=0.6296 MAE=1317.0

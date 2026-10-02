@@ -13,6 +13,7 @@ from typing import Any, Callable
 import pandas as pd
 
 import fincalc.calc as fc
+from fincalc.forecast import forecast as fc_forecast
 from agent import disclosure
 from agent.result_store import ResultStore, StoredResult
 from agent.tools import guard
@@ -353,6 +354,31 @@ def _h_search_disclosure(args, ctx: ToolContext, step: int) -> Outcome:
     return _stored("search_disclosure", args.model_dump(), out, ctx, step, None)
 
 
+def _h_forecast(args, ctx: ToolContext, step: int) -> Outcome:
+    if args.metric not in load_metrics():
+        raise KeyError(f"指标不存在: {args.metric}")
+    series = _fetch_series(ctx, [args.metric], [args.company], last_n=40)
+    s = series.dropna(subset=[args.metric]).sort_values("period_end")
+    if len(s) < 5:
+        raise ValueError(f"{args.company} 的 {args.metric} 可见历史不足 5 期，无法预测")
+    vals = [float(v) for v in s[args.metric]]
+    periods = [(int(r.fiscal_year), int(r.fiscal_quarter)) for r in s.itertuples()]
+    res = fc_forecast(vals, periods, method=args.method, horizon=args.horizon)
+    fy, fq = periods[-1]
+    rows = []
+    for h in range(1, res["horizon"] + 1):
+        q = fq + h
+        rows.append({"company": args.company, "metric": args.metric, "step": h,
+                     "period": f"FY{fy + (q - 1) // 4}Q{(q - 1) % 4 + 1}",
+                     "point": res["point"][h - 1], "lower": res["lower"][h - 1],
+                     "upper": res["upper"][h - 1], "method": res["method"],
+                     "level": res["level"], "mase_train": res["mase_train"],
+                     "history_len": len(s), "note": res["note"]})
+    df = pd.DataFrame(rows)
+    return _stored("forecast", args.model_dump(), df, ctx, step, None,
+                   _metric_unit(args.metric))
+
+
 def _h_recall(args, ctx: ToolContext, step: int) -> Outcome:
     res = ctx.store.get(args.result_id)
     if res is None:
@@ -389,6 +415,7 @@ _HANDLERS: dict[str, Callable] = {
     "check_identities": _h_check_identities,
     "get_filing_notes": _h_get_filing_notes,
     "search_disclosure": _h_search_disclosure,
+    "forecast": _h_forecast,
     "recall": _h_recall,
 }
 

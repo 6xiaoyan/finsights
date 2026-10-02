@@ -26,6 +26,21 @@ class CalcRejected(Exception):
 
 _ALLOWED_SELECT_TYPES = (exp.Select, exp.Union, exp.Intersect, exp.Except, exp.Subquery)
 
+# V6.5（plan 8.1）：文件/库外入口一律拒绝——只读连接已挡 ATTACH，但 DuckDB 表函数
+# （read_parquet/csv_scan/…）仍可绕过快照库读到 data/raw 等库外文件。
+_FILE_FUNC_NAMES = {"glob", "duckdb_secrets", "duckdb_settings", "http_get"}
+
+
+def _is_file_func(node) -> bool:
+    if isinstance(node, exp.Anonymous):
+        name = str(node.this).lower()
+        return (name.startswith("read_") or name.endswith("_scan")
+                or name.endswith("_scanner") or name in _FILE_FUNC_NAMES)
+    if isinstance(node, exp.Func):  # sqlglot 已知表函数是类型化节点（ReadParquet 等）
+        cls = type(node).__name__.lower()
+        return cls.startswith("read") or cls.endswith("scan") or cls in _FILE_FUNC_NAMES
+    return False
+
 
 def validate_select(sql: str, max_rows: int = MAX_SQL_ROWS) -> str:
     """只允许单条 SELECT（含 WITH/UNION）；拒绝 INSERT/DROP/ATTACH/COPY/PRAGMA/多语句；自动加 LIMIT。"""
@@ -38,10 +53,12 @@ def validate_select(sql: str, max_rows: int = MAX_SQL_ROWS) -> str:
     stmt = statements[0]
     if not isinstance(stmt, _ALLOWED_SELECT_TYPES):
         raise SqlRejected(f"只允许 SELECT，收到 {type(stmt).__name__}")
-    for node in stmt.walk():  # 子查询/CTE 里也不许藏写操作
+    for node in stmt.walk():  # 子查询/CTE 里也不许藏写操作或库外文件入口
         if isinstance(node, (exp.Insert, exp.Update, exp.Delete, exp.Drop, exp.Create,
                              exp.Alter, exp.Command)):
             raise SqlRejected(f"语句中包含不允许的操作 {type(node).__name__}")
+        if _is_file_func(node):
+            raise SqlRejected("禁止库外文件入口（read_*/…_scan/glob 等表函数）")
     if stmt.args.get("limit") is None:
         stmt = stmt.limit(max_rows)
     return stmt.sql(dialect=SQL_DIALECT)
