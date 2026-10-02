@@ -9,7 +9,8 @@ import duckdb
 import pytest
 
 from eval.generators.inject import (
-    DB_BASE, GOLD_DIR, SCENARIO_DIR, _connect, apply_injection, real_z,
+    DB_BASE, GOLD_DIR, SCENARIO_DIR, _connect, _fy_of, _sigma_of,
+    apply_injection, real_z,
 )
 from eval.graders.l3 import aggregate, extract_label, grade
 
@@ -22,6 +23,54 @@ def _gold(path: Path) -> dict:
 
 def _scen_con(sid: str):
     return _connect(SCENARIO_DIR / f"{sid}.duckdb")
+
+
+# ---------------- 2026-10-02 修复回归：_fy_of 必须以 periods 表为准
+# （旧硬编码映射对 Dell 全部、Lenovo q≥2 错位一季度，live V5.10 l3_002/l3_003 三轮全错的根因）
+
+def test_fy_of_matches_periods_table():
+    con = _connect(DB_BASE)
+    try:
+        for cid, fy, q, cq in con.execute(
+                "SELECT company_id, fiscal_year, fiscal_quarter, calendar_quarter FROM periods").fetchall():
+            assert _fy_of(con, cq, cid) == (fy, q), (cid, cq, fy, q)
+    finally:
+        con.close()
+
+
+def _series(con, company, account):
+    return {(r[0], r[1]): r[2] for r in con.execute(
+        """SELECT p.fiscal_year, p.fiscal_quarter, f.value FROM facts f
+           JOIN periods p USING (company_id, fiscal_year, fiscal_quarter)
+           WHERE f.company_id=? AND f.account_code=? AND f.version='original'""",
+        [company, account]).fetchall()}
+
+
+def test_injection_lands_on_selected_calendar_quarter():
+    """每笔 company_specific / industry_wide 注入：主科目恰好只在该自然季度对应的财季变化，
+    变化量 = gold deltas_mn（其余期间 0 变化 → 落期正确性由构造得证）。"""
+    base = _connect(DB_BASE)
+    try:
+        for g in GOLDS:
+            gold = _gold(g)
+            if gold["type"] not in ("company_specific", "industry_wide"):
+                continue
+            con = _scen_con(gold["scenario_id"])
+            try:
+                for company, delta in gold["deltas_mn"].items():
+                    fy, q = _fy_of(base, gold["calendar_quarter"], company)
+                    s_base = _series(base, company, gold["account"])
+                    s_scen = _series(con, company, gold["account"])
+                    assert set(s_base) == set(s_scen)
+                    changed = [(y, qq) for (y, qq) in s_base
+                               if abs(s_scen[(y, qq)] - s_base[(y, qq)]) > 0.005]
+                    assert changed == [(fy, q)], (gold["scenario_id"], company, changed)
+                    assert abs(s_scen[(fy, q)] - s_base[(fy, q)] - delta) < 0.01, \
+                        (gold["scenario_id"], company, fy, q)
+            finally:
+                con.close()
+    finally:
+        base.close()
 
 
 def test_v5_1_counts():
@@ -66,39 +115,145 @@ def test_v5_2_scenarios_identity():
 
 
 def test_v5_4_magnitude():
-    """V5.4：|Δ|/σ ∈ [2.5, 4]（industry_wide 允许 ±20% 抖动 → [2.0, 4.8]）。"""
+    """V5.4：|Δ|/σ ∈ [2.5, 4]（industry_wide 允许 ±20% 抖动 → [2.0, 4.8]）。
+    2026-10-02 增强：旧版 σ 由 Δ 自身反除（恒真式，无证明力），且 mix_shift/reclassification
+    整类被跳过（恰好掩盖了 reclass σ=0、全类零注入的缺陷）；现五类全覆盖，σ 从基础库独立重算。"""
+    con = _connect(DB_BASE)
+    try:
+        for g in GOLDS:
+            gold = _gold(g)
+            if gold["type"] == "none":
+                continue
+            t = gold["type"]
+            if t == "mix_shift":
+                src = "cash" if gold["account"] == "inventory" else "accounts_receivable"
+                _, cq = _fy_of(con, gold["calendar_quarter"], gold["companies"][0])
+                checks = [(gold["companies"][0], v, _sigma_of(con, gold["companies"][0], src, cq))
+                          for v in gold["deltas_mn"].values()]
+            elif t == "reclassification":
+                cid = gold["companies"][0]
+                _, cq = _fy_of(con, gold["calendar_quarter"], cid)
+                sigma = _sigma_of(con, cid, gold["account"], cq)
+                checks = [(cid, v, sigma) for v in gold["deltas_mn"].values()]
+            else:
+                checks = [(cid, v, _sigma_of(con, cid, gold["account"],
+                                             _fy_of(con, gold["calendar_quarter"], cid)[1]))
+                          for cid, v in gold["deltas_mn"].items()]
+            lo, hi = (2.0, 4.8) if t == "industry_wide" else (2.5, 4.0)
+            for company, delta, sigma in checks:
+                assert sigma > 0, (gold["scenario_id"], company, t)
+                ratio = abs(delta) / sigma
+                assert lo - 0.01 <= ratio <= hi + 0.01, (gold["scenario_id"], t, ratio)
+    finally:
+        con.close()
+
+
+# ---------------- 题面-数据一致性（2026-10-02 新增：旧 bank 有 9/10 配对题题面方向与数据相反）
+
+QUESTIONS = [json.loads(l) for l in open("eval/datasets/l3.jsonl", encoding="utf-8")]
+
+
+def test_questions_direction_matches_footprint():
+    base = _connect(DB_BASE)
+    try:
+        for q in QUESTIONS:
+            gold = _gold(Path(GOLD_DIR) / f"{q['db']}.json")
+            cid = gold["companies"][0]
+            fy, fq = _fy_of(base, gold["calendar_quarter"], cid)
+            con = _scen_con(gold["scenario_id"])
+            try:
+                v = _series(con, cid, gold["account"])[(fy, fq)]
+                b = _series(base, cid, gold["account"])[(fy, fq)]
+            finally:
+                con.close()
+            word = "上升" if ("上升" in q["question"]) else "下降"
+            if gold["type"] == "none":
+                assert word == "上升", q["id"]      # 错误前提（阴性）固定"上升"
+            else:
+                assert (word == "上升") == (v > b), (q["id"], gold["type"], word, v, b)
+    finally:
+        base.close()
+
+
+def test_pair_types_ask_paired_accounts():
+    """mix_shift / reclassification 只问有定义子科目对的科目（应付账款无配对，旧版静默转走应收）。"""
     for g in GOLDS:
         gold = _gold(g)
-        if gold["type"] in ("none", "mix_shift", "reclassification"):
-            continue
-        for company, delta in gold["deltas_mn"].items():
-            con = _connect(DB_BASE)
-            fy, q = {"Lenovo": (2024, 2)}.get(company, (None, None))
-            con.close()
-            # 直接用注入时使用的 σ：delta/sigma = magnitude×jitter
-            sigma = abs(delta) / gold["magnitude_sigma"]
-            assert sigma > 0
-            ratio = abs(delta) / sigma
-            lo, hi = 2.5, 4.0
-            if gold["type"] == "industry_wide":
-                lo, hi = 2.5 * 0.8, 4.0 * 1.2
-            assert lo - 1e-9 <= ratio <= hi + 1e-9, (gold["scenario_id"], ratio)
+        if gold["type"] in ("mix_shift", "reclassification"):
+            assert gold["account"] in ("inventory", "accounts_receivable"), (gold["scenario_id"],)
+
+
+def test_reclassification_persistent_footprint():
+    """reclassification：自 t 期起被问科目**每个后续期间**都等额变化，t 之前零变化（持续、不衰减）。"""
+    base = _connect(DB_BASE)
+    try:
+        for g in GOLDS:
+            gold = _gold(g)
+            if gold["type"] != "reclassification":
+                continue
+            cid = gold["companies"][0]
+            fy, fq = _fy_of(base, gold["calendar_quarter"], cid)
+            con = _scen_con(gold["scenario_id"])
+            try:
+                s_b = _series(base, cid, gold["account"])
+                s_c = _series(con, cid, gold["account"])
+                deltas = set(gold["deltas_mn"].values())
+                assert len(deltas) == 1 and 0 not in deltas, (gold["scenario_id"], deltas)
+                d0 = next(iter(deltas))
+                for (y, qq), v0 in s_b.items():
+                    moved = s_c[(y, qq)] - v0
+                    if (y, qq) >= (fy, fq):
+                        assert abs(moved - d0) < 0.01, (gold["scenario_id"], y, qq, moved)
+                    else:
+                        assert abs(moved) < 0.005, (gold["scenario_id"], y, qq, moved)
+                notes = con.execute("SELECT note FROM filing_notes WHERE company_id=?"
+                                    " AND fiscal_year=? AND fiscal_quarter=?",
+                                    [cid, fy, fq]).fetchall()
+                assert any("重分类" in r[0] for r in notes), gold["scenario_id"]
+            finally:
+                con.close()
+    finally:
+        base.close()
+
+
+def test_no_new_negative_balances():
+    """注入不得把原本科目转成负余额（旧 bank 有应收被转到 −34 的题）。"""
+    base = _connect(DB_BASE)
+    try:
+        neg_base = base.execute("""SELECT count(*) FROM facts f
+            JOIN periods p USING (company_id, fiscal_year, fiscal_quarter)
+            WHERE f.version='original' AND f.value < 0
+              AND p.fiscal_year BETWEEN 2018 AND 2025""").fetchone()[0]
+        for g in GOLDS:
+            gold = _gold(g)
+            con = _scen_con(gold["scenario_id"])
+            try:
+                neg = con.execute("""SELECT count(*) FROM facts f
+                    JOIN periods p USING (company_id, fiscal_year, fiscal_quarter)
+                    WHERE f.version='original' AND f.value < 0
+                      AND p.fiscal_year BETWEEN 2018 AND 2025""").fetchone()[0]
+            finally:
+                con.close()
+            assert neg <= neg_base, (gold["scenario_id"], neg, neg_base)
+    finally:
+        base.close()
 
 
 def test_v5_5_selection_z():
-    """V5.5：注入/阴性的选期在基础库的真实 |z| < 1。"""
-    for g in GOLDS:
-        gold = _gold(g)
-        if gold["type"] in ("none", "mix_shift", "reclassification"):
-            continue
-        con = _connect(DB_BASE)
-        for company in gold["companies"]:
-            fy, q = {"Lenovo": (2024, 2)}.get(company, (None, None))
-            if fy is None:
+    """V5.5：注入/阴性的选期在基础库的真实 |z| < 1。
+    2026-10-02 修复：旧版对 Lenovo 检查硬编码 FY2024Q2（与实际注入期无关）、HP/Dell 直接跳过、
+    阴性未纳入；现按 periods 表映射出真实注入期逐公司检查（阴性对照与文档口径一致）。"""
+    con = _connect(DB_BASE)
+    try:
+        for g in GOLDS:
+            gold = _gold(g)
+            if gold["type"] in ("mix_shift", "reclassification"):
                 continue
-            z = real_z(con, company, gold["account"], fy, q)
-            if z is not None:
-                assert abs(z) < 1, (gold["scenario_id"], z)
+            for company in gold["companies"]:
+                fy, q = _fy_of(con, gold["calendar_quarter"], company)
+                z = real_z(con, company, gold["account"], fy, q)
+                assert z is not None and abs(z) < 1, (gold["scenario_id"], company, fy, q, z)
+    finally:
         con.close()
 
 

@@ -1,0 +1,29 @@
+{
+  "type": "reclassification",
+  "label": "reclassification",
+  "account": "accounts_receivable",
+  "direction": "up",
+  "companies": [
+    "Lenovo"
+  ],
+  "calendar_quarter": "2024Q4",
+  "deltas_mn": {
+    "2025Q3": 2839.304,
+    "2025Q4": 2839.304,
+    "2026Q1": 2839.304,
+    "2026Q2": 2839.304,
+    "2026Q3": 2839.304,
+    "2026Q4": 2839.304,
+    "2027Q1": 2839.304
+  },
+  "notes": [
+    "filing_notes 已写入重分类附注"
+  ],
+  "scenario_id": "sb03cb23ec5",
+  "seed": 419060000,
+  "magnitude_sigma": 3.807,
+  "must_not_claim": [
+    "company_specific",
+    "industry_wide"
+  ]
+}

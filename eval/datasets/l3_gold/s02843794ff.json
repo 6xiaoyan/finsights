@@ -1,0 +1,24 @@
+{
+  "type": "industry_wide",
+  "label": "industry_wide",
+  "account": "inventory",
+  "direction": "up",
+  "companies": [
+    "Lenovo",
+    "HP",
+    "Dell"
+  ],
+  "calendar_quarter": "2019Q3",
+  "deltas_mn": {
+    "Lenovo": 1915.095,
+    "HP": 1566.066,
+    "Dell": 6444.946
+  },
+  "notes": [],
+  "scenario_id": "s02843794ff",
+  "seed": 177051212,
+  "magnitude_sigma": 3.266,
+  "must_not_claim": [
+    "company_specific"
+  ]
+}

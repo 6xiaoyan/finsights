@@ -1,0 +1,21 @@
+{
+  "type": "company_specific",
+  "label": "company_specific",
+  "account": "accounts_payable",
+  "direction": "up",
+  "companies": [
+    "Dell"
+  ],
+  "calendar_quarter": "2017Q3",
+  "deltas_mn": {
+    "Dell": 4727.425
+  },
+  "notes": [],
+  "scenario_id": "sdb43761647",
+  "seed": 750520868,
+  "magnitude_sigma": 3.647,
+  "must_not_claim": [
+    "seasonal",
+    "industry_wide"
+  ]
+}

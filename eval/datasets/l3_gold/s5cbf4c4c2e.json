@@ -1,0 +1,21 @@
+{
+  "type": "none",
+  "label": "no_anomaly",
+  "account": "accounts_payable",
+  "direction": "down",
+  "companies": [
+    "Dell"
+  ],
+  "calendar_quarter": "2024Q2",
+  "deltas_mn": {},
+  "notes": [],
+  "scenario_id": "s5cbf4c4c2e",
+  "seed": 578570701,
+  "magnitude_sigma": 3.412,
+  "must_not_claim": [
+    "company_specific",
+    "industry_wide",
+    "mix_shift",
+    "reclassification"
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "type": "mix_shift",
+  "label": "mix_shift",
+  "account": "accounts_receivable",
+  "direction": "down",
+  "companies": [
+    "HP"
+  ],
+  "calendar_quarter": "2024Q1",
+  "deltas_mn": {
+    "HP": 1370.521
+  },
+  "notes": [],
+  "mix": {
+    "from": "accounts_receivable",
+    "to": "other_current_assets"
+  },
+  "scenario_id": "sa3ff4fc0cc",
+  "seed": 875866993,
+  "magnitude_sigma": 3.599,
+  "must_not_claim": [
+    "industry_wide"
+  ]
+}

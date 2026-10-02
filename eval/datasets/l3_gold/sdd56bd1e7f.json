@@ -1,0 +1,24 @@
+{
+  "type": "mix_shift",
+  "label": "mix_shift",
+  "account": "inventory",
+  "direction": "up",
+  "companies": [
+    "Dell"
+  ],
+  "calendar_quarter": "2017Q3",
+  "deltas_mn": {
+    "Dell": -3570.036
+  },
+  "notes": [],
+  "mix": {
+    "from": "cash",
+    "to": "inventory"
+  },
+  "scenario_id": "sdd56bd1e7f",
+  "seed": 847828588,
+  "magnitude_sigma": 3.821,
+  "must_not_claim": [
+    "industry_wide"
+  ]
+}

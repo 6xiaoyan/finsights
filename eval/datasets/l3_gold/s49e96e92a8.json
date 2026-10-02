@@ -1,0 +1,24 @@
+{
+  "type": "mix_shift",
+  "label": "mix_shift",
+  "account": "inventory",
+  "direction": "down",
+  "companies": [
+    "HP"
+  ],
+  "calendar_quarter": "2025Q4",
+  "deltas_mn": {
+    "HP": 3337.486
+  },
+  "notes": [],
+  "mix": {
+    "from": "cash",
+    "to": "inventory"
+  },
+  "scenario_id": "s49e96e92a8",
+  "seed": 108323502,
+  "magnitude_sigma": 3.177,
+  "must_not_claim": [
+    "industry_wide"
+  ]
+}

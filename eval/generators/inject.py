@@ -69,15 +69,19 @@ def _connect(path: Path) -> duckdb.DuckDBPyConnection:
     return duckdb.connect(str(path))
 
 
-def _fy_of(cal_q: str, company: str) -> tuple[int, int]:
-    """自然季度 → 该公司财年 (fy, q)。cal_q='2023Q3'；财年止月：Lenovo 3、HP 10、Dell 1/2。"""
-    y, q = int(cal_q[:4]), int(cal_q[-1])
-    if company == "Lenovo":
-        return (y + 1, q) if q >= 2 else (y, 4)
-    if company == "HP":
-        return y, q  # HP 财年 Q4 止 10 月（Q1=1/Q2=4/Q3=7）
-    # Dell：财年止 1/2 月；Q1≈4-5 月、Q2≈7-8 月、Q3≈10-11 月、Q4≈1-2 月
-    return (y, q) if q == 4 else (y + 1, q)
+def _fy_of(con, cal_q: str, company: str) -> tuple[int, int]:
+    """自然季度 → 该公司财年 (fy, q)：**以 periods 表为准**。
+
+    （2026-10-02 修复）旧版按"财年止月"硬编码推算：Dell 全部分支、Lenovo q≥2 分支
+    与实际财季错位一个季度，industry_wide 的同伴注入落错期间、V5.5 选期保证失效；
+    live V5.10 的 l3_002/l3_003 三轮全错即此 bug（harness 侧，非 agent 侧）。
+    """
+    row = con.execute("SELECT fiscal_year, fiscal_quarter FROM periods"
+                      " WHERE company_id=? AND calendar_quarter=?",
+                      [company, cal_q]).fetchone()
+    if row is None:
+        raise ValueError(f"{company} 没有自然季度 {cal_q} 对应的报告期")
+    return int(row[0]), int(row[1])
 
 
 def _qoq_series(con: duckdb.DuckDBPyConnection, company: str, account: str) -> list[dict]:
@@ -183,7 +187,7 @@ def _apply_company_delta(con, company, fy, q, account: str, delta: float) -> Non
 def apply_injection(con: duckdb.DuckDBPyConnection, inj: Injection) -> dict:
     """在已连接的场景库上执行注入，返回标准答案（gold）字典。"""
     sign = 1.0 if inj.direction == "up" else -1.0
-    fy, q = _fy_of(inj.calendar_quarter, inj.companies[0])
+    fy, q = _fy_of(con, inj.calendar_quarter, inj.companies[0])
     gold = {"type": inj.type, "label": "no_anomaly" if inj.type == "none" else inj.type,
             "account": inj.account,
             "direction": inj.direction, "companies": list(inj.companies),
@@ -193,7 +197,7 @@ def apply_injection(con: duckdb.DuckDBPyConnection, inj: Injection) -> dict:
         return gold
     if inj.type in ("company_specific", "industry_wide"):
         for company in inj.companies:
-            cfy, cq = _fy_of(inj.calendar_quarter, company)
+            cfy, cq = _fy_of(con, inj.calendar_quarter, company)
             sigma = _sigma_of(con, company, inj.account, cq)
             jitter = rng.uniform(1 - JITTER, 1 + JITTER) if inj.type == "industry_wide" else 1.0
             delta = sign * inj.magnitude_sigma * sigma * jitter
@@ -201,9 +205,13 @@ def apply_injection(con: duckdb.DuckDBPyConnection, inj: Injection) -> dict:
             gold["deltas_mn"][company] = round(delta, 3)
         return gold
     if inj.type == "mix_shift":
+        if inj.account not in ("inventory", "accounts_receivable"):
+            raise ValueError(f"mix_shift 仅支持子科目对定义的科目: {inj.account}")
         src, dst = MIX_PAIRS[0] if inj.account == "inventory" else MIX_PAIRS[1]
         company = inj.companies[0]
         sigma = _sigma_of(con, company, src, q)
+        if sigma <= 0:
+            raise ValueError(f"mix_shift σ<=0: {company} {src} FY{fy}Q{q}")
         delta = sign * inj.magnitude_sigma * sigma
         _set_fact(con, company, fy, q, src, _leaf_value(con, company, fy, q, src) - delta)
         _set_fact(con, company, fy, q, dst, _leaf_value(con, company, fy, q, dst) + delta)
@@ -212,6 +220,13 @@ def apply_injection(con: duckdb.DuckDBPyConnection, inj: Injection) -> dict:
         return gold
     if inj.type == "reclassification":
         company = inj.companies[0]
+        # σ 以标的科目（借方，raw 序列）起始财季计——other_current_assets 在库中全部
+        # derivation='residual'，被 _qoq_series 排除，旧版以其为 σ 源导致 |Δ|=0、
+        # 整类注入成为无数据足迹的空注入（2026-10-02 修复）。自 t 期起各期转移等额。
+        sigma0 = _sigma_of(con, company, inj.account, q)
+        if sigma0 <= 0:
+            raise ValueError(f"reclassification σ<=0: {company} {inj.account} FY{fy}Q{q}")
+        delta = sign * inj.magnitude_sigma * sigma0
         con.execute("INSERT INTO filing_notes VALUES (?,?,?,?)",
                     [company, fy, q,
                      f"自本期起，部分其他流动资产重分类计入{name_of(inj.account)}；此前各期未重述。"])
@@ -221,7 +236,6 @@ def apply_injection(con: duckdb.DuckDBPyConnection, inj: Injection) -> dict:
             WHERE p.company_id = ? AND (p.fiscal_year > ? OR (p.fiscal_year = ? AND p.fiscal_quarter >= ?))
             ORDER BY p.fiscal_year, p.fiscal_quarter""", [company, fy, fy, q]).fetchall()
         for (y, qq) in periods:
-            delta = sign * inj.magnitude_sigma * _sigma_of(con, company, "other_current_assets", qq)
             src_v = _leaf_value(con, company, y, qq, "other_current_assets")
             dst_v = _leaf_value(con, company, y, qq, inj.account)
             _set_fact(con, company, y, qq, "other_current_assets", src_v - delta)
@@ -230,11 +244,6 @@ def apply_injection(con: duckdb.DuckDBPyConnection, inj: Injection) -> dict:
             gold["deltas_mn"][f"{y}Q{qq}"] = round(delta, 3)
         return gold
     raise ValueError(f"未知类型: {inj.type}")
-
-
-def inj_reclass_quarter(company: str) -> int:
-    """reclassification 持续期沿用起始期的财季。"""
-    return {"Lenovo": 2, "HP": 3, "Dell": 2}[company]  # 默认注入点选择的财季（与 build 时一致）
 
 
 def name_of(account: str) -> str:

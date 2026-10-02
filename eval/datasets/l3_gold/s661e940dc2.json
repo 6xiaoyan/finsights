@@ -1,0 +1,21 @@
+{
+  "type": "company_specific",
+  "label": "company_specific",
+  "account": "inventory",
+  "direction": "up",
+  "companies": [
+    "Lenovo"
+  ],
+  "calendar_quarter": "2019Q2",
+  "deltas_mn": {
+    "Lenovo": 3087.726
+  },
+  "notes": [],
+  "scenario_id": "s661e940dc2",
+  "seed": 459961761,
+  "magnitude_sigma": 2.524,
+  "must_not_claim": [
+    "seasonal",
+    "industry_wide"
+  ]
+}

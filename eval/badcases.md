@@ -56,3 +56,18 @@
 | l1_0003 t1（claim 22244 / gold 222.44 亿） | claim 单位错位（残余） | 正文已正确写"222.44 亿美元"（新单位铁律生效），但 claim.value 仍抄工具的百万原值。同题 t2/t3 全对。属首轮修复未穷尽的同类漂移：单位规则目前只在 system prompt，未由 verifier 强制（verifier 的 ×100 换算使护栏视两者等价，打分器不换算）。候选改进（P8 实验面，不在本阶段动检查项）：final_answer 参数描述中要求"claim.value 与题面单位一致"。 |
 
 **修复验证**：l2_0001/0002/0003 全部转 3/3 正确（口径类根因清除）；l2_0005/0006 的百分比 claim 转正确（单位类大部分清除，残余 1 trial）。v1 平均步数 5.4（v0 2.9）、延迟 82s（v0 43s）——换取了口径统一与证据链，符合 PRD 对 v1 的定位。
+
+## V5.10 L3 归因首轮 run 20261002-162949（7 题 × 3，top-1 0.67）——复盘后判定：2/7 题为 harness 缺陷，结果无效
+
+trace 取证（trial 引用的场景库数值与 gold deltas 逐一对照 + 基础库 periods 表核对）发现三处出题/注入侧缺陷：
+
+| trial | 归类 | 根因 |
+|---|---|---|
+| l3_002 t1–t3（industry_wide→答 company_specific） | **harness：财季映射硬编码错位** | `_fy_of` 旧实现按"财年止月"推算 Dell 全部分支、Lenovo q≥2 分支各错一个季度：gold 声称三家同注入 2024Q1，实际同伴（HP/Dell）落在 2024Q2——agent 看到"只有联想动了"，答 company_specific **与数据一致**。 |
+| l3_003 t1–t3（mix_shift→答 no_anomaly） | **harness：注入落期违背 V5.5 选期保证** | 同类错位使被问题期间落在联想年末应收真实高峰（真实 \|z\|>1），注入本身没落在这个期间——no_anomaly 是数据的正确答案。 |
+| （重查发现，未被本轮 live 触发）l3_004/008/012/016/020 reclassification | **harness：全类零注入** | other_current_assets 在库中 115/115 行 derivation='residual'，被 `_qoq_series` 的 `derivation IS NULL` 过滤排除 → σ=0 → Δ=0：题面"上升"、数值纹丝不动，只有附注。agent 只能靠 filing_notes 猜。旧 V5.4 测试恰把 reclass 整类跳过而掩盖。 |
+| （重查发现）l3_015 等 AP mix_shift | **harness：问的科目没动** | 科目随机选到应付账款，但 MIX_PAIRS 无应付对，代码 else 分支静默按应收对转移——问题科目零变化。 |
+| （重查发现）9/10 配对题 题面方向与数据相反 | **harness：题面固定写"上升"** | mix_shift/reclass 方向随机抽 up/down，题面却一律"明显上升"（旧 l3_011 更叠加应收被转到 **−34** 的负余额假数）。 |
+| l3_021 t3（阴性→答 industry_wide） | **agent 真实错误（保留）** | 错误前提题，存货实际 |z|<1；t1/t2 正确答 no_anomaly，t3 以"三家应付账款同期也在动"误报 industry_wide——同伴比较没有落在被问科目/被问方向上。属归因纪律问题，P8 实验面候选（peer_compare 需先核对科目一致）。 |
+
+**修复（全部在 eval 出题侧，未动任何检查项/通过标准）**：`_fy_of` 以 periods 表为准；reclass σ 源改被问科目（raw 序列）且全窗口等额非零（σ≤0 直接 raise）；mix/reclass 科目限定 inventory/AR；题面方向按被问科目实际移动生成；计划期可行性过滤（注入后余额 ≥20%，oca 全窗口 ≥1.25|Δ|）。bank 以同 seed 重建（sid 变化），回归测试 +6（映射一致/落期唯一/方向一致/配对科目/持续足迹/无新增负余额），V5.4 与 V5.5 两处失效断言增强为可证伪版；175 passed。首轮 live 结果不写入 leaderboard 有效行，修复后重跑。

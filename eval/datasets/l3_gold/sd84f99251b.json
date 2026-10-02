@@ -1,0 +1,21 @@
+{
+  "type": "company_specific",
+  "label": "company_specific",
+  "account": "accounts_payable",
+  "direction": "down",
+  "companies": [
+    "HP"
+  ],
+  "calendar_quarter": "2024Q1",
+  "deltas_mn": {
+    "HP": -3377.209
+  },
+  "notes": [],
+  "scenario_id": "sd84f99251b",
+  "seed": 769286049,
+  "magnitude_sigma": 3.048,
+  "must_not_claim": [
+    "seasonal",
+    "industry_wide"
+  ]
+}
