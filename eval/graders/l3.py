@@ -40,14 +40,16 @@ def extract_account(text: str, gold: dict) -> bool:
 
 def grade(question: Question, answer: Answer, trace: list | None = None) -> dict:
     gold = load_gold(question)
+    is_neg = gold["label"] == "no_anomaly"
     if answer.status != "answered":
         return {"correct": False, "top1_hit": False, "misattributed": False,
-                "false_positive": False, "evidence": {}, "detail": f"status={answer.status}"}
+                "false_positive": False, "evidence": {}, "is_negative": is_neg,
+                "detail": f"status={answer.status}"}
     label = extract_label(answer.answer_md)
     account_hit = bool(label) and extract_account(answer.answer_md, gold)
     top1_hit = bool(label) and label == gold["label"] and account_hit
     misattributed = bool(label) and label in gold.get("must_not_claim", [])
-    false_positive = gold["label"] == "no_anomaly" and bool(label) and label != "no_anomaly"
+    false_positive = is_neg and bool(label) and label != "no_anomaly"
     tools_called = set()
     for e in trace or []:
         if e.get("type") == "assistant":
@@ -57,18 +59,17 @@ def grade(question: Question, answer: Answer, trace: list | None = None) -> dict
                 "peer_compare": "peer_compare" in tools_called}
     correct = top1_hit and not misattributed
     return {"correct": correct, "top1_hit": top1_hit, "misattributed": misattributed,
-            "false_positive": false_positive, "evidence": evidence,
+            "false_positive": false_positive, "evidence": evidence, "is_negative": is_neg,
             "detail": f"label={label} gold={gold['label']} account_hit={account_hit}"}
 
 
 def aggregate(results: list[dict], n_injected: int, n_negative: int) -> dict:
-    """V5.10 汇总：top-1、top-3（占位：单标签体系下等于 top-1）、误归因率、误报率、证据完整性。"""
+    """V5.10 汇总：top-1、误归因率（全题）、阴性题误报率（分母=阴性题数）、证据完整性。"""
     n = max(len(results), 1)
-    inj = [r for r in results if not r.get("false_positive") and r.get("_is_negative") is not True]
     return {
         "top1": sum(r["top1_hit"] for r in results) / n,
         "misattributed_rate": sum(r["misattributed"] for r in results) / n,
-        "false_positive_rate": sum(r["false_positive"] for r in results) / n,
+        "false_positive_rate": sum(r["false_positive"] for r in results) / max(1, n_negative),
         "evidence_seasonal": sum(r["evidence"].get("seasonal_check", False) for r in results) / n,
         "evidence_peer": sum(r["evidence"].get("peer_compare", False) for r in results) / n,
         "n": len(results), "n_injected": n_injected, "n_negative": n_negative,

@@ -365,3 +365,26 @@ GLM 按交接实现（A1 计量与输出上限、A2 活动证据保护、A3 显�
 | 检索质量探针 | 可用 | "渠道库存" top1 = `lenovo_FY2023Q3#p2`（案例 p2 管理层讨论），与交接文档步骤 4 的证据页一致；公告正文为繁体中文，英文查询命中弱（HP/Dell 英文正文入库后才有意义） |
 | 边界与缺口 | 如实登记 | HP/Dell 披露正文未入库（本地只有 SEC 数字/索引 JSON，回答一明确其不算取得解释正文）→ 需下载交易所/SEC 原文后补建索引；扫描页 OCR、印刷页码映射未做（块只带 PDF 页码）；披露候选档案（V5.11 配套字段 full set）属步骤 3 工作，未完成 |
 | 回归 | PASS | `pytest -q` → **138 passed**（+4 项披露/A2 测试）；G3/G6/G7 grep 无输出 |
+
+## P5.4 V5.10 准备：runner 子集机制 + 技能输出契约修复（2026-10-02）
+
+| 项 | 状态 | 证据 |
+|---|---|---|
+| Q12 登记 | 待裁定 | GLM 把 l3.jsonl 扩为 30 题，plan 写死 L3=8（V5.10 原文"3 次 × 8 题"）；执行者按原口径推进并登记 questions.md Q12（选项 A/B/C），事前声明子集规则=每注入类型第一题+阴性前三题（l3_001–004、l3_021–023），第 8 题待 V5.12 |
+| runner `--ids` | 完成 | `eval/runner.py`：题号白名单过滤，题号不存在即 argparse 报错（防打错字静默漏题）；首次 live 启动即暴露 `description=` 非法参数 → 改 `help=` 后干跑验证 |
+| rec.metrics 透传 + L3 报告段 | 完成 | 打分结果非 correct/detail 字段进记录；报告聚合 L3 归因过程指标（top-1/误归因/阴性误报/证据完整性）；`eval/graders/l3.py`：negative 分母改 `max(1, n_negative)`，透出 `is_negative` |
+| as_of 接线 | 完成 | `make_agent` v1 路径按 `Question.as_of` 解析 date 传入 `run_v1`（当前 L1–L3 全 null，行为不变；P6 起生效） |
+| 输出格式漂移（live 首轮发现） | 已修复 | 首轮 3 条 trial 全部 answered 但 label=None：技能旧约定是 `"label": ...` JSON，打分器只认独立行「根因标签: <label>」；且正文写"排除 no_anomaly/industry_wide"导致唯一词回退失效。SKILL.md 改为强制独立行+排除项用中文表述，tests/test_skills.py 断言同步（非弱化：改断新契约） |
+| 中止首轮 live | 如实记录 | 发现上述契约错配后终止 run 20261002-161225（3/21 trial，全部 label=None 的 run 无验收意义，浪费免费档配额不可取）；修复后重跑 |
+| 回归 | PASS | `pytest -q` → **138 passed**；G2=138≥134、G3 无新增 skip/xfail、G4 复核脚本 exit 0（11 命中全部已登记）、G6/G7 无输出 |
+
+## P5.5 Q11 步骤3：V5.11 双路径候选档案（2026-10-02）
+
+| 项 | 状态 | 证据 |
+|---|---|---|
+| 汇合脚本 | 完成 | `scripts/v511_candidates.py`（确定性、离线、只定位不结论）：数据候选 23 条（V5.11.csv |z|>2.0，**修正 log 旧笔误"24"**——24 为含表头行数）+ 披露扫描并证 + 披露新发现；输出 `docs/evidence/V5.11.json` 含交接全 22 字段 schema |
+| 扫描规则 | 已调优 | 联想公告叙述段约 p1–p8：仅取 2≤page≤8、score≥5、引文含≥2 检索词；首轮 53 条噪声（附注账龄表/封面免责声明命中）收紧后 10 条，去库存叙事链 FY2023Q1→FY2024Q1 完整保留 |
+| 双路径并证 | 如实 | 仅 d22（FY2023Q3 inventory z=-3.03）与 p2 管理层叙述并证（开发案例一致）；AP/AR 候选在叙述段无讨论、仅附注出现——**未检索到≠无事件**，evidence_limits 已注明；HP/Dell 无本地正文语料 → split=holdout、missing_data 登记 |
+| 无事件审阅 | 完成 | reviewed_documents 36 条扫描记录（28 条 no_significant_event），满足"记录所有审阅文档及无事件结果" |
+| 边界 | 不判 PASS | 全部 review_status=pending_human(V5.12)；competing_explanations 留空待人工；步骤 3 完成≠V5.11 PASS（还需候选独立复核），G9 合规人工项不变 |
+| 回归 | PASS | 脚本重跑幂等；披露过滤走 agent/disclosure 既有测试；`pytest -q` → 138 passed；G6/G7 无输出（新脚本在 scripts/，不触 agent 禁区） |

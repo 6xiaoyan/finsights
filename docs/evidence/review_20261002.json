@@ -43,31 +43,31 @@
     },
     {
       "path": "docs/questions.md",
-      "line": 221,
+      "line": 223,
       "line_sha256": "93c1a151ecb9f15bcbb2e03ad4db44dd4a3ec4924b1d597e34aa264570e839b5",
       "registered_example": true
     },
     {
       "path": "docs/questions.md",
-      "line": 221,
+      "line": 223,
       "line_sha256": "93c1a151ecb9f15bcbb2e03ad4db44dd4a3ec4924b1d597e34aa264570e839b5",
       "registered_example": true
     },
     {
       "path": "docs/verification_log.md",
-      "line": 31,
+      "line": 34,
       "line_sha256": "254c7416933dc6ca7bbe9c6ffa8ffd72fbc8e2cf6ff217e690fffd695c20d2da",
       "registered_example": true
     },
     {
       "path": "docs/verification_log.md",
-      "line": 35,
+      "line": 38,
       "line_sha256": "763ead4df14a65b62598b92440c672007c84c4685590e5aff19adbc785121a70",
       "registered_example": true
     },
     {
       "path": "docs/verification_log.md",
-      "line": 135,
+      "line": 138,
       "line_sha256": "350b4ce24914c82faa96c89a5c1b82a060138e9bcaa7ca82f93d831a647e74cc",
       "registered_example": true
     }

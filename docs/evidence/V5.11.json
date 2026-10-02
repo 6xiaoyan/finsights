@@ -1,0 +1,1276 @@
+{
+ "generated_at": "2026-10-02",
+ "schema_note": "候选由脚本机械定位+摘录，review_status 全部 pending_human(V5.12)；数据候选不是原因 gold；披露陈述不等于已证实因果。披露扫描规则：仅取公告叙述段 p1–p8，score≥5 且引文含≥2个检索词（确定性、可复跑）。",
+ "method_version": "v511-r3（双路径汇合，全字段 schema，handoff 步骤3）",
+ "field_order": [
+  "event_id",
+  "company",
+  "fiscal_period",
+  "period_start",
+  "period_end",
+  "published_at",
+  "discovery_paths",
+  "event_type",
+  "event_description",
+  "selection_reason",
+  "affected_metrics",
+  "formula_or_query",
+  "factor_coverage",
+  "document_id",
+  "source_location",
+  "source_quote",
+  "competing_explanations",
+  "missing_data",
+  "evidence_limits",
+  "review_status",
+  "method_version",
+  "split"
+ ],
+ "n_data_candidates": 23,
+ "n_disclosure_only": 10,
+ "reviewed_documents": [
+  {
+   "company": "Lenovo",
+   "fiscal_period": "FY2022Q3",
+   "document_id": "lenovo_FY2022Q3",
+   "scan_query": "需求疲弱 渠道 存貨 過剩",
+   "event_type": "channel_destocking",
+   "n_hits": 0,
+   "result": "no_significant_event"
+  },
+  {
+   "company": "Lenovo",
+   "fiscal_period": "FY2022Q3",
+   "document_id": "lenovo_FY2022Q3",
+   "scan_query": "減值 重組",
+   "event_type": "impairment_restructuring",
+   "n_hits": 0,
+   "result": "no_significant_event"
+  },
+  {
+   "company": "Lenovo",
+   "fiscal_period": "FY2022Q3",
+   "document_id": "lenovo_FY2022Q3",
+   "scan_query": "收購 出售 分拆",
+   "event_type": "ma_divestiture",
+   "n_hits": 0,
+   "result": "no_significant_event"
+  },
+  {
+   "company": "Lenovo",
+   "fiscal_period": "FY2022Q3",
+   "document_id": "lenovo_FY2022Q3",
+   "scan_query": "匯率 外幣",
+   "event_type": "fx",
+   "n_hits": 0,
+   "result": "no_significant_event"
+  },
+  {
+   "company": "Lenovo",
+   "fiscal_period": "FY2022Q3",
+   "document_id": "lenovo_FY2022Q3",
+   "scan_query": "供應鏈 供應",
+   "event_type": "supply_chain",
+   "n_hits": 1,
+   "result": "lenovo_FY2022Q3#p4"
+  },
+  {
+   "company": "Lenovo",
+   "fiscal_period": "FY2022Q3",
+   "document_id": "lenovo_FY2022Q3",
+   "scan_query": "重列 重新分類 應收貿易賬款、租賃款",
+   "event_type": "reclassification",
+   "n_hits": 0,
+   "result": "no_significant_event"
+  },
+  {
+   "company": "Lenovo",
+   "fiscal_period": "FY2023Q1",
+   "document_id": "lenovo_FY2023Q1",
+   "scan_query": "需求疲弱 渠道 存貨 過剩",
+   "event_type": "channel_destocking",
+   "n_hits": 1,
+   "result": "lenovo_FY2023Q1#p2"
+  },
+  {
+   "company": "Lenovo",
+   "fiscal_period": "FY2023Q1",
+   "document_id": "lenovo_FY2023Q1",
+   "scan_query": "減值 重組",
+   "event_type": "impairment_restructuring",
+   "n_hits": 0,
+   "result": "no_significant_event"
+  },
+  {
+   "company": "Lenovo",
+   "fiscal_period": "FY2023Q1",
+   "document_id": "lenovo_FY2023Q1",
+   "scan_query": "收購 出售 分拆",
+   "event_type": "ma_divestiture",
+   "n_hits": 0,
+   "result": "no_significant_event"
+  },
+  {
+   "company": "Lenovo",
+   "fiscal_period": "FY2023Q1",
+   "document_id": "lenovo_FY2023Q1",
+   "scan_query": "匯率 外幣",
+   "event_type": "fx",
+   "n_hits": 0,
+   "result": "no_significant_event"
+  },
+  {
+   "company": "Lenovo",
+   "fiscal_period": "FY2023Q1",
+   "document_id": "lenovo_FY2023Q1",
+   "scan_query": "供應鏈 供應",
+   "event_type": "supply_chain",
+   "n_hits": 1,
+   "result": "lenovo_FY2023Q1#p3"
+  },
+  {
+   "company": "Lenovo",
+   "fiscal_period": "FY2023Q1",
+   "document_id": "lenovo_FY2023Q1",
+   "scan_query": "重列 重新分類 應收貿易賬款、租賃款",
+   "event_type": "reclassification",
+   "n_hits": 0,
+   "result": "no_significant_event"
+  },
+  {
+   "company": "Lenovo",
+   "fiscal_period": "FY2023Q2",
+   "document_id": "lenovo_FY2023Q2",
+   "scan_query": "需求疲弱 渠道 存貨 過剩",
+   "event_type": "channel_destocking",
+   "n_hits": 0,
+   "result": "no_significant_event"
+  },
+  {
+   "company": "Lenovo",
+   "fiscal_period": "FY2023Q2",
+   "document_id": "lenovo_FY2023Q2",
+   "scan_query": "減值 重組",
+   "event_type": "impairment_restructuring",
+   "n_hits": 0,
+   "result": "no_significant_event"
+  },
+  {
+   "company": "Lenovo",
+   "fiscal_period": "FY2023Q2",
+   "document_id": "lenovo_FY2023Q2",
+   "scan_query": "收購 出售 分拆",
+   "event_type": "ma_divestiture",
+   "n_hits": 0,
+   "result": "no_significant_event"
+  },
+  {
+   "company": "Lenovo",
+   "fiscal_period": "FY2023Q2",
+   "document_id": "lenovo_FY2023Q2",
+   "scan_query": "匯率 外幣",
+   "event_type": "fx",
+   "n_hits": 0,
+   "result": "no_significant_event"
+  },
+  {
+   "company": "Lenovo",
+   "fiscal_period": "FY2023Q2",
+   "document_id": "lenovo_FY2023Q2",
+   "scan_query": "供應鏈 供應",
+   "event_type": "supply_chain",
+   "n_hits": 0,
+   "result": "no_significant_event"
+  },
+  {
+   "company": "Lenovo",
+   "fiscal_period": "FY2023Q2",
+   "document_id": "lenovo_FY2023Q2",
+   "scan_query": "重列 重新分類 應收貿易賬款、租賃款",
+   "event_type": "reclassification",
+   "n_hits": 0,
+   "result": "no_significant_event"
+  },
+  {
+   "company": "Lenovo",
+   "fiscal_period": "FY2023Q3",
+   "document_id": "lenovo_FY2023Q3",
+   "scan_query": "需求疲弱 渠道 存貨 過剩",
+   "event_type": "channel_destocking",
+   "n_hits": 2,
+   "result": "lenovo_FY2023Q3#p2; lenovo_FY2023Q3#p4"
+  },
+  {
+   "company": "Lenovo",
+   "fiscal_period": "FY2023Q3",
+   "document_id": "lenovo_FY2023Q3",
+   "scan_query": "減值 重組",
+   "event_type": "impairment_restructuring",
+   "n_hits": 0,
+   "result": "no_significant_event"
+  },
+  {
+   "company": "Lenovo",
+   "fiscal_period": "FY2023Q3",
+   "document_id": "lenovo_FY2023Q3",
+   "scan_query": "收購 出售 分拆",
+   "event_type": "ma_divestiture",
+   "n_hits": 0,
+   "result": "no_significant_event"
+  },
+  {
+   "company": "Lenovo",
+   "fiscal_period": "FY2023Q3",
+   "document_id": "lenovo_FY2023Q3",
+   "scan_query": "匯率 外幣",
+   "event_type": "fx",
+   "n_hits": 0,
+   "result": "no_significant_event"
+  },
+  {
+   "company": "Lenovo",
+   "fiscal_period": "FY2023Q3",
+   "document_id": "lenovo_FY2023Q3",
+   "scan_query": "供應鏈 供應",
+   "event_type": "supply_chain",
+   "n_hits": 0,
+   "result": "no_significant_event"
+  },
+  {
+   "company": "Lenovo",
+   "fiscal_period": "FY2023Q3",
+   "document_id": "lenovo_FY2023Q3",
+   "scan_query": "重列 重新分類 應收貿易賬款、租賃款",
+   "event_type": "reclassification",
+   "n_hits": 0,
+   "result": "no_significant_event"
+  },
+  {
+   "company": "Lenovo",
+   "fiscal_period": "FY2023Q4",
+   "document_id": "lenovo_FY2023Q4",
+   "scan_query": "需求疲弱 渠道 存貨 過剩",
+   "event_type": "channel_destocking",
+   "n_hits": 3,
+   "result": "lenovo_FY2023Q4#p4; lenovo_FY2023Q4#p5; lenovo_FY2023Q4#p3"
+  },
+  {
+   "company": "Lenovo",
+   "fiscal_period": "FY2023Q4",
+   "document_id": "lenovo_FY2023Q4",
+   "scan_query": "減值 重組",
+   "event_type": "impairment_restructuring",
+   "n_hits": 0,
+   "result": "no_significant_event"
+  },
+  {
+   "company": "Lenovo",
+   "fiscal_period": "FY2023Q4",
+   "document_id": "lenovo_FY2023Q4",
+   "scan_query": "收購 出售 分拆",
+   "event_type": "ma_divestiture",
+   "n_hits": 0,
+   "result": "no_significant_event"
+  },
+  {
+   "company": "Lenovo",
+   "fiscal_period": "FY2023Q4",
+   "document_id": "lenovo_FY2023Q4",
+   "scan_query": "匯率 外幣",
+   "event_type": "fx",
+   "n_hits": 0,
+   "result": "no_significant_event"
+  },
+  {
+   "company": "Lenovo",
+   "fiscal_period": "FY2023Q4",
+   "document_id": "lenovo_FY2023Q4",
+   "scan_query": "供應鏈 供應",
+   "event_type": "supply_chain",
+   "n_hits": 0,
+   "result": "no_significant_event"
+  },
+  {
+   "company": "Lenovo",
+   "fiscal_period": "FY2023Q4",
+   "document_id": "lenovo_FY2023Q4",
+   "scan_query": "重列 重新分類 應收貿易賬款、租賃款",
+   "event_type": "reclassification",
+   "n_hits": 0,
+   "result": "no_significant_event"
+  },
+  {
+   "company": "Lenovo",
+   "fiscal_period": "FY2024Q1",
+   "document_id": "lenovo_FY2024Q1",
+   "scan_query": "需求疲弱 渠道 存貨 過剩",
+   "event_type": "channel_destocking",
+   "n_hits": 2,
+   "result": "lenovo_FY2024Q1#p3; lenovo_FY2024Q1#p2"
+  },
+  {
+   "company": "Lenovo",
+   "fiscal_period": "FY2024Q1",
+   "document_id": "lenovo_FY2024Q1",
+   "scan_query": "減值 重組",
+   "event_type": "impairment_restructuring",
+   "n_hits": 0,
+   "result": "no_significant_event"
+  },
+  {
+   "company": "Lenovo",
+   "fiscal_period": "FY2024Q1",
+   "document_id": "lenovo_FY2024Q1",
+   "scan_query": "收購 出售 分拆",
+   "event_type": "ma_divestiture",
+   "n_hits": 1,
+   "result": "lenovo_FY2024Q1#p7"
+  },
+  {
+   "company": "Lenovo",
+   "fiscal_period": "FY2024Q1",
+   "document_id": "lenovo_FY2024Q1",
+   "scan_query": "匯率 外幣",
+   "event_type": "fx",
+   "n_hits": 0,
+   "result": "no_significant_event"
+  },
+  {
+   "company": "Lenovo",
+   "fiscal_period": "FY2024Q1",
+   "document_id": "lenovo_FY2024Q1",
+   "scan_query": "供應鏈 供應",
+   "event_type": "supply_chain",
+   "n_hits": 1,
+   "result": "lenovo_FY2024Q1#p2"
+  },
+  {
+   "company": "Lenovo",
+   "fiscal_period": "FY2024Q1",
+   "document_id": "lenovo_FY2024Q1",
+   "scan_query": "重列 重新分類 應收貿易賬款、租賃款",
+   "event_type": "reclassification",
+   "n_hits": 0,
+   "result": "no_significant_event"
+  }
+ ],
+ "candidates": [
+  {
+   "event_id": "d01",
+   "company": "Dell",
+   "fiscal_period": "FY2022Q3",
+   "period_start": "2021-07-31",
+   "period_end": "2021-10-29",
+   "published_at": null,
+   "discovery_paths": [
+    "data"
+   ],
+   "event_type": "unexplained_anomaly",
+   "event_description": "accounts_payable 环比变化相对历年同季度基线 z=+3.505（|z|>2.0），方向上升",
+   "selection_reason": "数据路径：|z|=3.505>2.0（Q11 降阈值，基线上限≈2.47）",
+   "affected_metrics": [
+    "accounts_payable"
+   ],
+   "formula_or_query": "z=(本期环比−同财季历年环比均值)/该分布σ（排除当前点；n≥3 且方差>0）",
+   "factor_coverage": "已计算因子：环比 z；未计算：同比/分部/价格-销量拆分",
+   "document_id": null,
+   "source_location": null,
+   "source_quote": null,
+   "competing_explanations": null,
+   "missing_data": "本地披露语料无此公司正文，无法核对管理层解释",
+   "evidence_limits": "z 基线样本仅 7–8 个同财季环比（|z| 理论上限≈2.47，Q11）；候选只说明“该期该科目变化异常”，原因须披露/人工佐证。 该公司/期叙述段未检索到对应正文。",
+   "review_status": "pending_human(V5.12)",
+   "method_version": "v511-r3（双路径汇合，全字段 schema，handoff 步骤3）",
+   "split": "holdout"
+  },
+  {
+   "event_id": "d02",
+   "company": "Dell",
+   "fiscal_period": "FY2023Q2",
+   "period_start": "2022-04-30",
+   "period_end": "2022-07-29",
+   "published_at": null,
+   "discovery_paths": [
+    "data"
+   ],
+   "event_type": "unexplained_anomaly",
+   "event_description": "accounts_payable 环比变化相对历年同季度基线 z=-2.302（|z|>2.0），方向下降",
+   "selection_reason": "数据路径：|z|=2.302>2.0（Q11 降阈值，基线上限≈2.47）",
+   "affected_metrics": [
+    "accounts_payable"
+   ],
+   "formula_or_query": "z=(本期环比−同财季历年环比均值)/该分布σ（排除当前点；n≥3 且方差>0）",
+   "factor_coverage": "已计算因子：环比 z；未计算：同比/分部/价格-销量拆分",
+   "document_id": null,
+   "source_location": null,
+   "source_quote": null,
+   "competing_explanations": null,
+   "missing_data": "本地披露语料无此公司正文，无法核对管理层解释",
+   "evidence_limits": "z 基线样本仅 7–8 个同财季环比（|z| 理论上限≈2.47，Q11）；候选只说明“该期该科目变化异常”，原因须披露/人工佐证。 该公司/期叙述段未检索到对应正文。",
+   "review_status": "pending_human(V5.12)",
+   "method_version": "v511-r3（双路径汇合，全字段 schema，handoff 步骤3）",
+   "split": "holdout"
+  },
+  {
+   "event_id": "d03",
+   "company": "Dell",
+   "fiscal_period": "FY2022Q3",
+   "period_start": "2021-07-31",
+   "period_end": "2021-10-29",
+   "published_at": null,
+   "discovery_paths": [
+    "data"
+   ],
+   "event_type": "unexplained_anomaly",
+   "event_description": "inventory 环比变化相对历年同季度基线 z=+3.818（|z|>2.0），方向上升",
+   "selection_reason": "数据路径：|z|=3.818>2.0（Q11 降阈值，基线上限≈2.47）",
+   "affected_metrics": [
+    "inventory"
+   ],
+   "formula_or_query": "z=(本期环比−同财季历年环比均值)/该分布σ（排除当前点；n≥3 且方差>0）",
+   "factor_coverage": "已计算因子：环比 z；未计算：同比/分部/价格-销量拆分",
+   "document_id": null,
+   "source_location": null,
+   "source_quote": null,
+   "competing_explanations": null,
+   "missing_data": "本地披露语料无此公司正文，无法核对管理层解释",
+   "evidence_limits": "z 基线样本仅 7–8 个同财季环比（|z| 理论上限≈2.47，Q11）；候选只说明“该期该科目变化异常”，原因须披露/人工佐证。 该公司/期叙述段未检索到对应正文。",
+   "review_status": "pending_human(V5.12)",
+   "method_version": "v511-r3（双路径汇合，全字段 schema，handoff 步骤3）",
+   "split": "holdout"
+  },
+  {
+   "event_id": "d04",
+   "company": "HP",
+   "fiscal_period": "FY2022Q1",
+   "period_start": "2021-11-01",
+   "period_end": "2022-01-31",
+   "published_at": null,
+   "discovery_paths": [
+    "data"
+   ],
+   "event_type": "unexplained_anomaly",
+   "event_description": "accounts_payable 环比变化相对历年同季度基线 z=+3.411（|z|>2.0），方向上升",
+   "selection_reason": "数据路径：|z|=3.411>2.0（Q11 降阈值，基线上限≈2.47）",
+   "affected_metrics": [
+    "accounts_payable"
+   ],
+   "formula_or_query": "z=(本期环比−同财季历年环比均值)/该分布σ（排除当前点；n≥3 且方差>0）",
+   "factor_coverage": "已计算因子：环比 z；未计算：同比/分部/价格-销量拆分",
+   "document_id": null,
+   "source_location": null,
+   "source_quote": null,
+   "competing_explanations": null,
+   "missing_data": "本地披露语料无此公司正文，无法核对管理层解释",
+   "evidence_limits": "z 基线样本仅 7–8 个同财季环比（|z| 理论上限≈2.47，Q11）；候选只说明“该期该科目变化异常”，原因须披露/人工佐证。 该公司/期叙述段未检索到对应正文。",
+   "review_status": "pending_human(V5.12)",
+   "method_version": "v511-r3（双路径汇合，全字段 schema，handoff 步骤3）",
+   "split": "holdout"
+  },
+  {
+   "event_id": "d05",
+   "company": "HP",
+   "fiscal_period": "FY2022Q3",
+   "period_start": "2022-05-01",
+   "period_end": "2022-07-31",
+   "published_at": null,
+   "discovery_paths": [
+    "data"
+   ],
+   "event_type": "unexplained_anomaly",
+   "event_description": "accounts_payable 环比变化相对历年同季度基线 z=-4.250（|z|>2.0），方向下降",
+   "selection_reason": "数据路径：|z|=4.250>2.0（Q11 降阈值，基线上限≈2.47）",
+   "affected_metrics": [
+    "accounts_payable"
+   ],
+   "formula_or_query": "z=(本期环比−同财季历年环比均值)/该分布σ（排除当前点；n≥3 且方差>0）",
+   "factor_coverage": "已计算因子：环比 z；未计算：同比/分部/价格-销量拆分",
+   "document_id": null,
+   "source_location": null,
+   "source_quote": null,
+   "competing_explanations": null,
+   "missing_data": "本地披露语料无此公司正文，无法核对管理层解释",
+   "evidence_limits": "z 基线样本仅 7–8 个同财季环比（|z| 理论上限≈2.47，Q11）；候选只说明“该期该科目变化异常”，原因须披露/人工佐证。 该公司/期叙述段未检索到对应正文。",
+   "review_status": "pending_human(V5.12)",
+   "method_version": "v511-r3（双路径汇合，全字段 schema，handoff 步骤3）",
+   "split": "holdout"
+  },
+  {
+   "event_id": "d06",
+   "company": "HP",
+   "fiscal_period": "FY2024Q4",
+   "period_start": "2024-08-01",
+   "period_end": "2024-10-31",
+   "published_at": null,
+   "discovery_paths": [
+    "data"
+   ],
+   "event_type": "unexplained_anomaly",
+   "event_description": "accounts_payable 环比变化相对历年同季度基线 z=+2.977（|z|>2.0），方向上升",
+   "selection_reason": "数据路径：|z|=2.977>2.0（Q11 降阈值，基线上限≈2.47）",
+   "affected_metrics": [
+    "accounts_payable"
+   ],
+   "formula_or_query": "z=(本期环比−同财季历年环比均值)/该分布σ（排除当前点；n≥3 且方差>0）",
+   "factor_coverage": "已计算因子：环比 z；未计算：同比/分部/价格-销量拆分",
+   "document_id": null,
+   "source_location": null,
+   "source_quote": null,
+   "competing_explanations": null,
+   "missing_data": "本地披露语料无此公司正文，无法核对管理层解释",
+   "evidence_limits": "z 基线样本仅 7–8 个同财季环比（|z| 理论上限≈2.47，Q11）；候选只说明“该期该科目变化异常”，原因须披露/人工佐证。 该公司/期叙述段未检索到对应正文。",
+   "review_status": "pending_human(V5.12)",
+   "method_version": "v511-r3（双路径汇合，全字段 schema，handoff 步骤3）",
+   "split": "holdout"
+  },
+  {
+   "event_id": "d07",
+   "company": "HP",
+   "fiscal_period": "FY2020Q1",
+   "period_start": "2019-11-01",
+   "period_end": "2020-01-31",
+   "published_at": null,
+   "discovery_paths": [
+    "data"
+   ],
+   "event_type": "unexplained_anomaly",
+   "event_description": "accounts_receivable 环比变化相对历年同季度基线 z=-3.112（|z|>2.0），方向下降",
+   "selection_reason": "数据路径：|z|=3.112>2.0（Q11 降阈值，基线上限≈2.47）",
+   "affected_metrics": [
+    "accounts_receivable"
+   ],
+   "formula_or_query": "z=(本期环比−同财季历年环比均值)/该分布σ（排除当前点；n≥3 且方差>0）",
+   "factor_coverage": "已计算因子：环比 z；未计算：同比/分部/价格-销量拆分",
+   "document_id": null,
+   "source_location": null,
+   "source_quote": null,
+   "competing_explanations": null,
+   "missing_data": "本地披露语料无此公司正文，无法核对管理层解释",
+   "evidence_limits": "z 基线样本仅 7–8 个同财季环比（|z| 理论上限≈2.47，Q11）；候选只说明“该期该科目变化异常”，原因须披露/人工佐证。 该公司/期叙述段未检索到对应正文。",
+   "review_status": "pending_human(V5.12)",
+   "method_version": "v511-r3（双路径汇合，全字段 schema，handoff 步骤3）",
+   "split": "holdout"
+  },
+  {
+   "event_id": "d08",
+   "company": "HP",
+   "fiscal_period": "FY2021Q2",
+   "period_start": "2021-02-01",
+   "period_end": "2021-04-30",
+   "published_at": null,
+   "discovery_paths": [
+    "data"
+   ],
+   "event_type": "unexplained_anomaly",
+   "event_description": "accounts_receivable 环比变化相对历年同季度基线 z=-2.311（|z|>2.0），方向下降",
+   "selection_reason": "数据路径：|z|=2.311>2.0（Q11 降阈值，基线上限≈2.47）",
+   "affected_metrics": [
+    "accounts_receivable"
+   ],
+   "formula_or_query": "z=(本期环比−同财季历年环比均值)/该分布σ（排除当前点；n≥3 且方差>0）",
+   "factor_coverage": "已计算因子：环比 z；未计算：同比/分部/价格-销量拆分",
+   "document_id": null,
+   "source_location": null,
+   "source_quote": null,
+   "competing_explanations": null,
+   "missing_data": "本地披露语料无此公司正文，无法核对管理层解释",
+   "evidence_limits": "z 基线样本仅 7–8 个同财季环比（|z| 理论上限≈2.47，Q11）；候选只说明“该期该科目变化异常”，原因须披露/人工佐证。 该公司/期叙述段未检索到对应正文。",
+   "review_status": "pending_human(V5.12)",
+   "method_version": "v511-r3（双路径汇合，全字段 schema，handoff 步骤3）",
+   "split": "holdout"
+  },
+  {
+   "event_id": "d09",
+   "company": "HP",
+   "fiscal_period": "FY2022Q3",
+   "period_start": "2022-05-01",
+   "period_end": "2022-07-31",
+   "published_at": null,
+   "discovery_paths": [
+    "data"
+   ],
+   "event_type": "unexplained_anomaly",
+   "event_description": "accounts_receivable 环比变化相对历年同季度基线 z=-3.446（|z|>2.0），方向下降",
+   "selection_reason": "数据路径：|z|=3.446>2.0（Q11 降阈值，基线上限≈2.47）",
+   "affected_metrics": [
+    "accounts_receivable"
+   ],
+   "formula_or_query": "z=(本期环比−同财季历年环比均值)/该分布σ（排除当前点；n≥3 且方差>0）",
+   "factor_coverage": "已计算因子：环比 z；未计算：同比/分部/价格-销量拆分",
+   "document_id": null,
+   "source_location": null,
+   "source_quote": null,
+   "competing_explanations": null,
+   "missing_data": "本地披露语料无此公司正文，无法核对管理层解释",
+   "evidence_limits": "z 基线样本仅 7–8 个同财季环比（|z| 理论上限≈2.47，Q11）；候选只说明“该期该科目变化异常”，原因须披露/人工佐证。 该公司/期叙述段未检索到对应正文。",
+   "review_status": "pending_human(V5.12)",
+   "method_version": "v511-r3（双路径汇合，全字段 schema，handoff 步骤3）",
+   "split": "holdout"
+  },
+  {
+   "event_id": "d10",
+   "company": "HP",
+   "fiscal_period": "FY2023Q4",
+   "period_start": "2023-08-01",
+   "period_end": "2023-10-31",
+   "published_at": null,
+   "discovery_paths": [
+    "data"
+   ],
+   "event_type": "unexplained_anomaly",
+   "event_description": "accounts_receivable 环比变化相对历年同季度基线 z=-2.398（|z|>2.0），方向下降",
+   "selection_reason": "数据路径：|z|=2.398>2.0（Q11 降阈值，基线上限≈2.47）",
+   "affected_metrics": [
+    "accounts_receivable"
+   ],
+   "formula_or_query": "z=(本期环比−同财季历年环比均值)/该分布σ（排除当前点；n≥3 且方差>0）",
+   "factor_coverage": "已计算因子：环比 z；未计算：同比/分部/价格-销量拆分",
+   "document_id": null,
+   "source_location": null,
+   "source_quote": null,
+   "competing_explanations": null,
+   "missing_data": "本地披露语料无此公司正文，无法核对管理层解释",
+   "evidence_limits": "z 基线样本仅 7–8 个同财季环比（|z| 理论上限≈2.47，Q11）；候选只说明“该期该科目变化异常”，原因须披露/人工佐证。 该公司/期叙述段未检索到对应正文。",
+   "review_status": "pending_human(V5.12)",
+   "method_version": "v511-r3（双路径汇合，全字段 schema，handoff 步骤3）",
+   "split": "holdout"
+  },
+  {
+   "event_id": "d11",
+   "company": "HP",
+   "fiscal_period": "FY2020Q1",
+   "period_start": "2019-11-01",
+   "period_end": "2020-01-31",
+   "published_at": null,
+   "discovery_paths": [
+    "data"
+   ],
+   "event_type": "unexplained_anomaly",
+   "event_description": "inventory 环比变化相对历年同季度基线 z=-2.077（|z|>2.0），方向下降",
+   "selection_reason": "数据路径：|z|=2.077>2.0（Q11 降阈值，基线上限≈2.47）",
+   "affected_metrics": [
+    "inventory"
+   ],
+   "formula_or_query": "z=(本期环比−同财季历年环比均值)/该分布σ（排除当前点；n≥3 且方差>0）",
+   "factor_coverage": "已计算因子：环比 z；未计算：同比/分部/价格-销量拆分",
+   "document_id": null,
+   "source_location": null,
+   "source_quote": null,
+   "competing_explanations": null,
+   "missing_data": "本地披露语料无此公司正文，无法核对管理层解释",
+   "evidence_limits": "z 基线样本仅 7–8 个同财季环比（|z| 理论上限≈2.47，Q11）；候选只说明“该期该科目变化异常”，原因须披露/人工佐证。 该公司/期叙述段未检索到对应正文。",
+   "review_status": "pending_human(V5.12)",
+   "method_version": "v511-r3（双路径汇合，全字段 schema，handoff 步骤3）",
+   "split": "holdout"
+  },
+  {
+   "event_id": "d12",
+   "company": "HP",
+   "fiscal_period": "FY2020Q2",
+   "period_start": "2020-02-01",
+   "period_end": "2020-04-30",
+   "published_at": null,
+   "discovery_paths": [
+    "data"
+   ],
+   "event_type": "unexplained_anomaly",
+   "event_description": "inventory 环比变化相对历年同季度基线 z=+3.356（|z|>2.0），方向上升",
+   "selection_reason": "数据路径：|z|=3.356>2.0（Q11 降阈值，基线上限≈2.47）",
+   "affected_metrics": [
+    "inventory"
+   ],
+   "formula_or_query": "z=(本期环比−同财季历年环比均值)/该分布σ（排除当前点；n≥3 且方差>0）",
+   "factor_coverage": "已计算因子：环比 z；未计算：同比/分部/价格-销量拆分",
+   "document_id": null,
+   "source_location": null,
+   "source_quote": null,
+   "competing_explanations": null,
+   "missing_data": "本地披露语料无此公司正文，无法核对管理层解释",
+   "evidence_limits": "z 基线样本仅 7–8 个同财季环比（|z| 理论上限≈2.47，Q11）；候选只说明“该期该科目变化异常”，原因须披露/人工佐证。 该公司/期叙述段未检索到对应正文。",
+   "review_status": "pending_human(V5.12)",
+   "method_version": "v511-r3（双路径汇合，全字段 schema，handoff 步骤3）",
+   "split": "holdout"
+  },
+  {
+   "event_id": "d13",
+   "company": "HP",
+   "fiscal_period": "FY2022Q1",
+   "period_start": "2021-11-01",
+   "period_end": "2022-01-31",
+   "published_at": null,
+   "discovery_paths": [
+    "data"
+   ],
+   "event_type": "unexplained_anomaly",
+   "event_description": "inventory 环比变化相对历年同季度基线 z=+2.173（|z|>2.0），方向上升",
+   "selection_reason": "数据路径：|z|=2.173>2.0（Q11 降阈值，基线上限≈2.47）",
+   "affected_metrics": [
+    "inventory"
+   ],
+   "formula_or_query": "z=(本期环比−同财季历年环比均值)/该分布σ（排除当前点；n≥3 且方差>0）",
+   "factor_coverage": "已计算因子：环比 z；未计算：同比/分部/价格-销量拆分",
+   "document_id": null,
+   "source_location": null,
+   "source_quote": null,
+   "competing_explanations": null,
+   "missing_data": "本地披露语料无此公司正文，无法核对管理层解释",
+   "evidence_limits": "z 基线样本仅 7–8 个同财季环比（|z| 理论上限≈2.47，Q11）；候选只说明“该期该科目变化异常”，原因须披露/人工佐证。 该公司/期叙述段未检索到对应正文。",
+   "review_status": "pending_human(V5.12)",
+   "method_version": "v511-r3（双路径汇合，全字段 schema，handoff 步骤3）",
+   "split": "holdout"
+  },
+  {
+   "event_id": "d14",
+   "company": "HP",
+   "fiscal_period": "FY2022Q3",
+   "period_start": "2022-05-01",
+   "period_end": "2022-07-31",
+   "published_at": null,
+   "discovery_paths": [
+    "data"
+   ],
+   "event_type": "unexplained_anomaly",
+   "event_description": "inventory 环比变化相对历年同季度基线 z=-2.622（|z|>2.0），方向下降",
+   "selection_reason": "数据路径：|z|=2.622>2.0（Q11 降阈值，基线上限≈2.47）",
+   "affected_metrics": [
+    "inventory"
+   ],
+   "formula_or_query": "z=(本期环比−同财季历年环比均值)/该分布σ（排除当前点；n≥3 且方差>0）",
+   "factor_coverage": "已计算因子：环比 z；未计算：同比/分部/价格-销量拆分",
+   "document_id": null,
+   "source_location": null,
+   "source_quote": null,
+   "competing_explanations": null,
+   "missing_data": "本地披露语料无此公司正文，无法核对管理层解释",
+   "evidence_limits": "z 基线样本仅 7–8 个同财季环比（|z| 理论上限≈2.47，Q11）；候选只说明“该期该科目变化异常”，原因须披露/人工佐证。 该公司/期叙述段未检索到对应正文。",
+   "review_status": "pending_human(V5.12)",
+   "method_version": "v511-r3（双路径汇合，全字段 schema，handoff 步骤3）",
+   "split": "holdout"
+  },
+  {
+   "event_id": "d15",
+   "company": "HP",
+   "fiscal_period": "FY2022Q4",
+   "period_start": "2022-08-01",
+   "period_end": "2022-10-31",
+   "published_at": null,
+   "discovery_paths": [
+    "data"
+   ],
+   "event_type": "unexplained_anomaly",
+   "event_description": "inventory 环比变化相对历年同季度基线 z=-2.337（|z|>2.0），方向下降",
+   "selection_reason": "数据路径：|z|=2.337>2.0（Q11 降阈值，基线上限≈2.47）",
+   "affected_metrics": [
+    "inventory"
+   ],
+   "formula_or_query": "z=(本期环比−同财季历年环比均值)/该分布σ（排除当前点；n≥3 且方差>0）",
+   "factor_coverage": "已计算因子：环比 z；未计算：同比/分部/价格-销量拆分",
+   "document_id": null,
+   "source_location": null,
+   "source_quote": null,
+   "competing_explanations": null,
+   "missing_data": "本地披露语料无此公司正文，无法核对管理层解释",
+   "evidence_limits": "z 基线样本仅 7–8 个同财季环比（|z| 理论上限≈2.47，Q11）；候选只说明“该期该科目变化异常”，原因须披露/人工佐证。 该公司/期叙述段未检索到对应正文。",
+   "review_status": "pending_human(V5.12)",
+   "method_version": "v511-r3（双路径汇合，全字段 schema，handoff 步骤3）",
+   "split": "holdout"
+  },
+  {
+   "event_id": "d16",
+   "company": "Lenovo",
+   "fiscal_period": "FY2023Q2",
+   "period_start": "2022-07-01",
+   "period_end": "2022-09-30",
+   "published_at": "2022-11-03",
+   "discovery_paths": [
+    "data"
+   ],
+   "event_type": "unexplained_anomaly",
+   "event_description": "accounts_payable 环比变化相对历年同季度基线 z=-10.961（|z|>2.0），方向下降",
+   "selection_reason": "数据路径：|z|=10.961>2.0（Q11 降阈值，基线上限≈2.47）",
+   "affected_metrics": [
+    "accounts_payable"
+   ],
+   "formula_or_query": "z=(本期环比−同财季历年环比均值)/该分布σ（排除当前点；n≥3 且方差>0）",
+   "factor_coverage": "已计算因子：环比 z；未计算：同比/分部/价格-销量拆分",
+   "document_id": "lenovo_FY2023Q2",
+   "source_location": null,
+   "source_quote": null,
+   "competing_explanations": null,
+   "missing_data": null,
+   "evidence_limits": "z 基线样本仅 7–8 个同财季环比（|z| 理论上限≈2.47，Q11）；候选只说明“该期该科目变化异常”，原因须披露/人工佐证。 该公司/期叙述段未检索到对应正文。",
+   "review_status": "pending_human(V5.12)",
+   "method_version": "v511-r3（双路径汇合，全字段 schema，handoff 步骤3）",
+   "split": "dev"
+  },
+  {
+   "event_id": "d17",
+   "company": "Lenovo",
+   "fiscal_period": "FY2023Q3",
+   "period_start": "2022-10-01",
+   "period_end": "2022-12-31",
+   "published_at": "2023-02-17",
+   "discovery_paths": [
+    "data"
+   ],
+   "event_type": "unexplained_anomaly",
+   "event_description": "accounts_payable 环比变化相对历年同季度基线 z=-2.682（|z|>2.0），方向下降",
+   "selection_reason": "数据路径：|z|=2.682>2.0（Q11 降阈值，基线上限≈2.47）",
+   "affected_metrics": [
+    "accounts_payable"
+   ],
+   "formula_or_query": "z=(本期环比−同财季历年环比均值)/该分布σ（排除当前点；n≥3 且方差>0）",
+   "factor_coverage": "已计算因子：环比 z；未计算：同比/分部/价格-销量拆分",
+   "document_id": "lenovo_FY2023Q3",
+   "source_location": null,
+   "source_quote": null,
+   "competing_explanations": null,
+   "missing_data": null,
+   "evidence_limits": "z 基线样本仅 7–8 个同财季环比（|z| 理论上限≈2.47，Q11）；候选只说明“该期该科目变化异常”，原因须披露/人工佐证。 该公司/期叙述段未检索到对应正文。",
+   "review_status": "pending_human(V5.12)",
+   "method_version": "v511-r3（双路径汇合，全字段 schema，handoff 步骤3）",
+   "split": "dev"
+  },
+  {
+   "event_id": "d18",
+   "company": "Lenovo",
+   "fiscal_period": "FY2024Q1",
+   "period_start": "2023-04-01",
+   "period_end": "2023-06-30",
+   "published_at": "2023-08-17",
+   "discovery_paths": [
+    "data"
+   ],
+   "event_type": "unexplained_anomaly",
+   "event_description": "accounts_payable 环比变化相对历年同季度基线 z=-2.123（|z|>2.0），方向下降",
+   "selection_reason": "数据路径：|z|=2.123>2.0（Q11 降阈值，基线上限≈2.47）",
+   "affected_metrics": [
+    "accounts_payable"
+   ],
+   "formula_or_query": "z=(本期环比−同财季历年环比均值)/该分布σ（排除当前点；n≥3 且方差>0）",
+   "factor_coverage": "已计算因子：环比 z；未计算：同比/分部/价格-销量拆分",
+   "document_id": "lenovo_FY2024Q1",
+   "source_location": null,
+   "source_quote": null,
+   "competing_explanations": null,
+   "missing_data": null,
+   "evidence_limits": "z 基线样本仅 7–8 个同财季环比（|z| 理论上限≈2.47，Q11）；候选只说明“该期该科目变化异常”，原因须披露/人工佐证。 该公司/期叙述段未检索到对应正文。",
+   "review_status": "pending_human(V5.12)",
+   "method_version": "v511-r3（双路径汇合，全字段 schema，handoff 步骤3）",
+   "split": "dev"
+  },
+  {
+   "event_id": "d19",
+   "company": "Lenovo",
+   "fiscal_period": "FY2023Q2",
+   "period_start": "2022-07-01",
+   "period_end": "2022-09-30",
+   "published_at": "2022-11-03",
+   "discovery_paths": [
+    "data"
+   ],
+   "event_type": "unexplained_anomaly",
+   "event_description": "accounts_receivable 环比变化相对历年同季度基线 z=-4.620（|z|>2.0），方向下降",
+   "selection_reason": "数据路径：|z|=4.620>2.0（Q11 降阈值，基线上限≈2.47）",
+   "affected_metrics": [
+    "accounts_receivable"
+   ],
+   "formula_or_query": "z=(本期环比−同财季历年环比均值)/该分布σ（排除当前点；n≥3 且方差>0）",
+   "factor_coverage": "已计算因子：环比 z；未计算：同比/分部/价格-销量拆分",
+   "document_id": "lenovo_FY2023Q2",
+   "source_location": null,
+   "source_quote": null,
+   "competing_explanations": null,
+   "missing_data": null,
+   "evidence_limits": "z 基线样本仅 7–8 个同财季环比（|z| 理论上限≈2.47，Q11）；候选只说明“该期该科目变化异常”，原因须披露/人工佐证。 该公司/期叙述段未检索到对应正文。",
+   "review_status": "pending_human(V5.12)",
+   "method_version": "v511-r3（双路径汇合，全字段 schema，handoff 步骤3）",
+   "split": "dev"
+  },
+  {
+   "event_id": "d20",
+   "company": "Lenovo",
+   "fiscal_period": "FY2023Q3",
+   "period_start": "2022-10-01",
+   "period_end": "2022-12-31",
+   "published_at": "2023-02-17",
+   "discovery_paths": [
+    "data"
+   ],
+   "event_type": "unexplained_anomaly",
+   "event_description": "accounts_receivable 环比变化相对历年同季度基线 z=-3.830（|z|>2.0），方向下降",
+   "selection_reason": "数据路径：|z|=3.830>2.0（Q11 降阈值，基线上限≈2.47）",
+   "affected_metrics": [
+    "accounts_receivable"
+   ],
+   "formula_or_query": "z=(本期环比−同财季历年环比均值)/该分布σ（排除当前点；n≥3 且方差>0）",
+   "factor_coverage": "已计算因子：环比 z；未计算：同比/分部/价格-销量拆分",
+   "document_id": "lenovo_FY2023Q3",
+   "source_location": null,
+   "source_quote": null,
+   "competing_explanations": null,
+   "missing_data": null,
+   "evidence_limits": "z 基线样本仅 7–8 个同财季环比（|z| 理论上限≈2.47，Q11）；候选只说明“该期该科目变化异常”，原因须披露/人工佐证。 该公司/期叙述段未检索到对应正文。",
+   "review_status": "pending_human(V5.12)",
+   "method_version": "v511-r3（双路径汇合，全字段 schema，handoff 步骤3）",
+   "split": "dev"
+  },
+  {
+   "event_id": "d21",
+   "company": "Lenovo",
+   "fiscal_period": "FY2023Q4",
+   "period_start": "2023-01-01",
+   "period_end": "2023-03-31",
+   "published_at": "2023-05-24",
+   "discovery_paths": [
+    "data"
+   ],
+   "event_type": "unexplained_anomaly",
+   "event_description": "accounts_receivable 环比变化相对历年同季度基线 z=-2.322（|z|>2.0），方向下降",
+   "selection_reason": "数据路径：|z|=2.322>2.0（Q11 降阈值，基线上限≈2.47）",
+   "affected_metrics": [
+    "accounts_receivable"
+   ],
+   "formula_or_query": "z=(本期环比−同财季历年环比均值)/该分布σ（排除当前点；n≥3 且方差>0）",
+   "factor_coverage": "已计算因子：环比 z；未计算：同比/分部/价格-销量拆分",
+   "document_id": "lenovo_FY2023Q4",
+   "source_location": null,
+   "source_quote": null,
+   "competing_explanations": null,
+   "missing_data": null,
+   "evidence_limits": "z 基线样本仅 7–8 个同财季环比（|z| 理论上限≈2.47，Q11）；候选只说明“该期该科目变化异常”，原因须披露/人工佐证。 该公司/期叙述段未检索到对应正文。",
+   "review_status": "pending_human(V5.12)",
+   "method_version": "v511-r3（双路径汇合，全字段 schema，handoff 步骤3）",
+   "split": "dev"
+  },
+  {
+   "event_id": "d22",
+   "company": "Lenovo",
+   "fiscal_period": "FY2023Q3",
+   "period_start": "2022-10-01",
+   "period_end": "2022-12-31",
+   "published_at": "2023-02-17",
+   "discovery_paths": [
+    "data",
+    "disclosure"
+   ],
+   "event_type": "unexplained_anomaly",
+   "event_description": "inventory 环比变化相对历年同季度基线 z=-3.030（|z|>2.0），方向下降",
+   "selection_reason": "数据路径：|z|=3.030>2.0（Q11 降阈值，基线上限≈2.47）",
+   "affected_metrics": [
+    "inventory"
+   ],
+   "formula_or_query": "z=(本期环比−同财季历年环比均值)/该分布σ（排除当前点；n≥3 且方差>0）",
+   "factor_coverage": "已计算因子：环比 z；未计算：同比/分部/价格-销量拆分",
+   "document_id": "lenovo_FY2023Q3",
+   "source_location": "lenovo_FY2023Q3#p2",
+   "source_quote": "2\r\n業務回顧及展望\r\n亮點\r\n截至 2022 年 12 月 31日止季度，聯想（集團）的經營表現受到個人電腦需求疲弱的影響，主要包括利\r\n率上升在內的宏觀逆風的持續影響。集團收入同比減少 24%至 153 億美元，其中，僅貨幣兌換即產生\r\n6%的負面影響。第三財政季度毛利率及經營溢利率分別同比增長 44 和 28 個基點至歷史新高水平。溢\r\n利率在市場動盪時仍錄得大幅改善，證明集團擁有卓越的運營及強勁的增長領域，減低了運營規模縮\r\n減及財務成本上升對盈利能力造成的部分影響。權益持有人應佔溢利下降 32%至 4.37 億美元。\r\n儘管面對各種市場挑戰，集團通過加速推動基礎建設方案集團及方案服務集團的增長，在非個人電腦\r\n投資的長期增長策略上仍取得關鍵進展。非個人電腦作為支柱業務，收入佔集團總收入的 41%。方案\r\n服務業務集團和基礎設施方案業務集團的收入均創新高，分別實現同比增長 23%及",
+   "competing_explanations": null,
+   "missing_data": null,
+   "evidence_limits": "z 基线样本仅 7–8 个同财季环比（|z| 理论上限≈2.47，Q11）；候选只说明“该期该科目变化异常”，原因须披露/人工佐证。来源为交易所公告正文（繁中），刊发日期取自文件名未逐份回验公告页；HP/Dell 无本地正文语料（SEC XBRL 不含叙述文），披露路径对公司覆盖不全。",
+   "review_status": "pending_human(V5.12)",
+   "method_version": "v511-r3（双路径汇合，全字段 schema，handoff 步骤3）",
+   "split": "dev",
+   "disclosure_events": [
+    {
+     "event_type": "channel_destocking",
+     "scan_query": "需求疲弱 渠道 存貨 過剩"
+    }
+   ]
+  },
+  {
+   "event_id": "d23",
+   "company": "Lenovo",
+   "fiscal_period": "FY2025Q2",
+   "period_start": "2024-07-01",
+   "period_end": "2024-09-30",
+   "published_at": "2024-11-15",
+   "discovery_paths": [
+    "data"
+   ],
+   "event_type": "unexplained_anomaly",
+   "event_description": "inventory 环比变化相对历年同季度基线 z=+3.124（|z|>2.0），方向上升",
+   "selection_reason": "数据路径：|z|=3.124>2.0（Q11 降阈值，基线上限≈2.47）",
+   "affected_metrics": [
+    "inventory"
+   ],
+   "formula_or_query": "z=(本期环比−同财季历年环比均值)/该分布σ（排除当前点；n≥3 且方差>0）",
+   "factor_coverage": "已计算因子：环比 z；未计算：同比/分部/价格-销量拆分",
+   "document_id": "lenovo_FY2025Q2",
+   "source_location": null,
+   "source_quote": null,
+   "competing_explanations": null,
+   "missing_data": null,
+   "evidence_limits": "z 基线样本仅 7–8 个同财季环比（|z| 理论上限≈2.47，Q11）；候选只说明“该期该科目变化异常”，原因须披露/人工佐证。 该公司/期叙述段未检索到对应正文。",
+   "review_status": "pending_human(V5.12)",
+   "method_version": "v511-r3（双路径汇合，全字段 schema，handoff 步骤3）",
+   "split": "dev"
+  },
+  {
+   "event_id": "e01",
+   "company": "Lenovo",
+   "fiscal_period": "FY2022Q3",
+   "period_start": "2021-10-01",
+   "period_end": "2021-12-31",
+   "published_at": "2022-02-23",
+   "discovery_paths": [
+    "disclosure"
+   ],
+   "event_type": "supply_chain",
+   "event_description": "披露正文命中事件词（供應鏈 供應），未见对应 |z|>2.0 数据候选",
+   "selection_reason": "披露路径主动扫描；按 handoff 步骤3，无显著指标变化仍可入选",
+   "affected_metrics": [],
+   "formula_or_query": null,
+   "factor_coverage": "现有因子未覆盖/抵消/滞后（未生成对应 z 异常）",
+   "document_id": "lenovo_FY2022Q3",
+   "source_location": "lenovo_FY2022Q3#p4",
+   "source_quote": "4\r\n由於混合辦公模式的日益普及和由此產生的強勁的商業需求，全球個人電腦行業的總可用市場規模應保持\r\n在穩定和結構性的高水平。智能設備業務集團將通過抓住包括強勁的商業升級週期和高端化趨勢在內的行\r\n業機遇，繼續推動持續的高於市場的增長。該業務集團將通過增強混合辦公、遊戲、娛樂、綠色材料和\r\nESG 設計的功能，在全球設備創新方面領先。其智能手機業務將專注於產品組合的擴展和差異化，充分利\r\n用 5G 的加速採用和不斷變化的競爭格局。其他非個人電腦產品對智能設備業務集團發揮著越來越重要的作\r\n用，智能設備業務集團計劃加快投資，在高速增長的配件市場和新興物聯網機會等領域取得勝利。\r\n對於基礎設施方案業務集團，其客戶正在加快基礎設施升級的步伐。作為全球基礎設施領域增長最快的供\r\n應商之一，基礎設施方案業務集團一直在構建行業領先的端到端基礎設施解決方案，並從伺服器擴展到全\r\n棧產品，包括存儲、軟體定",
+   "competing_explanations": null,
+   "missing_data": "未做数据侧对应异常验证（扫描顺序：先登记，后续核对）",
+   "evidence_limits": "来源为交易所公告正文（繁中），刊发日期取自文件名未逐份回验公告页；HP/Dell 无本地正文语料（SEC XBRL 不含叙述文），披露路径对公司覆盖不全。",
+   "review_status": "pending_human(V5.12)",
+   "method_version": "v511-r3（双路径汇合，全字段 schema，handoff 步骤3）",
+   "split": "dev"
+  },
+  {
+   "event_id": "e02",
+   "company": "Lenovo",
+   "fiscal_period": "FY2023Q1",
+   "period_start": "2022-04-01",
+   "period_end": "2022-06-30",
+   "published_at": "2022-08-10",
+   "discovery_paths": [
+    "disclosure"
+   ],
+   "event_type": "channel_destocking",
+   "event_description": "披露正文命中事件词（需求疲弱 渠道 存貨 過剩），未见对应 |z|>2.0 数据候选",
+   "selection_reason": "披露路径主动扫描；按 handoff 步骤3，无显著指标变化仍可入选",
+   "affected_metrics": [],
+   "formula_or_query": null,
+   "factor_coverage": "现有因子未覆盖/抵消/滞后（未生成对应 z 异常）",
+   "document_id": "lenovo_FY2023Q1",
+   "source_location": "lenovo_FY2023Q1#p2",
+   "source_quote": "2\r\n業務回顧及展望\r\n亮點\r\n截至 2022 年 6 月 30 日止季度，儘管面對新冠肺炎疫情持續干擾、地緣政治不確定性、全球通\r\n脹飆升及匯率波動等宏觀挑戰，聯想（集團）仍取得強勁表現。集團的權益持有人應佔溢利同\r\n比增長 11%至 5.16 億美元，收入達 170 億美元，同比持平，若剔除匯率影響，則同比增長\r\n5%。第一季度淨利潤率同比上升 29 個基點至第一季度歷史新高，實現集團淨利潤率翻倍的中\r\n期財務目標進度理想。\r\n集團現提供非香港財務報告準則計量，以更好地反映其營運表現。回顧期內，非香港財務報告\r\n準則下權益持有人應佔溢利同比增長 35%至 5.56 億美元，這得益於其經營盈利能力的強勁改\r\n善。\r\n集團的個人電腦業務放緩，主要是由於消費電腦的需求疲弱和新冠肺炎疫情導致供應短缺。另\r\n一方面，由於全球數字化轉型週期十分強韌，集團的非個人電腦業務在本財年有一個強勁的開\r\n端",
+   "competing_explanations": null,
+   "missing_data": "未做数据侧对应异常验证（扫描顺序：先登记，后续核对）",
+   "evidence_limits": "来源为交易所公告正文（繁中），刊发日期取自文件名未逐份回验公告页；HP/Dell 无本地正文语料（SEC XBRL 不含叙述文），披露路径对公司覆盖不全。",
+   "review_status": "pending_human(V5.12)",
+   "method_version": "v511-r3（双路径汇合，全字段 schema，handoff 步骤3）",
+   "split": "dev"
+  },
+  {
+   "event_id": "e03",
+   "company": "Lenovo",
+   "fiscal_period": "FY2023Q1",
+   "period_start": "2022-04-01",
+   "period_end": "2022-06-30",
+   "published_at": "2022-08-10",
+   "discovery_paths": [
+    "disclosure"
+   ],
+   "event_type": "supply_chain",
+   "event_description": "披露正文命中事件词（供應鏈 供應），未见对应 |z|>2.0 数据候选",
+   "selection_reason": "披露路径主动扫描；按 handoff 步骤3，无显著指标变化仍可入选",
+   "affected_metrics": [],
+   "formula_or_query": null,
+   "factor_coverage": "现有因子未覆盖/抵消/滞后（未生成对应 z 异常）",
+   "document_id": "lenovo_FY2023Q1",
+   "source_location": "lenovo_FY2023Q1#p3",
+   "source_quote": "3\r\n鑑於消費個人電腦需求疲弱及供應鏈受限，智能設備業務集團的收入及分部溢利均錄得低個位\r\n數跌幅。儘管如此，憑藉智能設備業務集團豐富的銷售組合，使其提高在商用及高端個人電腦\r\n領域的滲透，使表現超越同行。在其智能手機業務中，智能設備業務集團亦推動 5G 的銷售機\r\n會，從而提高個人電腦和智能手機產品的平均售價。\r\n各產品業務集團的表現\r\n智能設備業務集團\r\n由個人電腦、平板電腦、智能手機和其他智能設備業務組成的智能設備業務集團，本季度收入\r\n及溢利同比分別下降 3%及 2%，經營利潤率保持強勁達 7.5%。\r\n個人電腦業務方面，智能設備業務集團繼續執行其長期戰略，以釋放商用部門及高端部門的增\r\n長潛力。中國的個人電腦銷售表現遜於其他地區市場主要由於新冠肺炎封鎖。除中國外，智能\r\n設備業務集團的商用個人電腦收入較去年同期增長 3%。受惠於其為利用混合工作模式和生活方\r\n式改變而作出的創新投",
+   "competing_explanations": null,
+   "missing_data": "未做数据侧对应异常验证（扫描顺序：先登记，后续核对）",
+   "evidence_limits": "来源为交易所公告正文（繁中），刊发日期取自文件名未逐份回验公告页；HP/Dell 无本地正文语料（SEC XBRL 不含叙述文），披露路径对公司覆盖不全。",
+   "review_status": "pending_human(V5.12)",
+   "method_version": "v511-r3（双路径汇合，全字段 schema，handoff 步骤3）",
+   "split": "dev"
+  },
+  {
+   "event_id": "e04",
+   "company": "Lenovo",
+   "fiscal_period": "FY2023Q3",
+   "period_start": "2022-10-01",
+   "period_end": "2022-12-31",
+   "published_at": "2023-02-17",
+   "discovery_paths": [
+    "disclosure"
+   ],
+   "event_type": "channel_destocking",
+   "event_description": "披露正文命中事件词（需求疲弱 渠道 存貨 過剩），未见对应 |z|>2.0 数据候选",
+   "selection_reason": "披露路径主动扫描；按 handoff 步骤3，无显著指标变化仍可入选",
+   "affected_metrics": [],
+   "formula_or_query": null,
+   "factor_coverage": "现有因子未覆盖/抵消/滞后（未生成对应 z 异常）",
+   "document_id": "lenovo_FY2023Q3",
+   "source_location": "lenovo_FY2023Q3#p4",
+   "source_quote": "4\r\n集團在歐洲－中東－非洲市場的收入同比下跌 35%，這主要由於宏觀逆風、渠道存貨減少及地緣政治\r\n衝突持續所致。基礎設施方案業務集團及方案服務業務集團均保持強勁增長勢頭，在一定程度上抵消\r\n了智能設備業務集團面臨的需求疲弱影響。方案服務業務集團則通過增加交付足跡、產品差異化和客\r\n戶擴展，在歐洲－中東－非洲市場實現雙位數同比增長。\r\n展望\r\n於回顧期內，外部挑戰繼續影響全球市場並將可能持續至未來一段時間。例如，鑒於集團於全球的業\r\n務布局以及集團逾半收入以非美元貨幣計值，美元強勢加劇了換算影響，當中許多貨幣兌美元的匯率\r\n同比貶值，在過去兩個季度中，美元強勢對集團收入產生 6%的影響。\r\n同時，IT 開支組合亦明顯轉變，漸趨數字化，這將為數字化、雲基建及以服務為主導的轉型帶來戰略\r\n性機遇。這些催化劑加上集團於創新的投資和其全球化足跡是減輕外部挑戰及實現將淨利潤翻倍的中\r\n期目標的關鍵",
+   "competing_explanations": null,
+   "missing_data": "未做数据侧对应异常验证（扫描顺序：先登记，后续核对）",
+   "evidence_limits": "来源为交易所公告正文（繁中），刊发日期取自文件名未逐份回验公告页；HP/Dell 无本地正文语料（SEC XBRL 不含叙述文），披露路径对公司覆盖不全。",
+   "review_status": "pending_human(V5.12)",
+   "method_version": "v511-r3（双路径汇合，全字段 schema，handoff 步骤3）",
+   "split": "dev"
+  },
+  {
+   "event_id": "e05",
+   "company": "Lenovo",
+   "fiscal_period": "FY2023Q4",
+   "period_start": "2023-01-01",
+   "period_end": "2023-03-31",
+   "published_at": "2023-05-24",
+   "discovery_paths": [
+    "disclosure"
+   ],
+   "event_type": "channel_destocking",
+   "event_description": "披露正文命中事件词（需求疲弱 渠道 存貨 過剩），未见对应 |z|>2.0 数据候选",
+   "selection_reason": "披露路径主动扫描；按 handoff 步骤3，无显著指标变化仍可入选",
+   "affected_metrics": [],
+   "formula_or_query": null,
+   "factor_coverage": "现有因子未覆盖/抵消/滞后（未生成对应 z 异常）",
+   "document_id": "lenovo_FY2023Q4",
+   "source_location": "lenovo_FY2023Q4#p4",
+   "source_quote": "4\r\n回顧年內，由於出貨需求下降及貨幣的逆風，渠道庫存過剩使業務的挑戰倍加。出貨活動受到渠道清\r\n貨的影響。然而，集團的銷售數據或售予終端用戶的實際銷售數據均顯示終端需求下降較為平緩，同\r\n時增加市場份額。步入年底時，集團的個人電腦業務在減少渠道存貨方面取得重大進展，按市場份額\r\n仍排名第一。\r\n智能設備業務集團在把握個人電腦產品以外的增長機會方面取得了巨大進展。非個人電腦的銷售占智\r\n能設備業務集團收入的19%，同比增長0.4個百分點。我們的智能手機業務收入因整體市場需求疲軟而\r\n下降。儘管如此，它在歐洲、中東和非洲和亞太地區等多個市場的表現仍有顯著優勢。隨著5G產品\r\n組合不斷擴大，智能手機業務也連續三年保持盈利。智能設備業務集團還加大了場景化解決方案的開\r\n發力度，包括智能協作、智慧辦公和智慧家居，實現了雙位數的同比增長。\r\n智能設備業務集團的長期增長策略在於創新投資，開發強大的產品",
+   "competing_explanations": null,
+   "missing_data": "未做数据侧对应异常验证（扫描顺序：先登记，后续核对）",
+   "evidence_limits": "来源为交易所公告正文（繁中），刊发日期取自文件名未逐份回验公告页；HP/Dell 无本地正文语料（SEC XBRL 不含叙述文），披露路径对公司覆盖不全。",
+   "review_status": "pending_human(V5.12)",
+   "method_version": "v511-r3（双路径汇合，全字段 schema，handoff 步骤3）",
+   "split": "dev"
+  },
+  {
+   "event_id": "e06",
+   "company": "Lenovo",
+   "fiscal_period": "FY2023Q4",
+   "period_start": "2023-01-01",
+   "period_end": "2023-03-31",
+   "published_at": "2023-05-24",
+   "discovery_paths": [
+    "disclosure"
+   ],
+   "event_type": "channel_destocking",
+   "event_description": "披露正文命中事件词（需求疲弱 渠道 存貨 過剩），未见对应 |z|>2.0 数据候选",
+   "selection_reason": "披露路径主动扫描；按 handoff 步骤3，无显著指标变化仍可入选",
+   "affected_metrics": [],
+   "formula_or_query": null,
+   "factor_coverage": "现有因子未覆盖/抵消/滞后（未生成对应 z 异常）",
+   "document_id": "lenovo_FY2023Q4",
+   "source_location": "lenovo_FY2023Q4#p5",
+   "source_quote": "5\r\n表現強勁及方案服務業務集團在該地區的溫和增長，部分抵銷了智能設備業務集團在個人電腦領域面\r\n對通脹、經濟活動疲弱及渠道清理存貨的不利因素而導致的弱勢。\r\n在亞太區（不包括中國），集團收入下降10%。方案服務業務集團，包括其附屬公司LPS，由於獲得\r\n主要項目，使收入強勁增長。受惠於雲服務 IT 基礎設施業務及中小型企業 IT 基礎設施業務的優勢，\r\n基礎設施方案業務集團亦在區內錄得雙位數增長。智能設備業務集團的收入下降，主要由於個人電腦\r\n渠道繼續消化庫存以及全年大部分時間貨幣兌美元貶值所致。\r\n上半年受疫情管控措施及經濟增長放緩影響，中國市場的收入同比下跌19%。包括個人電腦及基礎設\r\n施業務在內的業務分部市場需求下降。然而，在「即服務」及垂直解決方案的推動下，方案服務業務\r\n集團錄得強勁的收入增長。\r\n集團在歐洲－中東－非洲市場的收入同比下降16%。該地區疲弱，主要是由於智能設備",
+   "competing_explanations": null,
+   "missing_data": "未做数据侧对应异常验证（扫描顺序：先登记，后续核对）",
+   "evidence_limits": "来源为交易所公告正文（繁中），刊发日期取自文件名未逐份回验公告页；HP/Dell 无本地正文语料（SEC XBRL 不含叙述文），披露路径对公司覆盖不全。",
+   "review_status": "pending_human(V5.12)",
+   "method_version": "v511-r3（双路径汇合，全字段 schema，handoff 步骤3）",
+   "split": "dev"
+  },
+  {
+   "event_id": "e07",
+   "company": "Lenovo",
+   "fiscal_period": "FY2023Q4",
+   "period_start": "2023-01-01",
+   "period_end": "2023-03-31",
+   "published_at": "2023-05-24",
+   "discovery_paths": [
+    "disclosure"
+   ],
+   "event_type": "channel_destocking",
+   "event_description": "披露正文命中事件词（需求疲弱 渠道 存貨 過剩），未见对应 |z|>2.0 数据候选",
+   "selection_reason": "披露路径主动扫描；按 handoff 步骤3，无显著指标变化仍可入选",
+   "affected_metrics": [],
+   "formula_or_query": null,
+   "factor_coverage": "现有因子未覆盖/抵消/滞后（未生成对应 z 异常）",
+   "document_id": "lenovo_FY2023Q4",
+   "source_location": "lenovo_FY2023Q4#p3",
+   "source_quote": "3\r\n \r\n業務回顧及展望 \r\n亮點 \r\n \r\n截至2023年3月31日止財政年度，得益於強韌及行之有效的轉型策略，聯想（集團）的結構性增長引\r\n擎（包括其基礎設施方案業務集團及方案服務業務集團）創下多項業績紀錄。憑藉多個高端應用（包\r\n括AI）以及高利潤產品組合的擴張，基礎設施方案業務集團分部的溢利顯著增長。方案服務業務集團\r\n通過為廣泛的客戶群擴展其增值解決方案，引領了集團以服務為主導的轉型。增長引擎的合併收入及\r\n經營溢利分別增長31%及24%。儘管由於整個行業面對渠道庫存過剩、客戶對支出的保守態度及匯率\r\n波動等壓力，導致收入下降21%，智能設備業務集團的市場份額和盈利能力仍保持強勁的行業領導地\r\n位。\r\n一方面，非個人電腦業務增長7%，佔三個業務集團的合併收入接近40%，同比增長7個百分點。另一\r\n方面，持續的宏觀不利因素拖累個人電腦業務，導致集團收入下降14%至619億美元，其",
+   "competing_explanations": null,
+   "missing_data": "未做数据侧对应异常验证（扫描顺序：先登记，后续核对）",
+   "evidence_limits": "来源为交易所公告正文（繁中），刊发日期取自文件名未逐份回验公告页；HP/Dell 无本地正文语料（SEC XBRL 不含叙述文），披露路径对公司覆盖不全。",
+   "review_status": "pending_human(V5.12)",
+   "method_version": "v511-r3（双路径汇合，全字段 schema，handoff 步骤3）",
+   "split": "dev"
+  },
+  {
+   "event_id": "e08",
+   "company": "Lenovo",
+   "fiscal_period": "FY2024Q1",
+   "period_start": "2023-04-01",
+   "period_end": "2023-06-30",
+   "published_at": "2023-08-17",
+   "discovery_paths": [
+    "disclosure"
+   ],
+   "event_type": "channel_destocking",
+   "event_description": "披露正文命中事件词（需求疲弱 渠道 存貨 過剩），未见对应 |z|>2.0 数据候选",
+   "selection_reason": "披露路径主动扫描；按 handoff 步骤3，无显著指标变化仍可入选",
+   "affected_metrics": [],
+   "formula_or_query": null,
+   "factor_coverage": "现有因子未覆盖/抵消/滞后（未生成对应 z 异常）",
+   "document_id": "lenovo_FY2024Q1",
+   "source_location": "lenovo_FY2024Q1#p3",
+   "source_quote": "3\r\n基礎設施方案業務集團\r\n於回顧期內，更廣泛的基礎設施行業受全行業需求放緩影響導致計算伺服器需求疲軟、以及行業向下一代平台\r\n過渡速度慢於預期。連續幾個季度表現優於行業後，基礎設施方案業務集團最終受到行業整體需求調整的影\r\n響，收入同比下降 8%至 19 億美元。由於業務規模縮小，其分部經營業績轉為虧損 6,000 萬美元。\r\n市場對公共雲服務的需求保持旺盛，但雲服務 IT基礎設施業務和中小型企業 IT 基礎設施業務因企業客戶努力控\r\n制開支使設備更新周期延長。持續進行的數字化轉型為人工智能等新應用帶來希望，人工智能仍處於開發初\r\n期，客戶的預算將在短期內轉至支持人工智能圖形處理器服務器，犧牲通用服務器。加上平台轉型較預期慢及\r\n經濟低迷，基礎設施方案業務集團的電腦服務器收入同比下降雙位數。\r\n隨著人工智能解決方案部署普及，長期增長機會的潛力巨大。基礎設施方案業務集團正利用在智能設備和",
+   "competing_explanations": null,
+   "missing_data": "未做数据侧对应异常验证（扫描顺序：先登记，后续核对）",
+   "evidence_limits": "来源为交易所公告正文（繁中），刊发日期取自文件名未逐份回验公告页；HP/Dell 无本地正文语料（SEC XBRL 不含叙述文），披露路径对公司覆盖不全。",
+   "review_status": "pending_human(V5.12)",
+   "method_version": "v511-r3（双路径汇合，全字段 schema，handoff 步骤3）",
+   "split": "dev"
+  },
+  {
+   "event_id": "e09",
+   "company": "Lenovo",
+   "fiscal_period": "FY2024Q1",
+   "period_start": "2023-04-01",
+   "period_end": "2023-06-30",
+   "published_at": "2023-08-17",
+   "discovery_paths": [
+    "disclosure"
+   ],
+   "event_type": "channel_destocking",
+   "event_description": "披露正文命中事件词（需求疲弱 渠道 存貨 過剩），未见对应 |z|>2.0 数据候选",
+   "selection_reason": "披露路径主动扫描；按 handoff 步骤3，无显著指标变化仍可入选",
+   "affected_metrics": [],
+   "formula_or_query": null,
+   "factor_coverage": "现有因子未覆盖/抵消/滞后（未生成对应 z 异常）",
+   "document_id": "lenovo_FY2024Q1",
+   "source_location": "lenovo_FY2024Q1#p2",
+   "source_quote": "2\r\n業務回顧及展望\r\n亮點\r\n截至二零二三年六月三十日止季度，雖然宏觀環境不穩定和充滿挑戰，但集團繼續展現其以服務為主導的轉型\r\n的承諾，於多方面取得正面成果。其結構性增長引擎方案服務業務集團再次創下新的業績里程碑，錄得首季最\r\n高的銷售額，收入及經營溢利分別增長了 18%和 10%。該業務集團通過為廣泛的客戶群擴展增值解決方案，引\r\n領集團以服務為主導的轉型。而另一個增長引擎基礎設施方案業務集團則受到全球基建投資放緩的影響，收入\r\n下降 8%。儘管如此，該業務集團繼續執行其策略，爭取存儲及人工智能等高增長產品及應用，同時擴大高利潤\r\n率的產品組合。另一方面，智能設備業務集團在克服了消化庫存的全行業挑戰後，仍保持全球行業的領先者地\r\n位，而清理渠道過剩存貨雖然導致收入年比年下跌 28%，但為未來銷售增長奠定了基礎。集團權益持有人應佔\r\n溢利下降 66%至 1.77 億美元，收入達 129",
+   "competing_explanations": null,
+   "missing_data": "未做数据侧对应异常验证（扫描顺序：先登记，后续核对）",
+   "evidence_limits": "来源为交易所公告正文（繁中），刊发日期取自文件名未逐份回验公告页；HP/Dell 无本地正文语料（SEC XBRL 不含叙述文），披露路径对公司覆盖不全。",
+   "review_status": "pending_human(V5.12)",
+   "method_version": "v511-r3（双路径汇合，全字段 schema，handoff 步骤3）",
+   "split": "dev",
+   "disclosure_events": [
+    {
+     "event_type": "supply_chain",
+     "scan_query": "供應鏈 供應"
+    }
+   ]
+  },
+  {
+   "event_id": "e10",
+   "company": "Lenovo",
+   "fiscal_period": "FY2024Q1",
+   "period_start": "2023-04-01",
+   "period_end": "2023-06-30",
+   "published_at": "2023-08-17",
+   "discovery_paths": [
+    "disclosure"
+   ],
+   "event_type": "ma_divestiture",
+   "event_description": "披露正文命中事件词（收購 出售 分拆），未见对应 |z|>2.0 数据候选",
+   "selection_reason": "披露路径主动扫描；按 handoff 步骤3，无显著指标变化仍可入选",
+   "affected_metrics": [],
+   "formula_or_query": null,
+   "factor_coverage": "现有因子未覆盖/抵消/滞后（未生成对应 z 异常）",
+   "document_id": "lenovo_FY2024Q1",
+   "source_location": "lenovo_FY2024Q1#p7",
+   "source_quote": "7\r\n本集團採用業務集團分類為呈報格式。業務集團分類包括智能設備業務集團，基礎設施方案業務集團及方案\r\n服務業務集團。可報告分部之收入與經營溢利 / (虧損) 呈列如下：\r\n截至二零二三年 \r\n六月三十日止三個月 \r\n截至二零二二年\r\n六月三十日止三個月\r\n收入\r\n經營 \r\n溢利 / (虧損) 收入 經營溢利\r\n千美元 千美元 千美元 千美元\r\n智能設備業務集團 10,260,612 649,757 14,273,843 1,069,512\r\n基礎設施方案業務集團 1,913,766 (60,417) 2,086,073 11,311\r\n方案服務業務集團 1,713,232 361,140 1,455,872 329,342\r\n合計 13,887,610 950,480 17,815,788 1,410,165\r\n抵銷 (987,683) (307,360) (860,170) (284,",
+   "competing_explanations": null,
+   "missing_data": "未做数据侧对应异常验证（扫描顺序：先登记，后续核对）",
+   "evidence_limits": "来源为交易所公告正文（繁中），刊发日期取自文件名未逐份回验公告页；HP/Dell 无本地正文语料（SEC XBRL 不含叙述文），披露路径对公司覆盖不全。",
+   "review_status": "pending_human(V5.12)",
+   "method_version": "v511-r3（双路径汇合，全字段 schema，handoff 步骤3）",
+   "split": "dev"
+  }
+ ]
+}

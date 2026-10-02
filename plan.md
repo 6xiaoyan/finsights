@@ -724,6 +724,7 @@ def inject(base_db, inj: Injection) -> tuple[str, dict]   # 返回场景库路�
 | 2026-10-01 | 初版 | — |
 | 2026-10-02 | 回答一步骤 2 新接口：`etl/disclosures.py`（披露索引+页级分块 → `data/disclosures/`，含 SHA256/发布时间依据）；`agent/disclosure.py`（只读检索，as_of 严格过滤）；新工具 `search_disclosure`（参数 query/company/period/top_k；as_of 由运行上下文注入，非工具参数，V4.5 不变）；`config.context.disclosure_dir` | Q11 双路径需要可引用的披露正文；HP/Dell 正文未入库（SEC JSON 无正文），库暂只覆盖联想 |
 | 2026-10-02 | Q11 双路径、推理卡与跨公司验证获确认；补充两项 GLM 开发交接。正式压缩先修计量和证据保护，试 64K/128K；16K 原题/40 步另验。方向不再待裁定，参数效果/实现仍待复核 | docs/solution.md；docs/handoff_event_attribution.md；docs/handoff_context_compression.md |
+| 2026-10-02 | 登记 Q12（L3 题库被扩为 30 题，与 plan 写死的 8 题冲突，正式跑按 V5.10 原口径 3×8 子集）；attribution skill 输出契约统一为独立行「根因标签: <label>」（首轮 live 发现与打分器错配）；eval runner 新增 `--ids` 题号白名单 | questions.md Q12；verification_log P5.4 |
 | 2026-10-02 | Q8 按具体历史行 SHA256 登记例外、全库扫描保留；Q9 修正负向用例为 6250；Q10 授权现在修复并重跑，标准不变；V4.15/V4.47 批阅 FAIL，V1.17 按用户终确认 PASS，第二轮 AI 抽检取消；P4 先按 review_20261002.md 收尾 | 用户授权 Codex 裁定和批阅；后续用户明确已看过 V1.17 |
 | 2026-10-01 | 明确 total_equity 含少数股东权益；快照对无 available_date 的表按关联过滤 | 编写 verify.md 时发现的歧义 |
 | 2026-10-01 | 时间窗口定为 2017 年起；重写 6.6 压缩设计（参考 Claude Code 的 5 层流水线和 9 段模板，加入证据账本和摘要核验） | 用户确认；对齐 Claude Code 的做法 |

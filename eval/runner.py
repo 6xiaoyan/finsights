@@ -70,10 +70,12 @@ def make_agent(name: str, limiter: RateLimiter) -> AgentFn:
         client = LLMClient()
 
         def _v1(q):
+            from datetime import date
             from agent.v1 import DB_PATH
             from eval.generators.inject import SCENARIO_DIR
             db = DB_PATH if q.db in ("", "base") else SCENARIO_DIR / f"{q.db}.duckdb"
-            return run_v1(q.question, llm=client, limiter=limiter, db_path=db)
+            as_of = date.fromisoformat(q.as_of) if q.as_of else None
+            return run_v1(q.question, llm=client, limiter=limiter, db_path=db, as_of=as_of)
         return _v1
     raise KeyError(f"未知 agent: {name}（可用: v0, v1；更后面的版本在对应阶段加入）")
 
@@ -137,13 +139,15 @@ def run_suite(questions: list[Question], agent_fn: AgentFn, trials: int, run_id:
                    "prompt_tokens": info.get("prompt_tokens", 0),
                    "completion_tokens": info.get("completion_tokens", 0),
                    "cost_usd": round(cost, 6), "latency_s": latency,
-                   "detail": grade["detail"], "answer_md": answer.answer_md[:500]}
+                   "detail": grade["detail"], "answer_md": answer.answer_md[:500],
+                   "metrics": {k: v for k, v in grade.items() if k not in ("correct", "detail")}}
         except Exception as e:  # 单次 trial 失败（如限速重试耗尽）不拖垮整个 run
             rec = {"qid": q.id, "category": q.category, "trial": trial,
                    "correct": False, "status": "error", "steps": 0, "tool_calls": 0,
                    "sql_errors": 0, "prompt_tokens": 0, "completion_tokens": 0,
                    "cost_usd": 0.0, "latency_s": round(time.time() - t0, 2),
-                   "detail": f"运行异常: {type(e).__name__}: {e}", "answer_md": ""}
+                   "detail": f"运行异常: {type(e).__name__}: {e}", "answer_md": "",
+                   "metrics": {}}
             info = {"trace": [{"type": "error", "error": str(e)[:500]}]}
         trace = [json.dumps({"qid": q.id, "trial": trial, "type": "meta", "agent": agent_name,
                              "question": q.question, "ts": datetime.now().isoformat(timespec="seconds")},
@@ -212,6 +216,17 @@ def write_report(summary: dict, reports_root: Path = REPORTS) -> Path:
         lines.append(f"| {cat} | {s['n_questions']:.0f} | {s['acc_mean']:.2f} ± {s['acc_std']:.2f} "
                      f"| {s['steps']:.1f} | {s['tool_calls']:.1f} | {s['sql_errors']:.1f} "
                      f"| {s['tokens']:.0f} | {s['latency_s']:.1f} | {s['cost_usd']:.4f} |")
+    l3 = [r["metrics"] for r in summary["records"] if r["category"] == "L3" and r.get("metrics")]
+    if l3:
+        from eval.graders.l3 import aggregate
+        n_neg = sum(bool(m.get("is_negative")) for m in l3)
+        agg = aggregate(l3, len(l3) - n_neg, n_neg)
+        lines += ["", "## L3 归因过程指标（V5.10；每次 trial 计一条）",
+                  f"- top-1: {agg['top1']:.2f} ｜ 误归因率: {agg['misattributed_rate']:.2f}"
+                  f" ｜ 阴性题误报率: {agg['false_positive_rate']:.2f}",
+                  f"- 证据完整性: seasonal_check {agg['evidence_seasonal']:.2f}"
+                  f" ｜ peer_compare {agg['evidence_peer']:.2f}",
+                  f"- trials: n={agg['n']}（注入 {agg['n_injected']} / 阴性 {agg['n_negative']}）"]
     wrong = [r for r in summary["records"] if not r["correct"]]
     lines += ["", f"## 失败明细（{len(wrong)} 条 trial 记录）"]
     for r in wrong:
@@ -253,9 +268,17 @@ def main(argv: list[str]) -> int:
     ap.add_argument("--trials", type=int, default=3)
     ap.add_argument("--concurrency", type=int, default=4)
     ap.add_argument("--max-rpm", type=float, default=None)
+    ap.add_argument("--ids", default=None,
+                    help="只跑逗号分隔的题号子集（如 L3 正式 8 题子集，选择规则须先登记）")
     args = ap.parse_args(argv[1:])
 
     questions = load_questions(args.datasets)
+    if args.ids:
+        keep = {s.strip() for s in args.ids.split(",")}
+        questions = [q for q in questions if q.id in keep]
+        missing = keep - {q.id for q in questions}
+        if missing:
+            ap.error(f"--ids 中题库不存在的题号: {sorted(missing)}")
     limiter = RateLimiter(args.max_rpm or _default_rpm())
     agent_fn = make_agent(args.agent, limiter)
     run_id = datetime.now().strftime("%Y%m%d-%H%M%S")
