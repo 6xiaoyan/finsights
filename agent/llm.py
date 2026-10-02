@@ -25,7 +25,7 @@ from openai import (
     RateLimitError,
 )
 
-from agent.context import ContextTooLong
+from agent.context import ContextTooLong, calibrate, est_tokens
 
 # 可重试：限流 / 超时 / 连接问题 / 服务端 5xx。
 # 认证、参数、权限错误不重试，立即抛出（重试也不会成功）。
@@ -75,9 +75,12 @@ class LLMClient:
         self.enable_thinking: dict[str, bool] = {
             "agent": bool(thinking_cfg.get("agent", False)),
             "judge": bool(thinking_cfg.get("judge", False)),
+            "summary": bool(thinking_cfg.get("summary", thinking_cfg.get("judge", False))),
         }
         self.timeout_s: float = llm.get("timeout_s", 120)
         self.max_retries: int = llm.get("max_retries", 3)  # 重试次数；总尝试 = max_retries + 1
+        self.max_output_tokens_main: int = llm.get("max_output_tokens_main", 8000)   # A1 输出上限
+        self.max_output_tokens_summary: int = llm.get("max_output_tokens_summary", 4000)
 
         if api_key is None:
             load_dotenv()
@@ -100,10 +103,13 @@ class LLMClient:
         temperature: float | None = None,
     ) -> ChatResult:
         temp = temperature if temperature is not None else self.temperatures[role]
+        # A1：本次调用的估算输入 token（含工具定义），返回后用 usage.prompt_tokens 校准比率
+        est = est_tokens(messages, tool_def_chars=len(repr(tools)) if tools else 0)
         kwargs: dict[str, Any] = {
             "model": self.model,
             "messages": messages,
             "temperature": temp,
+            "max_tokens": self.max_output_tokens_summary if role == "summary" else self.max_output_tokens_main,
             "extra_body": {"chat_template_kwargs": {"enable_thinking": self.enable_thinking[role]}},
         }
         if tools:
@@ -123,7 +129,12 @@ class LLMClient:
                 if attempt < attempts - 1:
                     time.sleep(2**attempt)  # 指数退避：1s, 2s, 4s
                 continue
-            return self._parse(resp)
+            result = self._parse(resp)
+            actual = int(result.usage.get("prompt_tokens") or 0)
+            if actual:  # 偏差随 usage["est_prompt_tokens"] 进 trace（loop 的 assistant 事件）
+                calibrate(est, actual)
+                result.usage["est_prompt_tokens"] = est
+            return result
         assert last_err is not None
         raise last_err
 

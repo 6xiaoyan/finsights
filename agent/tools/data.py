@@ -344,6 +344,12 @@ def _h_recall(args, ctx: ToolContext, step: int) -> Outcome:
     res = ctx.store.get(args.result_id)
     if res is None:
         raise KeyError(f"{args.result_id} 不存在（rid 来自此前的工具结果头行）")
+    # A2 活动证据保护：召回的 rid 从存根集合移除（后续视图恢复完整内容，不再立即重新存根），
+    # 并加入活动依赖集合（L3/L4 不得压缩，直到依赖解除）
+    comp = getattr(ctx, "comp", None)
+    if comp is not None:
+        comp.stubbed = comp.stubbed - {args.result_id}
+        comp.active_rids.add(args.result_id)
     part = res.df.iloc[args.offset: args.offset + int(ctx.cfg.get("result_max_rows", 50))]
     view = StoredResult(id=res.id, tool="recall",
                         args={"result_id": res.id, "offset": args.offset},

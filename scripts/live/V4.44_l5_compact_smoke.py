@@ -34,9 +34,12 @@ QUESTION = ("联想 FY24Q2 存货环比明显上升，请做一次完整归因�
 def make_smoke_config(out_path: Path) -> Path:
     cfg = yaml.safe_load(Path("config.yaml").read_text(encoding="utf-8"))
     c = cfg["context"]
+    # 回答二步骤 5 的 ①（原失败配置复现）：显式阈值键是后来加的，16K 压测走旧比例触发路径
+    c.pop("l3_trigger_tokens", None)
     c.update(window=16000, reserve_output=3000, compact_threshold=2000,
              clear_at_least=200, l3_ratio=0.05, stub_keep_last=3,
-             ledger_keep_recent_turns=3, l5_enabled=True, l5_keep_last_turns=1)
+             ledger_keep_recent_turns=3, l5_enabled=True, l5_keep_last_turns=1,
+             token_safety_margin=1.0)
     # 长任务归因题实测：20–30 步在投影过狠（keep=2）时模型会反复复核 r2/r3 烧完预算；
     # 冒烟放宽到 40 步、keep=3，压缩层级仍必然触发（阈值 2000 est-tokens）
     cfg["agent"]["max_steps"] = 40

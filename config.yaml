@@ -13,6 +13,8 @@ llm:
     judge: false
   timeout_s: 120
   max_retries: 3                 # 指数退避
+  max_output_tokens_main: 8000   # 主循环输出上限（交接 A1；能力探针见 scripts/live/）
+  max_output_tokens_summary: 4000  # L5 摘要输出上限
   rate_limit_rpm: 18             # 客户端限速（免费档约 20 RPM，留余量；runner 令牌桶用）
   pricing_usd_per_mtok:          # list 价（推广期实际 $0，按 list 价记账作为成本上界）
     input: 0.05
@@ -25,19 +27,23 @@ agent:
   final_answer_max_retries: 2    # 护栏打回重做的最大次数
 
 context:
-  # 有效窗口 = window - reserve_output（为摘要输出预留）
-  # L4/L5 触发阈值 = compact_threshold（= 有效窗口 - 13000，plan 6.6.4）
-  window: 512000                 # agnes-3.0-flash 官方上下文长度；压缩实验时临时调小（如 16000）
-  reserve_output: 20000          # 为摘要/回答输出预留
-  compact_threshold: 479000      # L4 账本压缩 / L5 全量摘要触发阈值
-  clear_at_least: 8000           # L3 存根化至少要释放的 token 数
-  l3_ratio: 0.5                  # L3 触发：视图 token 数 > 该比例 × 有效窗口
-  stub_keep_last: 3              # L3 保留最近 N 个结果不压缩
-  ledger_keep_recent_turns: 2    # L4 保留最近 N 轮
+  # 交接回答二（2026-10-02）候选起点：显式 token 阈值（不再用比例×有效窗口的耦合方式）
+  window: 512000                 # 正式窗口保持；16K 仅用于 V4.44 压力测试
+  reserve_output: 20000          # 本地余量（不等于 API 输出上限）
+  l3_trigger_tokens: 64000       # L3 轻清理触发（视图估算 token > 此值）
+  compact_target_tokens: 80000   # 回落目标（候选参数，暂未接线：L4 现为批量模式；对照实验时再接）
+  compact_threshold: 128000      # L4 账本压缩触发
+  clear_at_least: 8000           # 单批至少释放的 token 数
+  stub_keep_last: 6              # L3 保留最近 N 个结果不压缩（候选 6）
+  ledger_keep_recent_turns: 4    # L4 保留最近 N 轮（候选 4）
+  l3_ratio: 0.1300813            # 旧比例接口保留但不再使用（优先显式 l3_trigger_tokens；plan 已登记）
+  l5_enabled: false              # 正式业务默认关闭 L5；16K 压力测试单独覆盖
+  l5_keep_last_turns: 1          # L5 摘要之后逐字保留的最近轮数
   skill_reinject_max_tokens: 3000  # L4/L5 之后重注入 skills 的 token 上限
   reactive_max_retries: 3        # 上下文超长兜底：PTL 按轮次丢弃的重试上限（V4.41）
   compact_fail_limit: 3          # 连续压缩失败 N 次 → 熔断，status=refuse（V4.42）
-  l5_enabled: true               # L5 全量摘要需要 ctx.llm；纯 L2–L4 的测试上下文不设此键即关闭
-  l5_keep_last_turns: 1          # L5 摘要之后逐字保留的最近轮数
+  active_protect_results: 6      # 活动证据保护：默认保留最近 N 个完整结果
+  active_protect_turns: 4        # 活动证据保护：默认保留最近 N 轮交互
+  token_safety_margin: 1.05      # 估算 × 安全余量
   result_max_rows: 50            # L1 结果预算：工具结果最多显示行数
   result_max_tokens: 2000        # L1 结果预算：超过约多少 token 就只放引用+预览

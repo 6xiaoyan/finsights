@@ -54,19 +54,60 @@ class CompState:
     summary_text: str = ""         # L5 冻结摘要（第 2/3/6/7 段为代码生成）
     summary_cut: int = 0           # L5：L4 视图开头的多少个轮次组被摘要替换
     summary_gave_up: bool = False  # L5 摘要核验两次都不通过 → 本次运行退回只用账本
+    active_rids: set[str] = field(default_factory=set)  # A2：召回/待核验的活动依赖，L3 不存根
+    active_block: str = ""         # A2：L4 账本后追加的有界活动证据块（随视图冻结）
 
 
-def est_tokens(msgs: list[dict[str, Any]]) -> int:
-    """估算 token 数（chars/4 粗估；无 tokenizer 可用，plan 6.6 工程细节）。"""
+_CALIB = {"ratio": 1.0, "n": 0}  # 估算/实际比率的 EMA（A1：与 usage.prompt_tokens 校准）
+
+
+def calibrate(estimated: int, actual: int) -> float:
+    """每次 API 返回后用 usage.prompt_tokens 校准估算比率（EMA，α=0.2，夹在 [0.5, 2.5]）。"""
+    if estimated > 0 and actual > 0:
+        r = actual / estimated
+        alpha = 0.2 if _CALIB["n"] else 1.0
+        _CALIB["ratio"] = min(2.5, max(0.5, _CALIB["ratio"] * (1 - alpha) + r * alpha))
+        _CALIB["n"] += 1
+    return _CALIB["ratio"]
+
+
+def calibration_stats() -> dict:
+    return dict(_CALIB)
+
+
+def _est_view(view: list[dict], ctx: Any) -> int:
+    """视图估算 token × 安全余量（config.context.token_safety_margin，A1）；阈值比较一律用它。"""
+    return int(est_tokens(view) * float(ctx.cfg.get("token_safety_margin", 1.0)))
+
+
+def _est_text(text: str) -> int:
+    """内容类型化估算：CJK 字符 ≈ 1.0 token/字，其余 ≈ 1/4（交接 A1：不再一律 chars/4）。"""
+    cjk = sum(1 for ch in text if "\u2e80" <= ch <= "\u9fff" or "\u3400" <= ch <= "\u4dbf"
+              or "\uf900" <= ch <= "\ufaff" or "\u3000" <= ch <= "\u303f"
+              or "\uff00" <= ch <= "\uffef")
+    return cjk + (len(text) - cjk) // 4
+
+
+def est_tokens(msgs: list[dict[str, Any]], tool_def_chars: int = 0) -> int:
+    """估算 token：消息内容（CJK 感知）+ 工具调用参数 + 工具定义字符（调用方计入），再乘校准比率与安全余量。
+
+    安全省余量由 config.context.token_safety_margin 提供；校准比率的误差记录在 trace
+    （est_tokens vs usage.prompt_tokens，A1 要求）。
+    """
     n = 0
     for m in msgs:
         c = m.get("content")
         if isinstance(c, str):
-            n += len(c)
+            n += _est_text(c)
+        elif isinstance(c, list):  # 多模态内容块按文本块处理
+            for blk in c:
+                n += _est_text(str(blk.get("text", "")) if isinstance(blk, dict) else str(blk))
+        n += 4  # 每条消息的角色/封装开销
         for tc in m.get("tool_calls") or []:
             fn = tc.get("function", tc)
-            n += len(str(fn.get("name", ""))) + len(str(fn.get("arguments", "")))
-    return n // 4
+            n += _est_text(str(fn.get("name", ""))) + _est_text(str(fn.get("arguments", "")))
+    n += _est_text("x" * tool_def_chars) if tool_def_chars else 0
+    return max(1, int(n * _CALIB["ratio"] * 1.0))
 
 
 def _log_compact(ctx: Any, level: str, before: int, after: int, rids: list[str]) -> None:
@@ -121,7 +162,7 @@ def _apply_l2(messages: list[dict], ctx: Any) -> list[dict]:
         i = nxt + 1
     if folded != ctx.comp.fold_count:
         ctx.comp.fold_count = folded
-        _log_compact(ctx, "L2", est_tokens(messages), est_tokens(out), [])
+        _log_compact(ctx, "L2", _est_view(messages, ctx), _est_view(out, ctx), [])
     return out
 
 
@@ -164,8 +205,9 @@ def _apply_l3(view: list[dict], ctx: Any) -> list[dict]:
     cfg, comp = ctx.cfg, ctx.comp
     occ = _eligible_rids(view)
     # 保留规则（V4.28）：最近 N 个可压缩结果 + 最近一条 assistant 引用过的 rid 不存根
-    keep_last = int(cfg["stub_keep_last"])
-    protected = {rid for _, rid in occ[-keep_last:]} | _last_assistant_rids(view)
+    keep_last = int(cfg.get("stub_keep_last", 3))
+    protected = ({rid for _, rid in occ[-keep_last:]} | _last_assistant_rids(view)
+                 | comp.active_rids)  # A2：活动证据保护（召回/待核验依赖）
     candidates = [(i, rid) for i, rid in occ if rid not in comp.stubbed and rid not in protected]
     stub_cache = {}
     releasable = 0
@@ -182,10 +224,13 @@ def _apply_l3(view: list[dict], ctx: Any) -> list[dict]:
     err_new = [i for i in err_idx[:-1] if view[i].get("tool_call_id") not in comp.errors]
     releasable += sum(max(0, len(view[i]["content"]) - len(_err_fold(view[i]["content"])))
                       // 4 for i in err_new)
-    tokens = est_tokens(view)
-    eff_window = int(cfg["window"]) - int(cfg["reserve_output"])
-    trigger = comp.force or (releasable >= int(cfg["clear_at_least"])
-                             and tokens > float(cfg["l3_ratio"]) * eff_window)
+    tokens = _est_view(view, ctx)
+    if cfg.get("l3_trigger_tokens"):  # A3：显式 token 阈值优先（交接回答二）
+        size_ok = tokens > int(cfg["l3_trigger_tokens"])
+    else:  # 旧比例接口回退（plan 已登记两种方式择一，显式优先）
+        eff_window = int(cfg["window"]) - int(cfg["reserve_output"])
+        size_ok = tokens > float(cfg.get("l3_ratio", 0.5)) * eff_window
+    trigger = comp.force or (releasable >= int(cfg["clear_at_least"]) and size_ok)
     if trigger and (candidates or err_new):
         comp.stubbed = frozenset(comp.stubbed | {rid for _, rid in candidates})
         comp.errors = frozenset(comp.errors | {view[i].get("tool_call_id") for i in err_new})
@@ -246,10 +291,10 @@ def _skills_block(ctx: Any) -> str:
 def _apply_l4(view: list[dict], ctx: Any) -> list[dict]:
     cfg, comp = ctx.cfg, ctx.comp
     head, groups = split_groups(view)
-    base_keep = 1 if comp.force else int(cfg["ledger_keep_recent_turns"])
+    base_keep = 1 if comp.force else int(cfg.get("ledger_keep_recent_turns", 2))
     # PTL（V4.41）：每次溢出比上一次多丢弃一个最早的轮次组
     keep = max(0, base_keep - max(0, comp.ptl_drop - 1))
-    tokens = est_tokens(view)
+    tokens = _est_view(view, ctx)
     if (groups and len(groups) > keep
             and (comp.force or tokens > int(cfg["compact_threshold"]))):
         target = len(groups) - keep
@@ -262,12 +307,32 @@ def _apply_l4(view: list[dict], ctx: Any) -> list[dict]:
                           for m in dropped))))
             comp.ledger_cut = target
             comp.ledger_text = ctx.ledger.render(ctx.store, ctx.todos)
+            comp.active_block = _active_evidence_block(view, ctx)  # A2：随视图冻结（前缀稳定）
             new_view = _l4_view(head, groups, comp, ctx)
-            _log_compact(ctx, "L4", tokens, est_tokens(new_view), rids)
+            _log_compact(ctx, "L4", tokens, _est_view(new_view, ctx), rids)
             return new_view
     if comp.ledger_cut:
         return _l4_view(head, groups, comp, ctx)
     return view
+
+
+def _active_evidence_block(view: list[dict], ctx: Any) -> str:
+    """A2：受保护 rid 的有界证据块（digest 含数值/单位/期间），随 L4 视图常驻，防反复召回。"""
+    comp = ctx.comp
+    protected = ({rid for _, rid in _eligible_rids(view)[-int(ctx.cfg.get("active_protect_results", 6)):]}
+                 | comp.active_rids)
+    lines: list[str] = []
+    for rid in sorted(protected):
+        res = ctx.store.get(rid)
+        if res is None:
+            continue
+        lines.append(f"[{rid}] {res.tool}: {res.digest}")
+        if sum(len(x) for x in lines) > 4000:  # 有界 ≈1000 token
+            lines.append("…（活动证据块已达上限）")
+            break
+    if not lines:
+        return ""
+    return "## 活动证据（受保护，完整内容在 Result Store，可 recall 取回）\n" + "\n".join(lines)
 
 
 def _l4_view(head: list[dict], groups: list[list[dict]], comp: CompState, ctx: Any) -> list[dict]:
@@ -276,7 +341,8 @@ def _l4_view(head: list[dict], groups: list[list[dict]], comp: CompState, ctx: A
     question = next((m for m in head[1:] if m.get("role") == "user"), None)
     if question is None:
         question = {"role": "user", "content": "（原始问题已不可见）"}
-    out = [system, {"role": "user", "content": comp.ledger_text}]
+    ledger_user = comp.ledger_text + (("\n\n" + comp.active_block) if comp.active_block else "")
+    out = [system, {"role": "user", "content": ledger_user}]
     sk = _skills_block(ctx)
     if sk:
         out.append({"role": "user", "content": sk})
@@ -397,7 +463,7 @@ def _summarize_once(tail_text: str, ctx: Any) -> tuple[dict[int, str], list[str]
     prompt = (_L5_INSTRUCTION + "\n\n=== 证据账本（数字出处参考，均可 recall）===\n"
               + ctx.comp.ledger_text + "\n\n=== 需要压缩的对话历史 ===\n" + tail_text)
     resp = ctx.llm.chat([{"role": "system", "content": "你是会话压缩器，只输出规定格式的摘要文本。"},
-                         {"role": "user", "content": prompt}])
+                         {"role": "user", "content": prompt}], role="summary")
     secs = _split_llm_sections(_strip_analysis(resp.content or ""))
     return secs, _verify_summary(secs, ctx.store)
 
@@ -441,7 +507,7 @@ def _apply_l5(view: list[dict], ctx: Any, history: list[dict]) -> list[dict]:
         return view
     if comp.summary_gave_up or not head:
         return view
-    tokens = est_tokens(view)
+    tokens = _est_view(view, ctx)
     if tokens <= int(cfg["compact_threshold"]):
         return view
     target = len(groups) - int(cfg["l5_keep_last_turns"])

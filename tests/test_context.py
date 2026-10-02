@@ -342,9 +342,11 @@ def test_v4_35_l4_view_structure():
     head, groups = split_groups(view)
     n_keep = int(TRIG_CFG["ledger_keep_recent_turns"])
     assert len(groups) == n_keep, f"应只剩最近 {n_keep} 轮，实得 {len(groups)}"
+    # A2（V4.47 批阅授权）：L4 视图在账本后追加活动证据块（ledger_user 内追加，不新增消息数）
     assert [m["role"] for m in view[:4]] == ["system", "user", "user", "user"]
     assert view[0] == msgs[0]
-    assert view[1]["content"] == ctx.comp.ledger_text
+    assert ctx.comp.ledger_text in view[1]["content"]  # 账本在前
+    assert "活动证据" in view[1]["content"]  # 活动证据块追加于账本之后
     assert ctx.comp.ledger_text == ctx.ledger.render(ctx.store, ctx.todos)
     assert view[2]["content"].startswith("<skill name=attribution>")
     assert view[3]["content"] == "问题"
