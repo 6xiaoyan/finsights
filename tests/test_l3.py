@@ -168,7 +168,11 @@ def test_questions_direction_matches_footprint():
                 con.close()
             word = "上升" if ("上升" in q["question"]) else "下降"
             if gold["type"] == "none":
-                assert word == "上升", q["id"]      # 错误前提（阴性）固定"上升"
+                # 阴性前提必须为真：题面方向 = 基础库该期实际环比方向（2026-10-02 修复）
+                ser = _series(base, cid, gold["account"])
+                prev = ser.get((fy - 1, 4) if fq == 1 else (fy, fq - 1))
+                assert prev is not None, (q["id"], fy, fq)
+                assert (word == "上升") == (b >= prev), (q["id"], word, b, prev)
             else:
                 assert (word == "上升") == (v > b), (q["id"], gold["type"], word, v, b)
     finally:

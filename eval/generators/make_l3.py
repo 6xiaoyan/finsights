@@ -75,6 +75,18 @@ def _value_table(con) -> dict[tuple[str, str, int, int], float]:
     return {(r[0], r[1], r[2], r[3]): float(r[4]) for r in rows if r[1] in accts}
 
 
+def _qoq_delta(con, company: str, acct: str, fy: int, q: int) -> float | None:
+    """基础口径环比变化量（original 行，q1 对上年 q4）；缺任一值返回 None。"""
+    def val(y: int, qq: int):
+        r = con.execute("""SELECT value FROM facts JOIN periods USING (company_id, fiscal_year, fiscal_quarter)
+            WHERE company_id=? AND account_code=? AND fiscal_year=? AND fiscal_quarter=?
+              AND version='original'""", [company, acct, y, qq]).fetchone()
+        return float(r[0]) if r and r[0] is not None else None
+    prev = val(fy - 1, 4) if q == 1 else val(fy, q - 1)
+    cur = val(fy, q)
+    return None if prev is None or cur is None else cur - prev
+
+
 class Feasibility:
     """计划期可行性：用基础库的 σ 与余额预判注入落点是否会破坏数据合理性（负余额/零注入）。"""
 
@@ -245,6 +257,7 @@ def build(seed: int = SEED) -> int:
         gold = apply_injection(con, inj)
         company = inj.companies[0]
         fy, q = _fy_of(con, inj.calendar_quarter, company)
+        none_delta = _qoq_delta(con, company, inj.account, fy, q) if inj_type == "none" else None
         con.close()
         gold.update({"scenario_id": sid, "seed": inj.seed,
                      "magnitude_sigma": round(inj.magnitude_sigma, 3),
@@ -253,12 +266,15 @@ def build(seed: int = SEED) -> int:
                                               encoding="utf-8")
         period = f"FY{str(fy)[2:]}Q{q}"
         phrase = PHRASES[idx % len(PHRASES)]
-        # 题面方向 = 被问科目的实际移动方向（negative 是错误前提，固定"上升"）
+        # 题面方向 = 被问科目的实际移动方向；negative 前提必须为真（2026-10-02 修复：
+        # 旧版固定"上升"与基础数据方向矛盾，l3_022/023 live 取证），reclass 附注恒为转入上移。
         if inj_type == "mix_shift":
             asked_is_src = inj.account == "accounts_receivable"   # AR 对里被问科目是转出方
             ask_up = (inj.direction == "down") if asked_is_src else (inj.direction == "up")
-        elif inj_type in ("none", "reclassification"):
+        elif inj_type == "reclassification":
             ask_up = True
+        elif inj_type == "none":
+            ask_up = True if none_delta is None else none_delta >= 0
         else:
             ask_up = inj.direction == "up"
         question = phrase.format(company=company, period=period,

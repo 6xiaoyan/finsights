@@ -71,3 +71,27 @@ trace 取证（trial 引用的场景库数值与 gold deltas 逐一对照 + 基�
 | l3_021 t3（阴性→答 industry_wide） | **agent 真实错误（保留）** | 错误前提题，存货实际 |z|<1；t1/t2 正确答 no_anomaly，t3 以"三家应付账款同期也在动"误报 industry_wide——同伴比较没有落在被问科目/被问方向上。属归因纪律问题，P8 实验面候选（peer_compare 需先核对科目一致）。 |
 
 **修复（全部在 eval 出题侧，未动任何检查项/通过标准）**：`_fy_of` 以 periods 表为准；reclass σ 源改被问科目（raw 序列）且全窗口等额非零（σ≤0 直接 raise）；mix/reclass 科目限定 inventory/AR；题面方向按被问科目实际移动生成；计划期可行性过滤（注入后余额 ≥20%，oca 全窗口 ≥1.25|Δ|）。bank 以同 seed 重建（sid 变化），回归测试 +6（映射一致/落期唯一/方向一致/配对科目/持续足迹/无新增负余额），V5.4 与 V5.5 两处失效断言增强为可证伪版；175 passed。首轮 live 结果不写入 leaderboard 有效行，修复后重跑。
+
+## V5.10 bank 修复后冒烟 run 20261002-182828（l3_002/l3_004 各 1 trial）——reclassification 端到端验证通过；l3_002 判为 agent 侧真实错误
+
+| trial | 归类 | 根因 |
+|---|---|---|
+| l3_004 t1（reclassification） | **正确（PASS）** | 新 bank 的重分类注入有真实数据足迹且全窗口持续，agent 依据勾稽变化 + filing_notes 正确归因——旧"零注入靠附注猜"缺陷确认清除。 |
+| l3_002 t1（industry_wide→答 company_specific） | **agent 真实错误** | 三家同自然季确实同向上升（戴尔 +58.44%、联想 +47.62%、惠普 +12.89%，均落 r6 证据），agent 以"幅度相差悬殊"否定行业性。它只比了原始环比百分比，没有按各自 σ 归一（z）再比——注入设计是"每家 2.5–4σ 同幅相对量级"，原始 % 天然不同（各家 AP 占营收比例、序列波动率不同）。数据侧经测试复核为一致。 |
+
+**l3_002 的设计张力记录**：plan 附录 C 把 industry_wide 定义为"同向的类似变化"，当前按 σ 注入不保证原始 % 相近。候选改进（P8 实验面，不动检查项）：peer_compare skill 要求先算各家 z（或标准化增幅）再判"行业普遍"；若重跑多轮仍系统性失败，可考虑在附录 C 口径下改用"原始 % 相近"的第二注入模式并出对照题。冒烟结果不进 leaderboard 有效行；全量重跑 3×7 见后续小节。
+
+## V5.10 重跑 run 20261002-183423（bank 修复后 7 题×3=21 条，top-1 0.43）——分类：6 条 agent 错误 / 3 条阴性题面缺陷 / 其余为正常波动与成本案例
+
+过程指标：top-1 0.43、误归因 0.24、阴性误报 0.44、证据完整性 seasonal 0.81 / peer 0.81；SQL 报错 0.3/trial。逐题：l3_001（cs）3/3、l3_002（iw）1/3、l3_003（mix）0/3、l3_004（reclass）3/3、l3_021（阴性）0/3、l3_022（阴性）0/3、l3_023（阴性）2/3。**reclassification 与 company_specific 端到端稳定通过，确认 P5.2 修复有效。**
+
+| trial | 归类 | 取证 |
+|---|---|---|
+| l3_022 t1–t3（阴性→clarify/clarify/refuse） | **harness：题面前提与数据矛盾（已修）** | HP FY23Q1 AR 实际环比 −234（z=−0.61），题面固定写"明显上升"（旧版 none 题方向恒"上升"）。agent 核对数据后 clarify/refuse 是**正确行为**，被打分判错。已按基础库真实环比改写 l3.jsonl 的 5 条 none 题面（sid/场景/gold 不变，仅题面文字），make_l3 生成逻辑与方向测试同步修复（none 断言=数据方向）。此 3 条 trial 判无效，阴性题需在修正后口径下复验。 |
+| l3_021 t1–t3（阴性→答 industry_wide） | **agent 真实错误 ×3** | 被问科目与三家同行该自然季全部 |z|<0.3（Lenovo 存货 +8.79% z=0.27、HP z=−0.19、Dell z=0.18）——三家同向小幅正常波动被当成行业性异常。与 l3_002 t1 同源：percent 直比、未按各自 σ 归一（假设待人工讨论，见交接 §5）。 |
+| l3_002 t1（iw→cs） | **agent 真实错误** | 同冒烟 run 根因（原始 % "幅度相差悬殊"否定行业性）。t2 正确。 |
+| l3_002 t3（refuse） | **成本/预算案例** | 步数预算耗尽拒答；拒答行为正确（不编数），属步数效率待优化，非缺陷。 |
+| l3_003 t1–t3（mix→cs） | **agent 真实错误 ×3** | trace 核对：agent 查了 AR/revenue/financing_receivables/variance/seasonal/peer，但**从未查 other_current_assets 或 total_current_assets**——对冲科目在 query_metric 可见（工具层无 derivation 过滤），漏查"合计不变、内部转移"的决定性证据。归因纪律问题：mix_shift 候选必须先验证配对着（总量/比率分解动作缺失）。t2 同样 0/3 未看 oca。 |
+| l3_023 t2（阴性→iw） | **agent 真实错误** | Dell FY19Q4 AP 环比 −535（z=−0.15），t1/t3 正确答 no_anomaly，t2 误报 industry_wide，同 percent 直比族。 |
+
+**结论**：bank 三处修复经 live 验证生效（cs/reclass 全对；注入落期、方向、附注足迹均正常）。残余失败集中在两个**人工主导**议题：①同行比较口径（原始 % vs z——待讨论假设，不自动写死）；②mix_shift 需"配对/总量核对"分析动作。阴性题面修正后的复验与 l3_002 类题的新旧分数比较规则（旧题库分数不可直接对比）由用户选案例后安排。

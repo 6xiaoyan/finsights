@@ -413,3 +413,13 @@ GLM 按交接实现（A1 计量与输出上限、A2 活动证据保护、A3 显�
 | V6.10 组②回测（零成本） | 完成 | `scripts/backtest_forecast.py`：3 公司×3 指标×12 起点×4 方法一步滚动（432 条）→ eval/reports/forecast_backtest.json；总体 MASE：naive 1.7017、ets 0.9253、sarima 1.0412、auto 0.910；**80% 区间实测覆盖仅 ~63%（各方法 0.63–0.66）——模型优于基线但区间欠校准，如实入档，V6.10 判读时不得只报 MASE** |
 | runner | 完成 | `--ids` 白名单；as_of 题 v1 路由快照库、v0 直接报错拒绝；报告新增 L4 段（agent 组 + forecast 直接输出组，V6.10 双组呈现）；leaderboard 旧前缀替换逻辑被冒烟 run 冲毁 v1 行 → 重写为按 run_id 追加 + `rebuild_leaderboard` 全量重建 |
 | 待办 | — | V6.10/V6.11 live（3×4=12 trial）待配额顺序：先 V5.10 重跑后跑 L4；HUMAN 项不自标 |
+
+## P5.10 V5.10 重跑（bank 修复后，run 20261002-183423，2026-10-02）
+
+| 项 | 状态 | 证据/说明 |
+|---|---|---|
+| V5.10 结构标准 | 报告齐（不自标 PASS） | `eval/reports/20261002-183423.md` 含 top-1 0.43、误归因 0.24、阴性误报 0.44、证据完整性 seasonal/peer 0.81；trials n=21（注入 12/阴性 9）。12 条失败全部在 `eval/badcases.md` 分类归档（agent×6、harness 题面×3、成本×1、其余正确行为族）。**规模如实记 7 题×3=21，非原计划 8×3=24——第 8 题待 V5.12 真实事件人工标注（Q12）。** |
+| bank 修复验证 | 生效 | l3_001（cs）3/3、l3_004（reclass）3/3——首轮两大缺陷类经 live 端到端通过；冒烟 run 20261002-182828（l3_004 PASS/l3_002 agent 错）先予确认。 |
+| 新发现缺陷（本轮修复） | none 题面前提与数据矛盾 | l3_022 取证：HP FY23Q1 AR 环比 −234，题面写"上升"（旧生成器 none 恒"上升"）。修复：make_l3 题面方向=基础库真实环比（`_qoq_delta`）；l3.jsonl 5 条 none 题面按同规则就地修正（sid/场景/gold 不变）；`test_questions_direction_matches_footprint` none 断言从"恒上升"改为"与数据方向一致"（增强，非放宽）。l3_022 的 3 条 clarify/refuse trial 判无效，阴性题复验由用户排期（交接 §2：完成后不自动启动长跑）。 |
+| 判读限制 | 新旧分数不可直接比 | 首轮 162949（0.67）为无效 harness 行；本轮 0.43 含 3 条无效阴性 trial（修正后估计上界 (9+3)/21≈0.57）。agent 侧真实错误集中在"原始 % 直比同行"与"mix_shift 漏查对冲科目"两族，按交接 §5 留作人工选案例议题，未自动写入任何规则。 |
+| G 检查 | G1–G9 局部 | G3：tests diff 无 skip/xfail；G4：密钥全库扫描 hits 均登记；G6：agent/semantic/fincalc 无 gold/datasets 引用（新 cli 亦无）；G7：三目录无 eval/exec/subprocess（cli 的 git 探测委托 eval 侧）；回归 `pytest -q` **182 passed**（含新增 test_cli.py×7）。 |

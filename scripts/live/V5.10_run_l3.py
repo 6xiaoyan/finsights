@@ -5,6 +5,10 @@
   l3_004 reclassification / l3_021 l3_022 l3_023 阴性对照 = 7 题可判。
 第 8 题（真实事件）依赖 V5.11/V5.12 人工标注，标注完成后追加重跑；本次如实按 7 题运行。
 
+2026-10-02 重跑说明：首轮 run 20261002-162949 的 l3_002/l3_003 六条失败经取证为
+bank 侧 harness 缺陷（财季映射错位），bank 已修复重建（commit 5544f44），本脚本按
+同口径同子集规则重跑；重跑前先跑 V5.10_smoke_regen。
+
 通过标准（verify V5.10）：报告含 top-1、误归因、阴性题误报、证据完整性
 （seasonal_check / peer_compare 调用比例）；失败题写入 eval/badcases.md。
 
