@@ -5,6 +5,8 @@
 
 > **2026-10-02 两项方案执行入口**：用户已确认公开财报事件发现与正式压缩方案，详见 `docs/solution.md`、`docs/handoff_event_attribution.md`、`docs/handoff_context_compression.md`。压缩先校准计量/输出限制、保护活动证据，再试正式 64K/128K 与独立 16K 压测；Q11 先修公式、补披露检索与真实事件档案，再形成通用方法并做留出验证。新接口/配置设计按第 12 节登记；原阶段顺序和验收门禁保留。两份回答优先于历史“压缩待裁定”状态，不代表实现/PASS。
 
+> **2026-10-02 MVP 范围收敛（docs/mvp_handoff_qwen.md，用户指令）**：近期目标改为快速固定可运行 MVP——自由问题 → 工具取数/计算/检索披露 → 带来源结论 → 核验 → 运行包落盘，供人工选 bad case。**MVP 固定后停止自动扩展**：L4 冒烟/V6.10 全量 live、P7.1 报告 skill、P7.2 judge 校准、P8 自动优化、V4.44 大量重试一律暂缓（已提交成果保留不回滚）；P7.3 仅做三类最小鲁棒检查；V5.12/Q12 继续待人工。V5.10 重跑按 7 题×3=21 条如实记录（第 8 题待真实事件标注）。**MVP 基线 ≠ phase-P\*-done**：V4.15/V4.47/V4.44 与 P5 人工项未过就不改 PASS，也不靠延期打阶段完成 tag。后续优化按交接 §5 人工主导流程逐例进行。
+
 > **2026-10-02 授权交接**：Q8/Q9/Q10 已裁定，GLM 无需再等待这三项决策，先按 `docs/evidence/review_20261002.md` 的六步清单收尾 P4。V4.15/V4.47 批阅为 FAIL-待修复，V4.44 标准不变；修复、回归及重批阅通过前不关闭 P4、不跳至 P5。V1.17 用户终确认通过，第二轮 AI 抽检取消。此次只变更检查口径/批阅状态，业务修复尚未实施；任何后续接口调整先记本文件第 12 节。
 
 ---
@@ -735,6 +737,7 @@ def inject(base_db, inj: Injection) -> tuple[str, dict]   # 返回场景库路�
 | 2026-10-02 | V5.11 阈值 2.5 → 2.0：同季度样本 n≤8 时 z 上限 ≈ (n-1)/sqrt(n) ≈ 2.47，原阈值数学上不可达 | questions.md Q11（待人工确认或改稳健排序法）。⚠️ P5.5 更正：该上限只对"含当前点"基线成立；real_z 排除当前点后 |z| 无上界（实测 d16 z=-10.96），2.0 阈值仍可用但理由不同 |
 | 2026-10-02 | P6 离线件：`etl/snapshot.make_snapshot(as_of)` 时点快照库；`fincalc.forecast`（seasonal_naive/ets/sarima/auto，m=4，滚动验证 MASE，V6.6–V6.8）；新工具 `forecast`（参数 company/metric/method/horizon，数字只出自 fincalc，plan 8.2 裁定版）；`guard.validate_select` 增禁库外文件表函数（read_*/…_scan/glob），`db.connect` 设 `enable_external_access=false`（V6.5 两层防线；ATTACH 拦截在 guard 层）；runner：`q.as_of` 题自动路由快照库、v0 拒绝 as_of 题；L4 打分器 `eval/graders/l4.py`（契约行 预测值/预测区间/方法 + V6.11 rid 溯源）+ 题库 l4.jsonl×4 + 全量回测 `scripts/backtest_forecast.py` | P6.1–P6.3 实现（plan 8.1–8.3） |
 | 2026-10-02 | L3 bank 三处 harness 缺陷修复（live V5.10 取证）：①`_fy_of` 改以 periods 表为准（旧硬编码 Dell/Lenovo 错位一季度）；②reclassification σ 源改被问科目（other_current_assets 全为 residual 被序列过滤排除 → 旧版全类零注入），σ≤0 直接 raise；③mix_shift/reclass 科目限定 {inventory, AR}、题面方向按被问科目实际移动生成、计划期可行性过滤（注入后余额 ≥20%，oca 全窗口 ≥1.25\|Δ\|，杜绝负余额）。bank 同 seed 重建（sid 变化）；tests/test_l3.py +6 回归、V5.4/V5.5 失效断言增强为可证伪版 | 175 passed；badcases.md V5.10 首轮取证；l3_002/l3_003 六条失败 trial 判为 harness 所致，V5.10 需重跑 |
+| 2026-10-02 | MVP 范围收敛（顶部公告）：新增单问题 CLI `python -m agent.cli --question ... [--as-of ...]`（复用 agent.loop/v1 与 runner 限速，as_of 走 make_snapshot 快照路由）与运行包 `runs/cli-<ts>/`（question/answer/trace/results/run_meta 五件套，密钥脱敏、行上限防御）；`eval.runner.git_dirty()` 辅助；`docs/badcase_card_template.md` 讨论卡模板；tests/test_cli.py×6 离线 | docs/mvp_handoff_qwen.md 交接 §3；L4 live/P7.1/P7.2/P8 暂缓，MVP 固定后等待用户选案例 |
 | 2026-10-01 | 答复 questions.md Q1–Q3：thinking 显式关闭；live check 不进 pytest；verify.md 正则修正。正文中写死 DeepSeek 的地方改为模型无关的写法 | 人工答复 |
 | 2026-10-01 | LLM 由 DeepSeek V4.1 Flash 切换为 Agnes AI `agnes-3.0-flash`（限时免费）；`config.yaml` 的 base_url / model / context.window 同步更新（512K） | 用户决策：成本考虑；PRD 4.6 已加批注 |
 

@@ -116,6 +116,16 @@ def _git_commit() -> str:
         return "unknown"
 
 
+def git_dirty() -> bool:
+    """工作区是否含未提交改动（MVP 运行包要求记录 commit+dirty，见交接 §2.4/§3.2）。"""
+    try:
+        r = subprocess.run(["git", "status", "--porcelain"], capture_output=True,
+                           text=True, timeout=10)
+        return bool(r.stdout.strip())
+    except Exception:
+        return False
+
+
 def _pricing() -> tuple[float, float]:
     import yaml
     cfg = yaml.safe_load(Path("config.yaml").read_text(encoding="utf-8"))
