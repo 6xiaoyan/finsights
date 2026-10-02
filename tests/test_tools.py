@@ -226,9 +226,11 @@ def test_get_filing_notes_roundtrip(ctx):
 
 def test_check_identities_passes_on_good_data(ctx):
     o = execute("check_identities", {"company": "Dell", "periods": ["FY2024Q1-FY2024Q4"]}, ctx)
-    assert o.ok and "violation" not in o.stored.df.columns  # 全通过
-    text = ctx.store.get(o.rid).digest
-    assert "无数值" in text or text == "" or "结果" in text
+    df = o.stored.df
+    # 结构化输出（V4.47 批阅后）：ok 列全真 + 可引用数值列齐全（无 violation 字符串列）
+    assert o.ok and "violation" not in df.columns
+    assert {"identity", "ok", "total", "computed", "diff"} <= set(df.columns)
+    assert bool(df["ok"].astype(bool).all())
 
 
 def test_working_capital_matches_fincalc(ctx):

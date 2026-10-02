@@ -81,9 +81,11 @@ class TodoWriteArgs(BaseModel):
 
 
 class FinalAnswerArgs(BaseModel):
-    answer_md: str = Field(description="中文结论（Markdown），每个数字都要有出处")
+    answer_md: str = Field(description="中文结论（Markdown）。正文中出现的每个数字都必须有一条对应 claim；"
+                                       "数字保留足够精度（照抄工具有效位），舍入超过 0.5% 会被打回")
     claims: list[Claim] = Field(default_factory=list,
-                                description="每个结论数字一条：text/value/unit/ref(result_id)")
+                                description="与正文数字一一对应：text=正文中的数字上下文，value/unit/ref(result_id)。"
+                                            "只 claim 正文出现的数字；置信度等元数字不需要数据 claim")
     status: Literal["answered", "clarify", "refuse"] = "answered"
 
 
@@ -99,12 +101,15 @@ DESCRIPTIONS: dict[str, str] = {
                     "任何标准取数需求。period_from/period_to 用 FY24Q1（财年）或 2024Q1（自然季度），"
                     "period_basis=calendar 时按自然季度。",
     "run_sql": "兜底工具：直接执行只读 SELECT（自动 LIMIT 200）。何时使用：只在 query_metric "
-               "无法表达所需查询（如查附注、自定义多表连接）时使用，优先用 query_metric。",
+               "无法表达所需查询时使用，优先用 query_metric。地区/产品线等明细分组同样属于 "
+               "query_metric 的 group_by 能力，不要手写 facts_detail 的 SQL；也不要查询 "
+               "variance_results 之类不存在的表——分析工具的结果用 recall 取回。",
     "calc": "安全算术：对已存储结果做四则运算，结果进入 store 并获得新 rid。何时使用：答案中任何"
             "需要派生计算（占比、变化率、差值）的数字都必须用本工具，禁止心算。refs 里给出表达式"
             "用到的 rid 列表。",
-    "variance": "同比/环比 + 有明细维度时的贡献度分解。何时使用：回答'某指标为什么变'第一步"
-                "（量化变化）；比较两期变化并定位来源。",
+    "variance": "同比/环比 + 有明细维度时的贡献度分解（contribution 列已含各分项贡献，"
+                "无需再用 calc 逐项重算）。何时使用：回答'某指标为什么变'第一步（量化变化）；"
+                "比较两期变化并定位来源。",
     "seasonal_check": "当前变化在历年同季度变化中的分位和 z-score。何时使用：归因时判断"
                       "变化是否属于季节性正常范围（在区间内应回答 no_anomaly）。",
     "peer_compare": "三家公司同一自然季度的对比（值与环比）。何时使用：判断变化是否为行业普遍现象。",

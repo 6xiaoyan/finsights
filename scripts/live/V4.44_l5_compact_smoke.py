@@ -71,7 +71,8 @@ def main() -> int:
         return 1
 
     compact = [e for e in info["trace"] if e.get("type") == "compact"]
-    (evidence / "V4.44_trace.jsonl").write_text(
+    import time as _t
+    (evidence / f"V4.44_trace_{_t.strftime('%Y%m%d-%H%M%S')}.jsonl").write_text(
         "\n".join(json.dumps(e, ensure_ascii=False, default=str) for e in info["trace"]) + "\n",
         encoding="utf-8")
     by_level: dict[str, int] = {}

@@ -1,33 +1,54 @@
 ---
 name: attribution
-description: 回答"为什么某指标变化了"类归因问题时使用。按固定步骤量化变化、排除季节性与行业性因素、检查口径与对手科目，最后给出根因标签和置信度。
+description: 回答"为什么某指标变化了"类归因问题时使用。按固定七步收集全部证据（不得中途下结论），最后按标签优先级给出根因标签和置信度。
 ---
-# 归因流程（固定步骤，缺一不可）
+# 归因流程（固定七步，全部执行完才允许下结论）
 
 ① **量化变化**：`variance(metric, company, period)` 看同比/环比；若有明细维度，看贡献度分解。
-② **与历年同季度比较**：`seasonal_check(metric, company, period)`。当前变化落在历年同季度
-   变化的正常区间内 → 这就是季节性正常波动，**必须回答 `no_anomaly`**，不能硬找理由。
+② **与历年同季度比较**：`seasonal_check(metric, company, period)`，**记录** z 值与分位。
+   注意：本步只收集证据，**不得提前结束**——后续步骤仍须执行，最终标签在第七步按优先级判定。
 ③ **同行同季度比较**：`peer_compare(metric, calendar_quarter)`。三家公司同向类似变化 →
-   `industry_wide`；只有本公司异常 → `company_specific`。
+   支持 `industry_wide`；只有本公司异常 → 支持 `company_specific`。
 ④ **检查对手科目**：存货变化看应付账款与现金、应收变化看收入与减值……用
    `query_metric`/`variance` 取对手科目同期数据，验证"钱去了哪里"是否闭合。
 ⑤ **查附注**：`get_filing_notes(company, period)`，看有无口径/重分类变更的披露；
-   有披露的口径变化标 `reclassification`，它不代表经营变化。
-⑥ **检查内部结构转移**：合计变化不大但内部科目此消彼长 → `mix_shift`
-   （用 variance 的 contribution 分解证明）。
-⑦ **给出结论**：从根因标签枚举中选一个，附证据 rid 和置信度。
+   有披露的口径变化支持 `reclassification`，它不代表经营变化。
+⑥ **检查内部结构转移**：合计变化不大但内部科目此消彼长 → 支持 `mix_shift`
+   （用 variance 的 contribution 分解证明；contribution 列已含各分项贡献，不要用 calc 逐项重算）。
+   地区/产品线明细用 query_metric 的 group_by 取，不要手写 facts_detail 的 SQL。
+⑦ **给出结论**：②–⑥ 的证据**全部**收集后，按下面的优先级选出唯一标签，
+   附证据 rid 和置信度。任何一步的证据与结论矛盾时，以证据为准。
 
 ## 根因标签枚举（只能是这 6 个之一）
 | 标签 | 含义 |
 |---|---|
-| `no_anomaly` | 变化在历年同季度的正常范围内 |
-| `seasonal` | 有明显变化，但与历年同季度的规律一致 |
+| `no_anomaly` | 变化在历年同季度的正常范围内（|z| < 2 且分位 < 95%） |
+| `seasonal` | 变化明显超出典型波动，但与历年同季度的规律一致（历史同期也常出现同幅度变化） |
 | `industry_wide` | 同行在同一自然季度出现同向的类似变化 |
 | `company_specific` | 只有本公司出现异常变化 |
 | `mix_shift` | 合计变化不大，内部结构发生转移 |
 | `reclassification` | 口径变化（附注中有披露），不代表经营变化 |
 
-归因答案格式：`{"label": ..., "account": ..., "direction": "up|down|none", "confidence": 0-1}`，
+## 标签判定优先级（第⑦步执行；高优先级成立时覆盖低优先级）
+1. **reclassification**：附注披露口径变更/重分类，且变更方向与观察到的变化一致。
+2. **mix_shift**：合计基本不变而内部结构转移（contribution 证据）。
+3. **industry_wide**：同行同季同向且幅度相近（幅度差 < 30%，或同行也超各自历史区间）。
+4. **company_specific**：仅本公司异常，同行无类似变化。
+5. **seasonal / no_anomaly**（二者互斥，以 seasonal_check 数值为准）：
+   - |z| < 2 且分位 < 95% → `no_anomaly`（未见异常）；
+   - 超出正常区间、且历史同期本身常出现同幅度变化（历史同期变化均值与当前同号，
+     当前幅度 ≤ |均值| + 2σ）→ `seasonal`；
+   - 其余 → 回到 3/4（company_specific / industry_wide）。
+   这两条与评分标签一一对应：no_anomaly = 未见异常；seasonal = 变化明显但符合历年规律。
+
+## 表述纪律
+- 归因结论是**观察性分类**：说"与行业共振一致""符合历年季节规律"，**不得**声称
+  "证明了"经营因果（如"证明是需求驱动"）——财报数据只能排除或支持假设，不能证明因果。
+- 正文中出现的每个数字都要有对应 claim 和 rid；置信度等元数字不是数据，不需要也无法
+  用数据 claim 佐证，但正文不得把它写成来自财报的数值。
+
+## 归因答案格式
+`{"label": ..., "account": ..., "direction": "up|down|none", "confidence": 0-1}`，
 放在 claims/answer_md 中，label 必须在枚举内。
 
 ## 可检验假设（业务软先验，必须用数据证明，不能直接当结论）

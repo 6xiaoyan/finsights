@@ -95,6 +95,11 @@ def _e_working_capital(res):
 def _e_check_identities(res):
     if "violation" in res.df.columns:
         return f"- 勾稽: ✗ 存在违反（明细见 {_rid(res)}）"
+    if "ok" in res.df.columns:
+        bad = res.df[~res.df["ok"].astype(bool)]
+        if len(bad):
+            return f"- 勾稽: ✗ {len(bad)} 条违反（含数值差异，明细见 {_rid(res)}）"
+        return f"- 勾稽: ✓ 全部通过（含数值列，差异为零）{_rid(res)}"
     return f"- 勾稽: ✓ 全部通过（所查期间 A=L+E 与分项闭合）{_rid(res)}"
 
 

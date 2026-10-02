@@ -69,7 +69,13 @@ def test_v4_15_attribution_content():
              "get_filing_notes", "contribution", "根因标签"]
     for kw in steps:
         assert kw in body, f"缺少步骤要素: {kw}"
-    assert "必须回答 `no_anomaly`" in body       # 正常范围内必须回答 no_anomaly
+    # V4.15 REVIEWED-FAIL 修订后：no_anomaly 原则保留但改为第七步按优先级判定，
+    # 禁止第二步提前结束；新增标签优先级、可判定条件与观察性表述纪律
+    assert "no_anomaly" in body
+    assert "标签判定优先级" in body
+    assert "不得提前结束" in body
+    assert "观察性分类" in body
+    assert "|z| < 2 且分位 < 95%" in body
     for label in ["no_anomaly", "seasonal", "industry_wide", "company_specific",
                   "mix_shift", "reclassification"]:
         assert label in body, f"缺少根因标签: {label}"

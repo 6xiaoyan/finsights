@@ -7,6 +7,7 @@ import pytest
 
 from fincalc.calc import (
     check_identities,
+    check_identities_detail,
     contribution,
     peer_compare,
     qoq,
@@ -112,3 +113,44 @@ def test_v2_12_fincalc_purity():
         text = f.read_text(encoding="utf-8")
         for bad in ("duckdb", "requests", "httpx", "read_csv", "open("):
             assert bad not in text, f"{f.name} 含 {bad}"
+
+
+def test_hp_tl_no_drnc_double_count():
+    """步骤 1 回归（真实数据）：HP 分项加总不得重复计入非流动递延收入（批阅实测 1473 假违例）。"""
+    import duckdb
+    con = duckdb.connect("data/finsights.duckdb", read_only=True)
+    df = con.execute("""SELECT p.company_id AS company, p.fiscal_year, p.fiscal_quarter,
+        MAX(CASE WHEN f.account_code='total_assets' THEN f.value END) total_assets,
+        MAX(CASE WHEN f.account_code='total_liabilities' THEN f.value END) total_liabilities,
+        MAX(CASE WHEN f.account_code='total_equity' THEN f.value END) total_equity,
+        MAX(CASE WHEN f.account_code='total_current_liabilities' THEN f.value END) total_current_liabilities,
+        MAX(CASE WHEN f.account_code='long_term_debt' THEN f.value END) long_term_debt,
+        MAX(CASE WHEN f.account_code='other_noncurrent_liabilities' THEN f.value END) other_noncurrent_liabilities,
+        MAX(CASE WHEN f.account_code='deferred_revenue_noncurrent' THEN f.value END) deferred_revenue_noncurrent
+        FROM facts f JOIN periods p USING (company_id, fiscal_year, fiscal_quarter)
+        WHERE f.company_id='HP' AND f.version='original'
+        GROUP BY 1,2,3 ORDER BY 2,3""").df()
+    con.close()
+    detail = check_identities_detail(df)
+    tl_rows = [r for r in detail if r["identity"].startswith("total_liabilities")]
+    assert tl_rows and all(r["ok"] for r in tl_rows), [r for r in tl_rows if not r["ok"]]
+    # 反向测试：故意把 TL 抬高 1473（批阅发现的真实错误量级），必须被抓到
+    broken = df.copy()
+    mask = (broken["fiscal_year"] == 2024) & (broken["fiscal_quarter"] == 3)
+    broken.loc[mask, "total_liabilities"] = broken.loc[mask, "total_liabilities"] + 1473.0
+    v = check_identities(broken)
+    assert any("FY2024Q3" in x and "total_liabilities" in x for x in v), v
+
+
+def test_identity_nan_not_silent():
+    """步骤 1：分项值为 NaN/缺失不得静默按 0 通过。"""
+    df = pd.DataFrame([{
+        "company": "Dell", "fiscal_year": 2024, "fiscal_quarter": 2,
+        "total_assets": 100.0, "total_liabilities": 60.0, "total_equity": 40.0,
+        "total_current_assets": 50.0, "cash": 10.0, "inventory": 20.0,
+        "other_current_assets": 20.0,  # accounts_receivable/financing_receivables 缺失（正常，残差吸收）
+        "total_current_liabilities": float("nan"),  # present-but-NaN → 必须报
+    }])
+    detail = check_identities_detail(df)
+    tcl = [r for r in detail if r["identity"].startswith("total_current_liabilities")][0]
+    assert not tcl["ok"] and "total_current_liabilities" in tcl["missing"]

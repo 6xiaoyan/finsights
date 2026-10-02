@@ -45,6 +45,8 @@ def _numeric(col: pd.Series) -> pd.Series:
 def _num_cells(df: pd.DataFrame) -> list[float]:
     vals: list[float] = []
     for col in df.columns:
+        if df[col].dtype == bool:  # 布尔列（如勾稽 ok）不是指标数值，不进 digest
+            continue
         vals.extend(float(x) for x in _numeric(df[col]))
     return vals
 
@@ -81,7 +83,7 @@ def make_digest(res: "StoredResult") -> str:
     if len(df) == 0:
         return "结果为空"
     num_cols = [c for c in df.columns
-                if len(_numeric(df[c])) > 0 and c not in META_COLS]
+                if df[c].dtype != bool and len(_numeric(df[c])) > 0 and c not in META_COLS]
     if not num_cols:
         return "结果无数值"
     if len(df) == 1:

@@ -306,3 +306,16 @@ trace 事件；摘要冻结进 `CompState`，重建不再调 LLM、视图逐字�
 | G8 | **未关闭** | 本阶段未决问题：**Q9**（V4.2 用例数字矛盾）、**Q10**（V4.44 verifier 项）、V4.15/V4.47 HUMAN 批阅。P4 不打 phase-P4-done tag，等人工裁定 |
 
 **P4 成果摘要**：v1 = 单循环 14 工具 + Result Store 证据链 + hooks/verifier 护栏 + L1–L5 压缩（含 reactive/PTL/熔断），L1+L2 总正确率 0.967（v0 0.867），失败根因全部归档 eval/badcases.md。
+
+## P4 收尾（2026-10-02，六步授权清单执行记录，review_20261002.md）
+
+| 步骤 | 状态 | 证据 |
+|---|---|---|
+| 步骤 1：ETL/运行时口径同步 | 完成 | fincalc 勾稽拆分为 check_identities_detail（结构化数值行）+ IDENTITY_TREES_HP（HP 的 TL 分项不含 dr_nc）；NaN 分项/NaN 合计显式违例（不得静默按 0 通过）；真实数据回归 test_hp_tl_no_drnc_double_count（HP 全部 39 期 TL 分项闭合，反向破坏 +1473 被抓）+ test_identity_nan_not_silent |
+| 步骤 2：attribution skill 修订 | 完成 | 标签判定优先级（reclassification > mix_shift > industry_wide > company_specific > seasonal/no_anomaly）；第二步仅收集证据、不得提前结束；no_anomaly（|z|<2 且分位<95%）与 seasonal（超典型波动但符合历年规律）可判定条件；观察性分类表述纪律；七步骤与 no_anomaly 原则保留 |
+| 步骤 3：claims 闭合与精度 | 完成 | system prompt 铁律重编号并新增 2/7 两条（claims 与正文闭合、数字精度足量）；final_answer 参数说明统一（一一对应、元数字不需要数据 claim）；未新增任何绕过核验的白名单 |
+| 步骤 4：V4.47 导出增强 | 完成 | scripts/export_v447_evidence.py：完整正文/全部 claims/核验结果与打回记录/原 run rid 与模型所见结果（未截断）/完整 SQL 与完整输出行/派生公式/data_version；原 run 证据与当前库重放分区，重放 rid 加 replay: 前缀；working_capital / check_identities 工具保留底层取数 SQL（ResultStore 可查）；check_identities 工具输出结构化数值列（可被 claim 引用）；已用相同 seed=42 从 run 20261001-215744 重新生成 docs/evidence/V4.47.md |
+| 步骤 5：重跑 | 部分完成 | ①V4.44 冒烟两次（run5/run6，独立证据文件 V4.44_output_20261002*.txt + 带时间戳 trace，未覆写失败记录）：均 40 步预算耗尽**诚实拒答**（无 API 报错、L3≥1 满足、无编造）。run5 根因：calc×13/run_sql×6（含幻觉表名）；prompt/skill 修补后 run6：数据收集已高效（query_metric×3/variance×6），但 **recall×29**——16K 窗口 + keep_last=3 下工作集放不下，模型全程在"取数→被压缩→recall"循环。此为冒烟参数结构性问题（keep_last/步数/窗口），超出 Q10-B（prompt/skill 修复）授权，**待人工裁定**；②L1/L2 三次评测重跑进行中 |
+| 步骤 6：再交批阅 | 部分 | 本表即 V4.15 修订与 V4.47 材料的提交说明；V4.44 未达标、两项批阅未回前不打 phase-P4-done |
+
+其他：verifier 勾稽反馈改用结构化数值（含 A-L-E 命名兼容、缺失清单）；result digest 排除布尔列；G4 allowlist 机制按 Q8-CLOSED 执行（G4_example_allowlist.json + 整行 SHA256）。回归：pytest 125 passed（新增 HP 口径回归/反向/NaN 三测试 + skills 新断言）。

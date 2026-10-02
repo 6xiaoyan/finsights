@@ -51,8 +51,16 @@ def _identity_problems(pairs: dict[str, list[str]], ctx: "RunContext") -> list[s
             problems.append(f"勾稽校验无法执行（{company}）：{out.text}")
             continue
         df = out.stored.df
-        if "violation" in df.columns:
+        if "violation" in df.columns:  # 兼容旧字符串格式
             problems += [f"勾稽违反：{v}" for v in df["violation"].astype(str)]
+        elif "ok" in df.columns:  # 结构化行（V4.47 批阅：差异必须带可引用数值）
+            for _, r in df.iterrows():
+                if bool(r["ok"]):
+                    continue
+                miss = f"（缺失: {','.join(r['missing'])}）" if isinstance(r.get("missing"), list) and r["missing"] else ""
+                name = "A-L-E 恒等式" if r["identity"] == "A=L+E" else r["identity"]
+                problems.append(f"勾稽违反：{name} 合计 {r['total']} ≠ 分项加总 {r['computed']}"
+                                f"（差 {r['diff']}）{miss}")
     return problems
 
 

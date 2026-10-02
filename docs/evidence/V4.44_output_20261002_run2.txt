@@ -1,0 +1,10 @@
+== V4.44 冒烟结果 ==
+status=refuse verified=False
+stats = {'steps': 40, 'tool_calls': 62, 'blocked': 0, 'prompt_tokens': 295761, 'completion_tokens': 11690, 't_start': 8360.468, 'refuse_reason': '步数预算耗尽', 'latency_s': 569.27, 'total_tokens': 307451, 'sql_errors': 3, 'verified': False}
+compact 事件按层级: {'L3': 7, 'L4': 32, 'L5': 2}（要求 L3 ≥ 1）
+compact_fail/refuse 事件: [{'type': 'refuse', 'reason': '步数预算耗尽'}]
+---- 答案 ----
+运行预算已经用尽，无法完成有依据的回答，现拒答。
+拒答是为了避免给出没有出处的数字；请缩小问题范围或允许更多步数。
+
+V4.44: FAIL

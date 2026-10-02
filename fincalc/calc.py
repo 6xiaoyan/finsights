@@ -132,26 +132,75 @@ IDENTITY_TREES = {
                           "other_noncurrent_liabilities"],
 }
 
+# HP 特例（Q6-1/批阅 V4.47）：其 "Other liabilities" 行已含非流动递延收入，
+# total_liabilities 的分项不含 deferred_revenue_noncurrent（它作为子项保留在库里）。
+IDENTITY_TREES_HP = {
+    "total_assets": IDENTITY_TREES["total_assets"],
+    "total_current_assets": IDENTITY_TREES["total_current_assets"],
+    "total_current_liabilities": IDENTITY_TREES["total_current_liabilities"],
+    "total_liabilities": ["total_current_liabilities", "long_term_debt", "other_noncurrent_liabilities"],
+}
+
+
+def _trees_for(company: str) -> dict:
+    return IDENTITY_TREES_HP if company == "HP" else IDENTITY_TREES
+
+
+def check_identities_detail(df: pd.DataFrame, tol: float = 0.005) -> list[dict]:
+    """勾稽校验（结构化，V4.47 批阅要求）：每个恒等式一行可引用的数值结果。
+
+    返回行：{company, fiscal_year, fiscal_quarter, identity, ok, total, computed, diff, missing}
+    - identity ∈ {"A=L+E", f"{total} 分项加总"}；total/computed/diff 均为数值列（百万美元）。
+    - missing：分项缺失或为 NaN 的子科目名；全部分项缺失时报 all_missing 违例（缺失不得静默按 0 通过）。
+    - HP 使用 IDENTITY_TREES_HP（total_liabilities 分项不含 deferred_revenue_noncurrent，
+      否则与其 "Other liabilities" 行重复加总，批阅实测 1473 假违例）。
+    """
+    rows: list[dict] = []
+    for _, r in df.iterrows():
+        tag = {"company": r["company"], "fiscal_year": int(r["fiscal_year"]),
+               "fiscal_quarter": int(r["fiscal_quarter"])}
+        label = f"{r['company']} FY{r['fiscal_year']}Q{r['fiscal_quarter']}"
+        a, l, e = r.get("total_assets"), r.get("total_liabilities"), r.get("total_equity")
+        if any(x is None or pd.isna(x) for x in (a, l, e)):
+            rows.append({**tag, "identity": "A=L+E", "ok": False, "total": None,
+                         "computed": None, "diff": None,
+                         "missing": ["total_assets/total_liabilities/total_equity 有缺失"]})
+            continue
+        rows.append({**tag, "identity": "A=L+E", "ok": bool(abs(a - l - e) / abs(a) <= tol),
+                     "total": float(a), "computed": float(l + e), "diff": float(a - l - e), "missing": []})
+        for total_name, children in _trees_for(r["company"]).items():
+            if total_name not in r:
+                continue
+            if pd.isna(r[total_name]):  # 合计 present-but-NaN：显式违例，不得静默通过
+                rows.append({**tag, "identity": f"{total_name} 分项加总", "ok": False,
+                             "total": None, "computed": None, "diff": None,
+                             "missing": [total_name], "all_missing": False})
+                continue
+            components = {c: r.get(c) for c in children}
+            missing = [c for c, v in components.items() if v is None or pd.isna(v)]
+            computed = sum(float(v) for v in components.values() if v is not None and not pd.isna(v))
+            total_v = float(r[total_name])
+            rows.append({**tag, "identity": f"{total_name} 分项加总",
+                         "ok": bool(abs(computed - total_v) / max(abs(total_v), 1) <= tol),
+                         "total": total_v, "computed": computed, "diff": float(total_v - computed),
+                         "missing": missing, "all_missing": len(missing) == len(children)})
+    return rows
+
 
 def check_identities(df: pd.DataFrame, tol: float = 0.005) -> list[str]:
-    """勾稽校验（纯函数版，供 verifier 与 HP 之外的公司使用）：返回违反项描述列表。
-
-    df 为宽表（每行一个期间），需列: company, fiscal_year, fiscal_quarter,
-    total_assets, total_liabilities, total_equity 及各分项。
-    """
+    """勾稽校验（兼容接口）：返回违反项描述列表；结构化数值见 check_identities_detail。"""
     violations: list[str] = []
-    for _, r in df.iterrows():
-        tag = f"{r['company']} FY{r['fiscal_year']}Q{r['fiscal_quarter']}"
-        a, l, e = r.get("total_assets"), r.get("total_liabilities"), r.get("total_equity")
-        if None in (a, l, e) or pd.isna(a) or pd.isna(l) or pd.isna(e):
-            violations.append(f"{tag}: a/l/e 缺失")
+    for row in check_identities_detail(df, tol):
+        label = f"{row['company']} FY{row['fiscal_year']}Q{row['fiscal_quarter']}"
+        if row["identity"] == "A=L+E":
+            if not row["ok"]:
+                violations.append(f"{label}: a/l/e 缺失" if row["total"] is None
+                                  else f"{label}: |A-L-E|/A = {abs(row['diff']) / abs(row['total']):.4%}")
             continue
-        if abs(a - l - e) / abs(a) > tol:
-            violations.append(f"{tag}: |A-L-E|/A = {abs(a - l - e) / abs(a):.4%}")
-        for total, children in IDENTITY_TREES.items():
-            if total not in r or pd.isna(r[total]):
-                continue
-            s = sum(r.get(c, 0.0) or 0.0 for c in children)
-            if abs(s - r[total]) / max(abs(r[total]), 1) > tol:
-                violations.append(f"{tag}: {total} 分项和 {s:.1f} ≠ {r[total]:.1f}")
+        if row.get("all_missing"):
+            violations.append(f"{label}: {row['identity']} 分项缺失")
+            continue
+        if not row["ok"]:
+            violations.append(f"{label}: {row['identity']} {row['computed']:.1f} ≠ {row['total']:.1f}"
+                              + (f"（缺失: {','.join(row['missing'])}）" if row["missing"] else ""))
     return violations

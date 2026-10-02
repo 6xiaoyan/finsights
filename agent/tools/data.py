@@ -138,9 +138,10 @@ def _periods_map(ctx: ToolContext) -> pd.DataFrame:
         " calendar_quarter, days FROM periods", ctx.db_path)
 
 
-def _fetch_series(ctx: ToolContext, metrics: list[str], companies: list[str],
-                 last_n: int | None = None, period_from: str | None = None,
-                 period_to: str | None = None, basis: str = "fiscal") -> pd.DataFrame:
+def _fetch_series_ex(ctx: ToolContext, metrics: list[str], companies: list[str],
+                     last_n: int | None = None, period_from: str | None = None,
+                     period_to: str | None = None, basis: str = "fiscal") -> tuple[pd.DataFrame, str]:
+    """取数并返回 (df, sql)：working_capital / check_identities 需保留底层输入 SQL（V4.47 批阅）。"""
     req = MetricRequest(metrics=metrics, companies=companies, last_n=last_n,
                         period_from=period_from, period_to=period_to, period_basis=basis)
     sql = compile_sql(req)
@@ -150,7 +151,14 @@ def _fetch_series(ctx: ToolContext, metrics: list[str], companies: list[str],
         pm = _periods_map(ctx)
         df = df.merge(pm[["company", "fiscal_year", "fiscal_quarter", "period_end"]],
                       on=["company", "fiscal_year", "fiscal_quarter"], how="left")
-    return df.sort_values(["company", "fiscal_year", "fiscal_quarter"]).reset_index(drop=True)
+    df = df.sort_values(["company", "fiscal_year", "fiscal_quarter"]).reset_index(drop=True)
+    return df, sql
+
+
+def _fetch_series(ctx: ToolContext, metrics: list[str], companies: list[str],
+                  last_n: int | None = None, period_from: str | None = None,
+                  period_to: str | None = None, basis: str = "fiscal") -> pd.DataFrame:
+    return _fetch_series_ex(ctx, metrics, companies, last_n, period_from, period_to, basis)[0]
 
 
 def _metric_unit(metric: str) -> str:
@@ -299,11 +307,11 @@ def _h_working_capital(args, ctx: ToolContext, step: int) -> Outcome:
     # 平均值（V4.45 实测 bad case：单期调用退化出 ~1–4% 系统偏差）
     pf = _prev_fiscal(pf)
     need = ["accounts_receivable", "inventory", "accounts_payable", "revenue", "cogs"]
-    df = _fetch_series(ctx, need, [args.company], period_from=pf, period_to=pt)
+    df, sql = _fetch_series_ex(ctx, need, [args.company], period_from=pf, period_to=pt)
     if df.empty:
         raise ValueError(f"{args.company} 在 {pf}~{pt} 没有数据")
     out = fc.working_capital(df)
-    return _stored("working_capital", args.model_dump(), out, ctx, step, None, "days")
+    return _stored("working_capital", args.model_dump(), out, ctx, step, sql, "days")
 
 
 def _h_check_identities(args, ctx: ToolContext, step: int) -> Outcome:
@@ -312,18 +320,15 @@ def _h_check_identities(args, ctx: ToolContext, step: int) -> Outcome:
                       | {"total_assets", "total_liabilities", "total_equity"})
     accounts = [a for a in accounts if a in load_metrics()]
     pf, pt = _expand_periods(list(args.periods))
-    df = _fetch_series(ctx, accounts, [args.company], period_from=pf, period_to=pt)
+    df, sql = _fetch_series_ex(ctx, accounts, [args.company], period_from=pf, period_to=pt)
     if df.empty:
         raise ValueError(f"{args.company} 在 {pf}~{pt} 没有数据")
-    violations = fc.check_identities(df)
-    if violations:
-        out = pd.DataFrame({"company": [args.company] * len(violations),
-                            "violation": violations})
-    else:
-        out = pd.DataFrame([{"company": args.company,
-                             "check": f"勾稽全部通过（{len(df)} 期 × "
-                                      f"{len(fc.IDENTITY_TREES) + 1} 条恒等式）"}])
-    return _stored("check_identities", args.model_dump(), out, ctx, step, None)
+    detail = fc.check_identities_detail(df)
+    out = pd.DataFrame(detail)  # 结构化数值列（total/computed/diff/missing），可被 claim 引用（V4.47 批阅）
+    if out.empty:
+        out = pd.DataFrame([{"company": args.company, "identity": "A=L+E", "ok": False,
+                             "total": None, "computed": None, "diff": None, "missing": ["无数据"]}])
+    return _stored("check_identities", args.model_dump(), out, ctx, step, sql)
 
 
 def _h_get_filing_notes(args, ctx: ToolContext, step: int) -> Outcome:
