@@ -13,6 +13,7 @@ from typing import Any, Callable
 import pandas as pd
 
 import fincalc.calc as fc
+from agent import disclosure
 from agent.result_store import ResultStore, StoredResult
 from agent.tools import guard
 from agent.tools.base import STORED_TOOLS, validate_args
@@ -39,6 +40,8 @@ class ToolContext:
     db_path: str
     store: ResultStore
     cfg: dict = field(default_factory=lambda: dict(DEFAULT_CFG))
+    as_of: Any = None       # datetime.date | None：披露检索的时点截止（运行注入，非工具参数，V4.5）
+    comp: Any = None        # agent.context.CompState：A2 活动证据保护（loop 注入同一实例）
 
     @property
     def data_version(self) -> str:
@@ -340,6 +343,16 @@ def _h_get_filing_notes(args, ctx: ToolContext, step: int) -> Outcome:
     return _stored("get_filing_notes", args.model_dump(), df, ctx, step, None)
 
 
+def _h_search_disclosure(args, ctx: ToolContext, step: int) -> Outcome:
+    corpus = disclosure.load(ctx.cfg.get("disclosure_dir", "data/disclosures"))
+    hits = disclosure.search(corpus, args.query, company=args.company,
+                             period=args.period, as_of=ctx.as_of, top_k=args.top_k)
+    cols = ["citation", "document_id", "company", "doc_type", "fiscal_period",
+            "period_end", "published_at", "page", "score", "text"]
+    out = pd.DataFrame(hits, columns=cols)
+    return _stored("search_disclosure", args.model_dump(), out, ctx, step, None)
+
+
 def _h_recall(args, ctx: ToolContext, step: int) -> Outcome:
     res = ctx.store.get(args.result_id)
     if res is None:
@@ -375,6 +388,7 @@ _HANDLERS: dict[str, Callable] = {
     "working_capital": _h_working_capital,
     "check_identities": _h_check_identities,
     "get_filing_notes": _h_get_filing_notes,
+    "search_disclosure": _h_search_disclosure,
     "recall": _h_recall,
 }
 

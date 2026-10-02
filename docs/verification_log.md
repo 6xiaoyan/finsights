@@ -353,3 +353,15 @@ GLM 按交接实现（A1 计量与输出上限、A2 活动证据保护、A3 显�
 | A3 阈值 | 显式 `l3_trigger_tokens=64000`（优先）与旧比例回退二选一；`compact_threshold=128000`；正式 `l5_enabled=false`（16K 压测单独覆盖）；`compact_target_tokens` 登记为未接线候选，不假装存在行为 | config.yaml（重复键 3 处已删）、agent/context.py |
 | V4.44 冒烟 | 脚本固定为回答二步骤 5 的"配置①"：pop 显式阈值走旧比例路径、margin=1.0；②③对照未跑 | scripts/live/V4.44_l5_compact_smoke.py |
 | 回归 | `.venv/Scripts/python -m pytest -q` → **134 passed**（P5.1 提交时 125 → 场景重生成后 134，含 L3 测试 9 项，场景勾稽在单测内遍历全部 30 库）；工作区清理：删除已执行的一次性补丁 patch_a2.py（GLM 注释自明"执行后删除"） | 本次执行 |
+
+## P5.3 披露索引与 as_of 检索（回答一步骤 2，2026-10-02）
+
+| 项 | 状态 | 证据 |
+|---|---|---|
+| A2 运行时死链修复 | 完成 | 复审发现 `make_run_ctx` 从未把 CompState 挂到 `ToolContext.comp` → recall 去存根/活动保护在主循环里是死代码；现 tool_ctx 注入 as_of 并共享同一 CompState，回归测试断言 `ctx.tool_ctx.comp is ctx.comp` 与召回后 stubbed/active_rids 变化（tests/test_disclosure.py） |
+| 索引与分块 | 完成 | `etl/disclosures.py`：37 份联想业绩公告（FY18Q1–FY27Q1）→ `data/disclosures/index.json` + 1350 页级块（3.5MB）；每文档记 SHA256、published_at（文件名内嵌日期，basis 字段注明"未逐份回验公告页"）、period_end/start、提取方式；空白/封面页不入库 |
+| 检索工具 | 完成 | `agent/disclosure.py`（英文词 + CJK bigram 粗排、长度阻尼）+ 工具 `search_disclosure`（query/company/period/top_k；**as_of 由运行上下文注入、非工具参数**，V4.5 不破）；结果进 Result Store（rid 可 recall 续读全文）；plan 第 12 节已登记接口 |
+| as_of 隔离 | PASS | 离线测试：未来文档不可见（fixture + 真实库探针 as_of=2021-01-01，返回全部 published_at≤2021-01-01）；评测 live 时同样生效 |
+| 检索质量探针 | 可用 | "渠道库存" top1 = `lenovo_FY2023Q3#p2`（案例 p2 管理层讨论），与交接文档步骤 4 的证据页一致；公告正文为繁体中文，英文查询命中弱（HP/Dell 英文正文入库后才有意义） |
+| 边界与缺口 | 如实登记 | HP/Dell 披露正文未入库（本地只有 SEC 数字/索引 JSON，回答一明确其不算取得解释正文）→ 需下载交易所/SEC 原文后补建索引；扫描页 OCR、印刷页码映射未做（块只带 PDF 页码）；披露候选档案（V5.11 配套字段 full set）属步骤 3 工作，未完成 |
+| 回归 | PASS | `pytest -q` → **138 passed**（+4 项披露/A2 测试）；G3/G6/G7 grep 无输出 |

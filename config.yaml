@@ -47,3 +47,4 @@ context:
   token_safety_margin: 1.05      # 估算 × 安全余量
   result_max_rows: 50            # L1 结果预算：工具结果最多显示行数
   result_max_tokens: 2000        # L1 结果预算：超过约多少 token 就只放引用+预览
+  disclosure_dir: data/disclosures  # 披露检索库（etl.disclosures 生成；as_of 过滤见 agent/disclosure.py）

@@ -113,12 +113,15 @@ def make_run_ctx(db_path: str, llm: Any, *, run_id: str = "test-run",
     store = ResultStore(tool_data.make_data_version(db_path))
     ledger = Ledger(as_of=as_of.isoformat() if as_of else None,
                     data_version=store.data_version)
-    return RunContext(run_id=run_id, db_path=db_path, as_of=as_of, store=store,
-                      todos=[], loaded_skills={}, budget=budget,
-                      trace=TraceWriter(trace_path),
-                      tool_ctx=ToolContext(db_path=db_path, store=store, cfg=cfg),
-                      llm=llm, verifier=verifier, stop_max_retries=stop_retries,
-                      cfg=cfg, ledger=ledger)
+    tool_ctx = ToolContext(db_path=db_path, store=store, cfg=cfg, as_of=as_of)
+    ctx = RunContext(run_id=run_id, db_path=db_path, as_of=as_of, store=store,
+                     todos=[], loaded_skills={}, budget=budget,
+                     trace=TraceWriter(trace_path),
+                     tool_ctx=tool_ctx,
+                     llm=llm, verifier=verifier, stop_max_retries=stop_retries,
+                     cfg=cfg, ledger=ledger)
+    tool_ctx.comp = ctx.comp   # A2：recall 的去存根/活动保护必须触到同一个 CompState
+    return ctx
 
 
 def build_system_prompt() -> str:

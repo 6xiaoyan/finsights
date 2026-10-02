@@ -65,6 +65,13 @@ class RecallArgs(BaseModel):
     offset: int = Field(default=0, description="从第几行开始取回完整结果")
 
 
+class SearchDisclosureArgs(BaseModel):
+    query: str = Field(description="关键词短语（中文或英文），如 渠道库存 / destocking / 重组")
+    company: str | None = Field(default=None, description="限定公司 Lenovo/HP/Dell；不限定则三家")
+    period: str | None = Field(default=None, description="限定披露所属财年季度（FY24Q3 写法）")
+    top_k: int = Field(default=5, description="返回页数（1–10）")
+
+
 class EmptyArgs(BaseModel):
     """list_metrics 无参数。"""
 
@@ -121,6 +128,10 @@ DESCRIPTIONS: dict[str, str] = {
     "get_filing_notes": "报表附注/口径变更说明。何时使用：归因第⑤步，检查变化是否由口径重分类导致。",
     "recall": "从 Result Store 取回某结果的完整行（不重新查库）。何时使用：上下文里该结果被压缩成"
               "存根、需要看 50 行之后的数据时。",
+    "search_disclosure": "检索公开披露正文（业绩公告 MD&A/附注，按页返回原文引用+发布日期）。"
+                         "何时使用：需要核对管理层自己如何解释变化（归因第⑤步、事件证据）；"
+                         "只返回数据截止日（as_of）前已发布的披露。何时不用：取数字（用 query_metric）；"
+                         "没检索到就不要编造披露原文，如实说未找到。",
     "todo_write": "写入或更新任务计划（整体替换）。何时使用：复杂问题第一步拆任务；"
                   "推进中更新完成状态。何时不用：一步就能答完的简单问题。",
     "final_answer": "给出最终答案并结束。何时使用：所有数字都已由数据工具查出或经 calc 计算、"
@@ -133,10 +144,10 @@ DESCRIPTIONS: dict[str, str] = {
 # 产生 rid 并进入 store 的工具（L3 可压缩白名单，plan 6.6.3）
 STORED_TOOLS = ["list_metrics", "query_metric", "run_sql", "calc", "variance",
                 "seasonal_check", "peer_compare", "working_capital", "check_identities",
-                "get_filing_notes"]
+                "get_filing_notes", "search_disclosure"]
 READ_ONLY_TOOLS = ["list_metrics", "recall", "query_metric", "variance", "seasonal_check",
                    "peer_compare", "working_capital", "check_identities", "get_filing_notes",
-                   "calc", "run_sql"]  # 主循环可并发执行（V4.12）
+                   "calc", "run_sql", "search_disclosure"]  # 主循环可并发执行（V4.12）
 
 ARGS_MODELS: dict[str, type[BaseModel]] = {
     "list_metrics": EmptyArgs,
@@ -150,6 +161,7 @@ ARGS_MODELS: dict[str, type[BaseModel]] = {
     "check_identities": CheckIdentitiesArgs,
     "get_filing_notes": GetFilingNotesArgs,
     "recall": RecallArgs,
+    "search_disclosure": SearchDisclosureArgs,
 }
 
 
