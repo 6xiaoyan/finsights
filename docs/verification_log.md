@@ -1,5 +1,8 @@
 # 验证日志
 
+> **两项方案最新更新（2026-10-02）**：用户确认交给 GLM 5.3 开发，详细步骤见 `docs/handoff_event_attribution.md` 与 `docs/handoff_context_compression.md`，统一入口 `docs/solution.md`。Q11 决策 CLOSED，V5.11 待双路径新实现/复核；旧 2.0 候选不代表通过。压缩开发方向已确认，不再待裁定；交接文档写出后，压缩 A1–A3 与 Q11 步骤 1 的代码已实施并经复审（见"P4.10 压缩 A1–A3"与"P5"节），真实对照评测未跑，阶段门禁不变，V4.44 保持 FAIL-待修复。
+
+
 > 记录格式见 verify.md 0.2。每个检查项一行，证据必须是真实执行的命令和输出摘要。
 
 ## 阶段完成清单
@@ -333,6 +336,20 @@ trace 事件；摘要冻结进 `CompState`，重建不再调 LLM、视图逐字�
 | V5.7 | PASS | 同种子重建同一场景，facts 的 MD5 一致（test_v5_7） | （本次） |
 | V5.8 | PASS | 三 mock 自检：标准答案 top-1=100%；永远 company_specific → 阴性误报率 100%；永远 no_anomaly → 注入题 top-1=0（test_v5_8） | （本次） |
 | V5.9 | PASS | must_not_claim 命中被计为误归因（test_v5_9） | （本次） |
-| V5.11 | PASS（附 Q11） | docs/evidence/V5.11.csv：|z|>2.0 候选 2 条；阈值偏离原因与裁定选项见 questions.md Q11 | （本次） |
+| V5.11 | 进行中（数据路径完成） | 修复季度前期/基线口径后重新生成 `docs/evidence/V5.11.csv`（24 条 |z|>2 候选，排除当前点、零方差显式不可计算）；披露路径候选与完整证据字段（published_at/页码/证据边界）待回答一步骤 2-3 实现后补，按新验收标准不判 PASS | （本次） |
 | V5.10 | 待 live | L3 报告在 v1 跑完 3 次 × 30 题后生成（打分器与聚合函数已就绪：aggregate） | — |
 | 附注 | — | 联想 net_income 标签变体（期内/年内、內/内 字形、跨页）已修复并纳入 extract；注入只动资产负债表科目（plan 7.2 第一版约束） | — |
+
+## P4.10 压缩 A1–A3 实现与复审（回答二步骤 1–3，2026-10-02）
+
+GLM 按交接实现（A1 计量与输出上限、A2 活动证据保护、A3 显式阈值），执行者复审后修复其缺陷并回归。状态：代码已实现、离线通过；真实业务对照与 V4.44 重跑未执行，V4.44 保持 FAIL-待修复，P4 门禁不变。
+
+| 项 | 内容 | 证据 |
+|---|---|---|
+| A1 计量 | `est_tokens` CJK 感知（中文≈1 字/token、其余 /4）+ 工具定义/调用参数计入 + EMA 校准（与 usage.prompt_tokens 比对，夹 [0.5,2.5]）+ `token_safety_margin` 接进全部阈值比较（`_est_view`）；偏差随 `usage.est_prompt_tokens` 进 trace assistant 事件 | agent/context.py、agent/llm.py；假 client 验证校准生效（est→EMA 更新正确） |
+| A1 复审修复 | GLM 原实现 `_est` 从未传入 kwargs → 校准恒为 no-op（比率钉死 1.0）；已改为在 chat 内计算 est 并显式校准，删除吞异常的 try/except | 复审记录（本次提交） |
+| A1 输出上限 | `max_tokens`：主循环 8000、摘要 4000（llm.summary 角色 thinking 继承 judge 配置）；能力探针留待 live | config.yaml、agent/llm.py |
+| A2 保护 | `CompState.active_rids/active_block` 正式声明为字段；recall 后去存根+入活动集；L3 不存根活动 rid；L4 账本后追加有界"活动证据块"（≈1000 token 上限，随视图冻结）；V4.35 测试加强为断言账本+证据块同消息常驻 | agent/context.py、agent/tools/data.py、tests/test_context.py |
+| A3 阈值 | 显式 `l3_trigger_tokens=64000`（优先）与旧比例回退二选一；`compact_threshold=128000`；正式 `l5_enabled=false`（16K 压测单独覆盖）；`compact_target_tokens` 登记为未接线候选，不假装存在行为 | config.yaml（重复键 3 处已删）、agent/context.py |
+| V4.44 冒烟 | 脚本固定为回答二步骤 5 的"配置①"：pop 显式阈值走旧比例路径、margin=1.0；②③对照未跑 | scripts/live/V4.44_l5_compact_smoke.py |
+| 回归 | `.venv/Scripts/python -m pytest -q` → **134 passed**（P5.1 提交时 125 → 场景重生成后 134，含 L3 测试 9 项，场景勾稽在单测内遍历全部 30 库）；工作区清理：删除已执行的一次性补丁 patch_a2.py（GLM 注释自明"执行后删除"） | 本次执行 |

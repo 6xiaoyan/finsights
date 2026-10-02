@@ -1,0 +1,24 @@
+{
+  "type": "mix_shift",
+  "label": "mix_shift",
+  "account": "accounts_receivable",
+  "direction": "up",
+  "companies": [
+    "Dell"
+  ],
+  "calendar_quarter": "2019Q2",
+  "deltas_mn": {
+    "Dell": -7192.088
+  },
+  "notes": [],
+  "mix": {
+    "from": "accounts_receivable",
+    "to": "other_current_assets"
+  },
+  "scenario_id": "s67631db878",
+  "seed": 562264629,
+  "magnitude_sigma": 3.537,
+  "must_not_claim": [
+    "industry_wide"
+  ]
+}

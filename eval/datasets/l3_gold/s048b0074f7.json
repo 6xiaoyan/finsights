@@ -1,0 +1,21 @@
+{
+  "type": "company_specific",
+  "label": "company_specific",
+  "account": "accounts_receivable",
+  "direction": "down",
+  "companies": [
+    "Lenovo"
+  ],
+  "calendar_quarter": "2023Q4",
+  "deltas_mn": {
+    "Lenovo": -3162.003
+  },
+  "notes": [],
+  "scenario_id": "s048b0074f7",
+  "seed": 11190011,
+  "magnitude_sigma": 3.939,
+  "must_not_claim": [
+    "seasonal",
+    "industry_wide"
+  ]
+}

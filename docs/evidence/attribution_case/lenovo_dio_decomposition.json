@@ -1,0 +1,13 @@
+{
+  "current_dio": 57.87076218230221,
+  "prior_dio": 47.09184227500785,
+  "current_inventory_avg": 7959.973,
+  "prior_inventory_avg": 8584.6985,
+  "current_cogs": 12654.361,
+  "prior_cogs": 16771.318,
+  "inventory_log_term": -0.07555576644770619,
+  "cogs_log_term": 0.281668266625685,
+  "days_log_term": 0.0,
+  "dio_log_change": 0.20611250017797872,
+  "identity_residual": 1.1102230246251565e-16
+}

@@ -1,0 +1,21 @@
+{
+  "type": "none",
+  "label": "no_anomaly",
+  "account": "accounts_receivable",
+  "direction": "up",
+  "companies": [
+    "HP"
+  ],
+  "calendar_quarter": "2022Q4",
+  "deltas_mn": {},
+  "notes": [],
+  "scenario_id": "s5183b8edb4",
+  "seed": 52989265,
+  "magnitude_sigma": 3.935,
+  "must_not_claim": [
+    "company_specific",
+    "industry_wide",
+    "mix_shift",
+    "reclassification"
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "type": "industry_wide",
+  "label": "industry_wide",
+  "account": "accounts_receivable",
+  "direction": "up",
+  "companies": [
+    "Lenovo",
+    "HP",
+    "Dell"
+  ],
+  "calendar_quarter": "2024Q4",
+  "deltas_mn": {
+    "Lenovo": 2390.343,
+    "HP": 714.909,
+    "Dell": 5086.934
+  },
+  "notes": [],
+  "scenario_id": "sa49cef00e7",
+  "seed": 163690564,
+  "magnitude_sigma": 2.699,
+  "must_not_claim": [
+    "company_specific"
+  ]
+}

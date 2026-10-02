@@ -1,0 +1,24 @@
+{
+  "type": "mix_shift",
+  "label": "mix_shift",
+  "account": "accounts_payable",
+  "direction": "up",
+  "companies": [
+    "Lenovo"
+  ],
+  "calendar_quarter": "2023Q3",
+  "deltas_mn": {
+    "Lenovo": -2969.264
+  },
+  "notes": [],
+  "mix": {
+    "from": "accounts_receivable",
+    "to": "other_current_assets"
+  },
+  "scenario_id": "se940dc241b",
+  "seed": 778610572,
+  "magnitude_sigma": 3.981,
+  "must_not_claim": [
+    "industry_wide"
+  ]
+}

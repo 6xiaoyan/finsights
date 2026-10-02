@@ -80,51 +80,49 @@ def _fy_of(cal_q: str, company: str) -> tuple[int, int]:
     return (y, q) if q == 4 else (y + 1, q)
 
 
-def _fq_qoq_diffs(con: duckdb.DuckDBPyConnection, company: str, account: str,
-                  fq: int) -> list[float]:
-    """历年同一财季的环比变化（绝对差，百万美元），按财年升序。"""
+def _qoq_series(con: duckdb.DuckDBPyConnection, company: str, account: str) -> list[dict]:
+    """连续财季的环比序列（交接一步骤 1）：diff_t = value_t - value_{t-1}，t-1 为上一连续财季。
+
+    返回按时间升序的 [{fy, q, cal_q, value, diff}]（首期无 diff）。
+    """
     rows = con.execute("""
-        SELECT p.fiscal_year, f.value FROM facts f JOIN periods p
-        USING (company_id, fiscal_year, fiscal_quarter)
-        WHERE f.company_id = ? AND f.account_code = ? AND p.fiscal_quarter = ?
-          AND f.version = 'original' AND f.derivation IS NULL
-        ORDER BY p.fiscal_year""", [company, account, fq]).fetchall()
-    return [b[1] - a[1] for a, b in zip(rows, rows[1:])]
+        SELECT p.fiscal_year, p.fiscal_quarter, p.calendar_quarter, f.value
+        FROM facts f JOIN periods p USING (company_id, fiscal_year, fiscal_quarter)
+        WHERE f.company_id = ? AND f.account_code = ? AND f.version = 'original'
+          AND f.derivation IS NULL
+        ORDER BY p.period_end""", [company, account]).fetchall()
+    out = []
+    for i in range(1, len(rows)):
+        fy, q, cq, v = rows[i]
+        prev_v = rows[i - 1][3]
+        out.append({"fy": fy, "q": q, "cal_q": cq, "value": v, "diff": v - prev_v})
+    return out
 
 
 def _sigma_of(con, company: str, account: str, fq: int) -> float:
-    """历年同一财季环比变化的绝对差标准差（V5.4 的分母）。"""
-    diffs = _fq_qoq_diffs(con, company, account, fq)
-    if len(diffs) < 2:
+    """历年同财季环比变化的绝对差标准差（V5.4 分母；排除当前点之外同权计算）。"""
+    samples = [d["diff"] for d in _qoq_series(con, company, account)
+               if d["q"] == fq]
+    if len(samples) < 2:
         return 0.0
-    mean = sum(diffs) / len(diffs)
-    return (sum((d - mean) ** 2 for d in diffs) / len(diffs)) ** 0.5
+    mean = sum(samples) / len(samples)
+    return (sum((d - mean) ** 2 for d in samples) / len(samples)) ** 0.5
 
 
 def real_z(con: duckdb.DuckDBPyConnection, company: str, account: str,
            fy: int, q: int) -> float | None:
-    """该期环比变化相对历年同财季分布的 z 分数（样本 <3 返回 None）。"""
-    diffs = _fq_qoq_diffs(con, company, account, q)
-    if len(diffs) < 3:
+    """当前期环比相对历年同财季环比分布的 z 分数（排除当前点；样本 <3 或零方差 → None）。"""
+    series = _qoq_series(con, company, account)
+    samples = [d["diff"] for d in series if d["q"] == q and (d["fy"], d["q"]) != (fy, q)]
+    cur = [d for d in series if d["fy"] == fy and d["q"] == q]
+    if len(samples) < 3 or not cur:
         return None
-    mean = sum(diffs) / len(diffs)
-    var = sum((d - mean) ** 2 for d in diffs) / len(diffs)
+    mean = sum(samples) / len(samples)
+    var = sum((d - mean) ** 2 for d in samples) / len(samples)
     std = var ** 0.5
     if std == 0:
-        return None
-    rows = con.execute("""
-        SELECT f.value FROM facts f JOIN periods p
-        USING (company_id, fiscal_year, fiscal_quarter)
-        WHERE f.company_id = ? AND f.account_code = ? AND p.fiscal_year = ? AND p.fiscal_quarter = ?
-          AND f.version = 'original' AND f.derivation IS NULL""", [company, account, fy, q]).fetchall()
-    prev = con.execute("""
-        SELECT f.value FROM facts f JOIN periods p
-        USING (company_id, fiscal_year, fiscal_quarter)
-        WHERE f.company_id = ? AND f.account_code = ? AND p.fiscal_year = ? AND p.fiscal_quarter = ?
-          AND f.version = 'original' AND f.derivation IS NULL""", [company, account, fy - (1 if q == 4 else 0), 4 if q == 4 else q - 1]).fetchall()
-    if not rows or not prev:
-        return None
-    return (rows[0][0] - prev[0][0] - mean) / std
+        return None  # 零方差：显式不可计算（交接一步骤 1），不补造 z
+    return (cur[0]["diff"] - mean) / std
 
 
 def _children(con, company, fy, q, total: str) -> dict[str, float]:

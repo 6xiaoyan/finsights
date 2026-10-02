@@ -1,0 +1,12 @@
+Filing: D:\finsights\data\raw\lenovo\FY23Q3_170220231201.pdf
+PDF SHA256: 5c13840638dbed7363fa8958db80b87d379263787ccdfbaf3f78efe3becb817f
+Database SHA256: 860558522f16e57c9463ef7b3b0230c7c3f77e3cf9a5e079a3d1b7b68056cac0
+SQL:
+SELECT p.company_id, p.fiscal_year, p.fiscal_quarter, p.period_end,
+p.calendar_quarter, p.days, f.account_code, f.value, f.available_date, f.source_ref
+FROM facts f JOIN periods p USING(company_id,fiscal_year,fiscal_quarter)
+WHERE f.version='original' AND p.period_end BETWEEN '2019-01-01' AND '2024-12-31'
+AND f.account_code IN ('inventory','revenue','cogs','gross_profit','accounts_receivable',
+'accounts_payable','cash') ORDER BY p.company_id,p.period_end,f.account_code
+Formula: QoQ=V_t/V_(t-1)-1; YoY=V_t/V_(t-4)-1; DIO=mean(I_t,I_(t-1))/COGS_t*days_t; DSO=mean(AR_t,AR_(t-1))/Revenue_t*days_t
+Current observations are exploratory, not a blind validation.
