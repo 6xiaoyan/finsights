@@ -42,6 +42,7 @@ class ToolContext:
     store: ResultStore
     cfg: dict = field(default_factory=lambda: dict(DEFAULT_CFG))
     as_of: Any = None       # datetime.date | None：披露检索的时点截止（运行注入，非工具参数，V4.5）
+    enabled_tools: list[str] | None = None  # 第一阶段工具白名单
     comp: Any = None        # agent.context.CompState：A2 活动证据保护（loop 注入同一实例）
 
     @property
@@ -422,6 +423,9 @@ _HANDLERS: dict[str, Callable] = {
 
 def execute(name: str, args: dict, ctx: ToolContext, step: int = 0) -> Outcome:
     """统一分发：参数校验 → store 缓存 → handler；一切错误转为工具错误文本。"""
+    enabled = getattr(ctx, "enabled_tools", None)
+    if enabled is not None and name not in enabled:
+        return Outcome(f"工具错误: {name} 在本运行路径中禁用（披露正文检索不对被测路径暴露）", ok=False)
     if name not in _HANDLERS:
         return Outcome(f"工具错误: 未知工具 {name}（可用: {', '.join(sorted(_HANDLERS))}）", ok=False)
     try:

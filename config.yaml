@@ -48,3 +48,8 @@ context:
   result_max_rows: 50            # L1 结果预算：工具结果最多显示行数
   result_max_tokens: 2000        # L1 结果预算：超过约多少 token 就只放引用+预览
   disclosure_dir: data/disclosures  # 披露检索库（etl.disclosures 生成；as_of 过滤见 agent/disclosure.py）
+
+# 第一阶段（PRD 评测与优化 3.2）：初始数据包规则——固定、可配置，不按参考答案挑选
+initial_packet:
+  metrics: [inventory, revenue, cogs, accounts_receivable, accounts_payable]
+  quarters_back: 8          # 自问题期间（含）向前 N 个连续财季；期间未解析时取库内最近 N 期

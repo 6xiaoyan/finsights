@@ -84,6 +84,7 @@ class RunContext:
     cfg: dict = field(default_factory=dict)          # config.yaml 的 context 段（压缩阈值，V4.43）
     ledger: Ledger = field(default_factory=Ledger)   # 证据账本（P4.5a，代码生成）
     comp: CompState = field(default_factory=CompState)  # 压缩冻结状态（P4.5b）
+    enabled_tools: list[str] | None = None              # 第一阶段：工具暴露白名单（披露检索禁用）
     messages: list[dict] = field(default_factory=list)  # 原始历史引用（reactive 兜底重建视图用）
     stats: dict = field(default_factory=lambda: {
         "steps": 0, "tool_calls": 0, "blocked": 0, "prompt_tokens": 0, "completion_tokens": 0})
@@ -106,7 +107,8 @@ def load_budget(config_path: Path | str = CONFIG_PATH) -> tuple[Budget, dict, in
 def make_run_ctx(db_path: str, llm: Any, *, run_id: str = "test-run",
                  as_of: date | None = None, config_path: Path | str = CONFIG_PATH,
                  trace_path: str | Path | None = None, verifier: Callable | None = None,
-                 max_steps: int | None = None) -> RunContext:
+                 max_steps: int | None = None,
+                 enabled_tools: list[str] | None = None) -> RunContext:
     budget, cfg, stop_retries = load_budget(config_path)
     if max_steps is not None:
         budget.max_steps = max_steps
@@ -119,7 +121,7 @@ def make_run_ctx(db_path: str, llm: Any, *, run_id: str = "test-run",
                      trace=TraceWriter(trace_path),
                      tool_ctx=tool_ctx,
                      llm=llm, verifier=verifier, stop_max_retries=stop_retries,
-                     cfg=cfg, ledger=ledger)
+                     cfg=cfg, ledger=ledger, enabled_tools=enabled_tools)
     tool_ctx.comp = ctx.comp   # A2：recall 的去存根/活动保护必须触到同一个 CompState
     return ctx
 
@@ -223,7 +225,9 @@ def _finish_stats(ctx: RunContext) -> dict:
 
 
 def run(question: str, ctx: RunContext) -> FinalAnswer:
-    TOOL_SCHEMAS = all_tool_schemas()
+    all_schemas = all_tool_schemas()
+    TOOL_SCHEMAS = (all_schemas if ctx.enabled_tools is None else
+                    [sc for sc in all_schemas if sc["function"]["name"] in ctx.enabled_tools])
     messages = [system_message(), user_message(question, ctx)]
     ctx.messages = messages                     # reactive 兜底重建视图用（context.on_context_overflow）
     stop_retries = 0
@@ -242,6 +246,8 @@ def run(question: str, ctx: RunContext) -> FinalAnswer:
             try:
                 try:
                     resp = ctx.llm.chat(view, tools=TOOL_SCHEMAS)
+                    for ev in getattr(ctx.llm, "last_call_events", []) or []:
+                        ctx.trace.event(type="llm_retry", **ev)
                 except ContextTooLong:
                     # reactive（V4.40）：同一轮最多兜底 1 次；PTL 逐组丢弃在状态里累积（V4.41）
                     resp = ctx.llm.chat(context_manager.on_context_overflow(view, ctx),

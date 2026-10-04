@@ -117,6 +117,7 @@ class LLMClient:
 
         attempts = self.max_retries + 1
         last_err: Exception | None = None
+        self.last_call_events: list[dict] = []  # 第一阶段：内部重试可追查（含等待与错误）
         for attempt in range(attempts):
             try:
                 resp = self._client.chat.completions.create(**kwargs)
@@ -126,8 +127,11 @@ class LLMClient:
                 raise   # 其他参数错误不重试，立即抛出
             except RETRYABLE_ERRORS as e:
                 last_err = e
+                wait = 2**attempt if attempt < attempts - 1 else 0
+                self.last_call_events.append({"type": "llm_retry", "attempt": attempt + 1,
+                                              "wait_s": wait, "error": str(e)[:200]})
                 if attempt < attempts - 1:
-                    time.sleep(2**attempt)  # 指数退避：1s, 2s, 4s
+                    time.sleep(wait)  # 指数退避：1s, 2s, 4s
                 continue
             result = self._parse(resp)
             actual = int(result.usage.get("prompt_tokens") or 0)

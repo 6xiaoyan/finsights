@@ -438,3 +438,17 @@ GLM 按交接实现（A1 计量与输出上限、A2 活动证据保护、A3 显�
 | robust_fy_ambiguity（戴尔"2024 年第三季度"） | answered，核验通过；显式声明"按自然季对应 FY25Q2"口径作答（=25026，与 Dell FY25Q2 revenue 一致） | 通过（选择"声明口径"而非澄清，可接受；歧义处理偏好留人工裁定） |
 
 无阻断缺陷：六问全部产生完整运行包；dirty 标志、数据哈希、commit 均如实记录（attrib run 记录 dirty=True 因取证文件当时未提交）。run_meta 抽查 model=agnes-3.0-flash、data_version、usage（attrib 18 步/39.7 万 token/275s——归因题步数成本案例）。
+
+## 第一阶段底座（2026-10-04，PRD 评测与优化三阶段 · 第一阶段）
+
+| 检查 | 状态 | 证据 |
+|---|---|---|
+| 初始数据包（固定规则，step=0 先于 Agent） | PASS | config `initial_packet`（5 科目 × quarters_back=8）；CLI step=0 执行 query_metric，results.json 标记 initial_packet=true；规则与 parse_scope 写入 question.json |
+| 披露检索隔离（工具暴露层） | PASS | enabled_tools 白名单排除 get_filing_notes/search_disclosure；execute 守卫返回禁用错误；run_meta/question.json 记录 tools_disabled |
+| LLM 内部重试可追查 | PASS | llm.last_call_events → trace.jsonl type=llm_retry（attempt/wait_s/error） |
+| review.md 三视角摘要 | PASS | runs/cli-*/review.md：范围与输入/答案位置/工具时间线/关键引用/错误与终止/资源统计/三视角"未评审"栏 |
+| 出错也落盘 | PASS | 实测：40 步验收运行中途 429（免费配额耗尽），部分运行包 cli-20261004-192151 已保存轨迹与状态（错误路径按设计工作） |
+| 验收 query 运行 | PASS（诚实失败） | 第 1 次（20 步默认）：步数预算耗尽诚实拒答，包 cli-20261004-191242；第 2 次（--max-steps 40）：中途 429 配额墙，部分包 cli-20261004-192151。两次均未覆写、终止原因真实 |
+| 回归 | PASS | pytest 182 passed（tests/test_cli.py 7 + 新增底座行为断言） |
+
+**交付**：docs/phase1_delivery.md（差异清单/命令/验收运行/已知限制/停止点）。第一阶段底座交付完成，停止扩展，等待人工审阅与第二阶段指令。免费档配额重置后可用同一命令补跑完整回答（命令见 delivery §2），不影响底座验收。
