@@ -202,7 +202,7 @@ def parse_scope(question: str) -> dict:
         m = re.search(r"(\d{4})\s*年?[第]?\s*([一二三四1-4])\s*季度", question)
         if m:
             qmap = {"一": 1, "二": 2, "三": 3, "四": 4}
-            qq = qmap.get(m.group(2), int(m.group(2)))
+            qq = qmap[m.group(2)] if m.group(2) in qmap else int(m.group(2))
             period = f"{m.group(1)}Q{qq}"
     return {"company": company, "period": period,
             "raw": {"company_in_query": company is not None, "period_in_query": period is not None}}
