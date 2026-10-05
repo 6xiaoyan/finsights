@@ -1,0 +1,430 @@
+{
+ "LV-FY2027Q1-OI-BRIDGE-001": {
+  "tags": [
+   "non_ifrs_bridge",
+   "cash_vs_noncash",
+   "yoy_decomposition"
+  ],
+  "difficulty_rationale": "两个口径方向相反（+141% vs -98%），必须完成调节勾稽并把同比变化按调节项拆分；认股权证收益转亏损的最大单项易被忽略。"
+ },
+ "LV-FY2027Q1-SEGM-CALIBER-001": {
+  "tags": [
+   "segment_vs_group",
+   "elimination",
+   "rate_vs_amount",
+   "multi_caliber_tie"
+  ],
+  "difficulty_rationale": "同一'经营溢利'存在分部合计/抵销后集团/呈报三层数字，需两级勾稽并用 SSG vs IDG 反例说明增速排序≠金额排序；符号变化（转亏为盈）不可比是第二层陷阱。"
+ },
+ "LV-FY2027Q1-INV-DIO-001": {
+  "tags": [
+   "denominator_effect",
+   "inventory_vs_turnover",
+   "point_in_time_vs_average"
+  ],
+  "difficulty_rationale": "余额 +80% 直觉会诱导'DIO 恶化 80%'类错误；需固定公式口径并解释分母效应；备货 vs 滞销不可辨识构成证据边界。"
+ },
+ "LV-FY2027Q1-WC-CCC-001": {
+  "tags": [
+   "working_capital_funding",
+   "ccc",
+   "cash_check",
+   "no_invention_without_data"
+  ],
+  "difficulty_rationale": "三项营运资金同向暴涨但 CCC 几乎持平，需要 DSO/DIO/DPO 组合计算并用现金余额反证；答案必须区分推断与证实（供应链出资只是与数字一致的解释）。"
+ },
+ "LV-FY2027Q1-PROFIT-SEQ-001": {
+  "tags": [
+   "layered_decomposition",
+   "sign_convention",
+   "db_defect_awareness"
+  ],
+  "difficulty_rationale": "跨四层利润表定位恶化层，且 DB 中 FY27Q1 net_income 存在符号录入缺陷；正确处理是核对公告负值而不是盲信结构化源，考察数据源批判性。"
+ },
+ "LV-FY2027Q1-FX-GEO-001": {
+  "tags": [
+   "identifiability_boundary",
+   "fx",
+   "partial_answer_expected"
+  ],
+  "difficulty_rationale": "题面要求先完成可算部分再声明不可辨识性；把 1.26 亿净汇兑亏损当作收入汇率影响是典型诱导错误；纯拒答与强行拆分都应低分。"
+ },
+ "LV-FY2026Q4-GM-OPEX-001": {
+  "tags": [
+   "operating_leverage",
+   "annual_aggregation",
+   "derived_account"
+  ],
+  "difficulty_rationale": "毛利率下降与利润大涨的表面矛盾需年度四季求和口径 + 毛利/费用双增速分解；经营费用在 DB 无独立科目，考察派生勾稽能力。"
+ },
+ "LV-FY2026Q4-Q4ACCEL-001": {
+  "tags": [
+   "window_definition",
+   "yoy_vs_qoq",
+   "seasonality"
+  ],
+  "difficulty_rationale": "'五年最高增速'依赖窗口定义（边界季 FY21Q4 +47.7% 的反例），同时同比加速与环比 -2.8% 并存；单季外推趋势是诱导错误。"
+ },
+ "LV-FY2026Q4-ADJ-REVERSAL-001": {
+  "tags": [
+   "non_ifrs_bridge",
+   "adjustment_asymmetry_check",
+   "motivation_boundary"
+  ],
+  "difficulty_rationale": "经调整低于呈报的反直觉方向必须靠逐项桥解释；'口径是否美化业绩'要求用双向剔除证据回答而不能站队动机，属归因边界。"
+ },
+ "LV-FY2026Q4-INFINIDAT-001": {
+  "tags": [
+   "subsequent_event",
+   "period_attribution",
+   "attribution_bounds"
+  ],
+  "difficulty_rationale": "报告期后事项的期间归属 + 用后续季度无形资产跳升做方向性验证，同时必须声明 PPA 未披露不能整体归因；考察'能验证到哪一步'的边界感。"
+ },
+ "LV-FY2026Q4-EARNINGS-OWN-001": {
+  "tags": [
+   "minority_interest",
+   "dividend_naming_vs_timing",
+   "currency_layer"
+  ],
+  "difficulty_rationale": "年内→应占→实付股息链上有三个不同口径（归属、时间期配、货币），'盈利涨所以分红能力涨'需要分层纠错；支付率名义性必须声明。"
+ },
+ "LV-FY2026Q3-TAXFLIP-001": {
+  "tags": [
+   "tax_one_off",
+   "layered_decomposition",
+   "minority_interest"
+  ],
+  "difficulty_rationale": "四个利润层增速方向各异（税前+58%/集团净利+18%/应占-21%），必须定位到上年 2.82 亿一次性税收抵免与本年 NCI 激增两个非经营层；只看单层的解释都不完备。"
+ },
+ "LV-FY2026Q3-GM-DRIFT-001": {
+  "tags": [
+   "pp_vs_percent",
+   "weighted_vs_simple_average",
+   "quarterly_vs_cumulative"
+  ],
+  "difficulty_rationale": "用单季 -0.63pp 否认累计 -0.88pp 的下移需要加权/简单平均与单季/累计口径辨析；三季逐年比较才能看出趋势而非单点。"
+ },
+ "LV-FY2026Q3-RESTRUCT-001": {
+  "tags": [
+   "one_off_cost_verification",
+   "prospective_claim",
+   "partial_verifiability"
+  ],
+  "difficulty_rationale": "2.85 亿一次性重组费用只有约 2.24 亿可由资产科目变动勾稽验证，剩余约 0.6 亿不可辨；节省目标是前瞻声明，考察'可验证到哪一步'与拒答/全信之间的分寸。"
+ },
+ "LV-FY2026Q3-AISHARE-001": {
+  "tags": [
+   "disclosure_consistency_check",
+   "definition_ambiguity",
+   "boundary_only"
+  ],
+  "difficulty_rationale": "披露占比只能做一致性检验（32%×收入≈71 亿）而无法独立复算，AI 口径未定义使任何反推都带假设；合格答案是检验+声明边界，不是硬算。"
+ },
+ "LV-FY2026Q2-Q2VSH1-001": {
+  "tags": [
+   "cumulative_vs_single_quarter",
+   "layered_decomposition",
+   "derived_account",
+   "base_effect"
+  ],
+  "difficulty_rationale": "同一公告里累计 +44% 与单季 -0.8% 并存，要求期间口径切换 + 毛利/费用层定位；费用无科目需派生勾稽，层级（应占 vs 期内）混淆是陷阱。"
+ },
+ "LV-FY2026Q2-WARRANT-ADJ-001": {
+  "tags": [
+   "non_ifrs_bridge",
+   "sign_flip_across_quarters",
+   "cash_vs_noncash"
+  ],
+  "difficulty_rationale": "呈报与调整后增速在 Q2 与 H1 方向相反（-5%/+25% 与 +40%/+24%），必须按季度重推调整项符号；认股权证 Q1 收益转 Q2 亏损需由 H1/Q2 披露反推。"
+ },
+ "LV-FY2026Q2-RND-INTENSITY-001": {
+  "tags": [
+   "rate_vs_amount",
+   "denominator_effect",
+   "expense_structure",
+   "claim_scope"
+  ],
+  "difficulty_rationale": "管理层'加快投入'措辞只被金额口径支持，占收入比反而下降 0.26pp；单看金额或单看比率都会答错，须双口径并报并区分表述范围。"
+ },
+ "LV-FY2026Q2-ISG-LOSS-Q1CONCENTRATION-001": {
+  "tags": [
+   "cumulative_vs_single_quarter",
+   "loss_trend",
+   "segment_attribution",
+   "management_claim_bounds"
+  ],
+  "difficulty_rationale": "H1 亏损扩大与 Q2 单季收窄方向冲突，需要分部数字回推 Q1；管理层投资归因不可证伪，答案须在可算趋势与不可明原因间划界。"
+ },
+ "LV-FY2026Q2-INTERIM-DIV-FLAT-001": {
+  "tags": [
+   "dividend_policy_inference",
+   "payout_scope",
+   "interim_vs_full_year",
+   "fx_conversion_caveat"
+  ],
+  "difficulty_rationale": "'利润 +40% 股息不变'诱导'回报压缩'结论；正确做法是量化中期名义覆盖比并声明中期≠全年、缺末期与政策数据不可评判，拒答与武断都应扣分。"
+ },
+ "LV-FY2026Q1-GM-OI-DIVERGE-001": {
+  "tags": [
+   "layered_decomposition",
+   "margin_vs_profit",
+   "noncash_gain",
+   "derived_account"
+  ],
+  "difficulty_rationale": "毛利率大跌与经营溢利大涨并存，必须定位到费用层的其他经营收入摆动（含 1.52 亿非现金认股权证收益）；调整后 +10% 是裁决口径，单层视角必得反向结论。"
+ },
+ "LV-FY2026Q1-REPORTED-VS-ADJ-001": {
+  "tags": [
+   "non_ifrs_bridge",
+   "base_effect",
+   "cash_vs_noncash",
+   "cross_filing_consistency"
+  ],
+  "difficulty_rationale": "108% vs 22% 的差距要求双向重建两期调节桥（上年调整方向相反、低基数污染），并与中期报告认股权证数交叉一致；只剔本季单项会漏掉基数效应。"
+ },
+ "LV-FY2026Q1-IDG-VOLUME-IDENT-001": {
+  "tags": [
+   "identifiability_boundary",
+   "volume_vs_price_vs_mix",
+   "caliber_mismatch",
+   "external_data_needed"
+  ],
+  "difficulty_rationale": "份额新高+ASP 上升+混合口径 +18% 诱导'放量'结论；正确答案须完成可算分部增速并论证量价不可唯一分解与外部数据清单。"
+ },
+ "LV-FY2026Q1-EPS-DILUTION-001": {
+  "tags": [
+   "basic_vs_diluted_eps",
+   "denominator_effect",
+   "dilutive_instruments"
+  ],
+  "difficulty_rationale": "利润 +107.6%/基本 +107%/摊薄 +90% 三增速差 17.5pp，考察分母与潜在摊薄意识；股数未披露，任何精确摊薄计算都是编造。"
+ },
+ "LV-FY2025Q4-TAXCREDIT-LAYER-001": {
+  "tags": [
+   "layered_decomposition",
+   "tax_one_off",
+   "counterfactual",
+   "quality_of_earnings"
+  ],
+  "difficulty_rationale": "经营+8%/税前+8.5%/年内+33%/应占+37% 的断层须靠 2.82 亿一次性税抵解释并构造反事实（约+9%），还要声明归属假设；直接引用+37%谈盈利改善即中计。"
+ },
+ "LV-FY2025Q4-Q4-COLLAPSE-VS-FY-001": {
+  "tags": [
+   "one_off_swing",
+   "layered_decomposition",
+   "base_effect",
+   "cash_vs_noncash",
+   "q4_backout"
+  ],
+  "difficulty_rationale": "单季 -64% 与全年 +37% 撕裂，必须双向剔项（本期认股权证亏损 118 + 上年认沽收益 143）才能重估：剔项后 Q4 经营溢利 +30%；只剔一边会错。"
+ },
+ "LV-FY2025Q4-ISG-H2-TURNAROUND-001": {
+  "tags": [
+   "segment_reconciliation",
+   "break_even_marginality",
+   "prospective_claim_bounds"
+  ],
+  "difficulty_rationale": "三句披露彼此勾稽一致，但'转亏为盈'只对应 H2 的 +4.5 百万边际数字；考察区分'数字自洽'与'结论有力'，且全年仍亏 0.47% 溢利率与 SSG 21% 对比。"
+ },
+ "LV-FY2025Q4-CCC-CLAIM-001": {
+  "tags": [
+   "denominator_effect",
+   "metric_definition_sensitivity",
+   "claim_verification",
+   "working_capital"
+  ],
+  "difficulty_rationale": "存货余额 +18% 但 COGS +23% 更快使 DIO 在两种口径下都下降，管理层'+6 天主因存货'在可复算口径下不成立；同时考口径敏感性（平均 +0.9 天 vs 时点 +7.2 天）与分母效应。"
+ },
+ "LV-FY2025Q3-OPEXRATIO-56BPS-001": {
+  "tags": [
+   "费用率",
+   "口径判定",
+   "摊薄vs降本",
+   "管理层声明核验"
+  ],
+  "difficulty_rationale": "'下降56个基点至12.1%'混在9M叙述里，但只有单季口径能复现（9M口径为-117bp）；须自建推导费用并识别占比摊薄不等于费用下降"
+ },
+ "LV-FY2025Q3-CCC-ONEDAY-001": {
+  "tags": [
+   "现金周转期",
+   "营运资本",
+   "口径敏感性",
+   "管理层声明核验"
+  ],
+  "difficulty_rationale": "'改善一天'在时点(-3.1天)与平均(-4.3天)两种口径下幅度都对不上，且时点口径下存货天数反而+9.5天靠应付对冲——方向对、幅度与构成都需口径判定"
+ },
+ "LV-FY2025Q3-NETCASH-GAP-001": {
+  "tags": [
+   "净现金",
+   "科目口径",
+   "勾稽缺口"
+  ],
+  "difficulty_rationale": "DB债务合计3,678.001与公告逐项完全勾稽但净现金差136.6百万，缺口须逐科目对账定位到cash口径，整体比对会误判为债务问题"
+ },
+ "LV-FY2025Q3-SSG-PROFIT-SHARE-001": {
+  "tags": [
+   "分部分析",
+   "盈利质量",
+   "抵销前口径"
+  ],
+  "difficulty_rationale": "31%的分母是抵销前分部合计而非集团经营溢利；还须解释收入占比11%与利润占比31%之间的溢利率差结构"
+ },
+ "LV-FY2025Q3-NONPC-46PCT-001": {
+  "tags": [
+   "不可识别性",
+   "拒答边界",
+   "分部披露"
+  ],
+  "difficulty_rationale": "46%主张超出分部披露可验证范围（可识别上界31.0%），正确行为是给出可识别部分与缺口而非判对错"
+ },
+ "LV-FY2025Q2-DEFREV-RECORD-001": {
+  "tags": [
+   "递延收入",
+   "历史峰值判定",
+   "两科目求和"
+  ],
+  "difficulty_rationale": "创纪录须对 DB 全历史季末比较（旧峰 3,026.7 于 2023-12-31），且流动+非流动两科目相加；只取单科目或只比同期都会判错"
+ },
+ "LV-FY2025Q2-FCF-TRIPLE-001": {
+  "tags": [
+   "自由现金流",
+   "现金流量表缺口",
+   "口径复原",
+   "净现金"
+  ],
+  "difficulty_rationale": "FCF 公式需从披露数字反推口径（三类capex全选才对 801M 增量，漏在建/无形得 1.8x），叠加 DB 无现金流科目、现金行口径差 60M 的对账"
+ },
+ "LV-FY2025Q2-NCI-SLICE-001": {
+  "tags": [
+   "非控损益",
+   "口径陷阱",
+   "季度差分",
+   "归属层"
+  ],
+  "difficulty_rationale": "应占+44% vs 期内+33% 的 11pp 差须拆解到非控损益项并用 H1-Q2 差分补 Q1，还要防 DB noncontrolling_interest（BS口径）误用"
+ },
+ "LV-FY2025Q2-ISG-H1-CLAIMS-001": {
+  "tags": [
+   "分部分析",
+   "期间口径判定",
+   "巧合陷阱"
+  ],
+  "difficulty_rationale": "65% 在两口径下碰巧都成立而 36% 只在 H1 成立，须分别定位三项声明的期间口径并用两张分部表交叉"
+ },
+ "LV-FY2025Q1-CCC-11DAY-001": {
+  "tags": [
+   "现金周转期",
+   "双口径复算",
+   "方向证伪",
+   "归因口径敏感"
+  ],
+  "difficulty_rationale": "'+11天'在时点与平均两口径下方向都相反；'存货主因'只在时点口径部分成立且量级仅+4.4天，须双口径分开判定声明的两个成分"
+ },
+ "LV-FY2025Q1-DOUBLE-DIGIT-CLAIM-001": {
+  "tags": [
+   "增长叙事",
+   "时间窗判定",
+   "全序列同比"
+  ],
+  "difficulty_rationale": "须算13季同比并定位上一双位数季（FY2022Q3，季末2021-12-31），发现与本期恰好相距30个月——声明精确成立，最大陷阱是把 +9.48% 四舍五入进双位数"
+ },
+ "LV-FY2025Q1-SEGMENT-CLAIMS-001": {
+  "tags": [
+   "分部分析",
+   "多声明交叉",
+   "勾稽",
+   "可验证/不可验证分层"
+  ],
+  "difficulty_rationale": "单季五声明分三层：可复算(11%/27%/65%/2300万/21%/33%)、可勾稽(合计-抵销=DB收入、毛利-经营溢利=经营费用)、不可验证(高端销售与类别占比)"
+ },
+ "LV-FY2024Q4-CCC-NEG4-001": {
+  "tags": [
+   "现金周转期",
+   "双口径复算",
+   "幅度对方向反",
+   "期末效应"
+  ],
+  "difficulty_rationale": "'负4天'水平与'改善12天'方向双不符，但时点口径 ΔDSO+ΔDIO=+12.29 天精确复现'12'的幅度（方向相反）；ΔDPO 两口径方向相反构成选口径翻转陷阱"
+ },
+ "LV-FY2024Q4-GM-RECORD-3Y-001": {
+  "tags": [
+   "毛利率序列",
+   "历史新高判定",
+   "连增段",
+   "经营费用勾稽"
+  ],
+  "difficulty_rationale": "七年毛利率序列里 FY2021 曾回落且 FY2019-20 已有一段连增，'连续第三年'与'新高'都须对整个序列判定；再混入舍入值(0.2pp)与精确值(0.288pp)口径差"
+ },
+ "LV-FY2024Q4-SEG-FYVSQ4-001": {
+  "tags": [
+   "分部分析",
+   "年度vs单季叙事对照",
+   "舍入空间",
+   "收入/利润勾稽不对称"
+  ],
+  "difficulty_rationale": "同一批分部两套叙事（年度下滑 vs Q4 转暖）九项数字交叉复算，三处舍入空间判定，外加收入表勾稽成立而分部溢利须经未分配项桥接的不对称结构"
+ },
+ "LV-FY2024Q3-YOY-STREAK-001": {
+  "tags": [
+   "增长断点声明",
+   "环比vs同比区分",
+   "时间窗判定"
+  ],
+  "difficulty_rationale": "同一段话里环比三连增与一年半首次同比转正两个声明须分别用环比/同比序列验证，锚点季 FY2023Q1 只有+0.16% 是叙事质量考点"
+ },
+ "LV-FY2024Q3-CCC-PLUS14-001": {
+  "tags": [
+   "现金周转期",
+   "双口径复算",
+   "幅度对方向反",
+   "角色互换"
+  ],
+  "difficulty_rationale": "'十四天'与'应付减少'两成分在时点口径分别复现幅度/方向，但整句因果与数据角色互换（按字面 CCC 应恶化20天）；平均口径连幅度都对不上"
+ },
+ "LV-FY2024Q3-FINANCE-COSTS-001": {
+  "tags": [
+   "财务费用",
+   "跨公告取数",
+   "期间口径对立",
+   "债务余额验证"
+  ],
+  "difficulty_rationale": "环比声明在本公告内无 Q2 单季列可验，须跨公告借数完成；同时 -6% 与 +22% 两口径方向相反须同时为真，DB 只能验证成因不能验证费用本身"
+ },
+ "LV-FY2024Q2-Q2-QOQ-REBOUND-001": {
+  "tags": [
+   "环比同比口径",
+   "复苏叙事",
+   "数据窗口边界",
+   "汇率剔除项"
+  ],
+  "difficulty_rationale": "同一公告段落内环比+12%与同比-20%并存，须拆三组期间口径分别复算，还要识别'十年均值9%'超出 DB 可见窗口只能部分验证"
+ },
+ "LV-FY2024Q2-CCC-INV2B-001": {
+  "tags": [
+   "现金周转期",
+   "存货余额",
+   "跨口径拼合",
+   "方向判定"
+  ],
+  "difficulty_rationale": "同一句内'九天'只在时点口径复现、'应付减少'只在平均口径成立、负四天水平两口径皆不可复现，须逐项分口径判定并证明整句无单一自洽口径"
+ },
+ "LV-FY2024Q2-SEG-H1-CLAIMS-001": {
+  "tags": [
+   "分部分析",
+   "H1口径判定",
+   "季度差分",
+   "未分配项目勾稽"
+  ],
+  "difficulty_rationale": "三个头条增速全为 H1 口径且换成 Q2 单季全部失效，102bps 与 ISG 按季数字需 H1-Q2 差分，还要用收入抵销/利润未分配两种不对称勾稽"
+ },
+ "LV-FY2024Q2-ATTR-60-154BP-001": {
+  "tags": [
+   "非控损益",
+   "应占口径",
+   "基点复算",
+   "镜像案例"
+  ],
+  "difficulty_rationale": "-60% 与 154bps 只在应占口径成立，DB net_income 分别给出 -57%/148bps，需把 3pp/6bps 差拆到非控损益 +28% 的占比变化"
+ }
+}
