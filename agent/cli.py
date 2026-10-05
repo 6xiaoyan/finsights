@@ -134,9 +134,9 @@ def _export_package(out_dir: Path, question: str, as_of, db_path: Path, client,
     (out_dir / "run_meta.json").write_text(json.dumps(meta, ensure_ascii=False, indent=1),
                                            encoding="utf-8")
 
-    ans = [f"# {question}\n", f"- status: {out.answer.status}",
-           f"- 核验: {'通过（仅指现有数字/引用规则通过，不代表经营因果结论被证明）' if out.verified else '未通过'}",
-           f"- run_id: {run_id}  输出目录: {out_dir}\n", out.answer.answer_md, "\n"]
+    ans = [f"# {question}\n", f"- status: {out.answer.status}\n",
+           f"- 核验: {'通过（仅指现有数字/引用规则通过，不代表经营因果结论被证明）' if out.verified else '未通过'}\n",
+           f"- run_id: {run_id}  输出目录: {out_dir}\n\n", out.answer.answer_md, "\n"]
     if out.answer.claims:
         ans.append("\n## 引用\n")
         for c in out.answer.claims:
@@ -263,6 +263,9 @@ def main(argv: list[str] | None = None) -> int:
     packet = tool_data.execute("query_metric", packet_args, ctx.tool_ctx, step=0)
     if not packet.ok:
         print(f"初始数据包执行失败：{packet.text}", file=sys.stderr)
+    else:  # 初始包的执行事件也进 trace（PRD 3.4：审阅证据不只在 results.json）
+        ctx.trace.event(type="tool_result", step=0, tool="query_metric",
+                        ok=True, result_id=packet.rid, initial_packet=True)
 
     out = None
     try:
