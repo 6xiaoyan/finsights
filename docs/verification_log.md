@@ -452,3 +452,12 @@ GLM 按交接实现（A1 计量与输出上限、A2 活动证据保护、A3 显�
 | 回归 | PASS | pytest 182 passed（tests/test_cli.py 7 + 新增底座行为断言） |
 
 **交付**：docs/phase1_delivery.md（差异清单/命令/验收运行/已知限制/停止点）。第一阶段底座交付完成，停止扩展，等待人工审阅与第二阶段指令。免费档配额重置后可用同一命令补跑完整回答（命令见 delivery §2），不影响底座验收。
+
+## 第一阶段验收补跑与看板交付（2026-10-05）
+
+| 项 | 状态 | 证据 |
+|---|---|---|
+| 联想验收 query（§8.3 授权仅一次，--max-steps 40） | FAIL-配额 | 运行中途再次 429（免费用户速率限制，request id 20261005053853...），错误路径保存部分包 cli-20261005-143623 + 证据 docs/evidence/phase1_lenovo_acceptance.txt；按 §8.3 不继续加预算或重跑，交人工 |
+| 看板（dashboard_design.md） | 实现完成 | dashboard/app.py + index.py + rules.py；启动：`.venv/Scripts/python -m streamlit run dashboard/app.py`（HTTP 200 烟测过）；已索引 20 个实验（含 3 个 CLI 包与全部评测 run），标红规则 8 项测试 + 索引烟测通过 |
+| P1/P3 tag | DONE | phase-P1-done / phase-P3-done 已按关闭证据汇总（docs/evidence/tag_closure_P1_P3.md）打在 840071c 并推送；phase-P4-done 按裁定不打 |
+| V4.44 | FAIL-待后续人工优化（选 C） | 不调参数、不重跑 16K 压力题；原失败证据保留 |

@@ -1,0 +1,5 @@
+D:\finsights\agent\cli.py:106: Pandas4Warning: The default 'epoch' date format is deprecated and will be removed in a future version, please use 'iso' date format instead.
+  rec["rows"] = json.loads(df.to_json(orient="records"))
+D:\finsights\agent\cli.py:106: Pandas4Warning: The default 'epoch' date format is deprecated and will be removed in a future version, please use 'iso' date format instead.
+  rec["rows"] = json.loads(df.to_json(orient="records"))
+运行异常（已保存已获得的轨迹）：Error code: 429 - {'error': {'code': '', 'message': '您已达到免费用户的 API 速率限制。升级 Token Plan 即可解锁更高限额，继续不间断使用 API。 (request id: 202610050538535731604529DSfPsAE)', 'type': 'AgnesAI_error'}}
