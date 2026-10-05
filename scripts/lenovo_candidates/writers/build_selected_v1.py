@@ -1002,6 +1002,233 @@ make_case("R03", "LV-FY2026Q2-ISG-LOSS-Q1CONCENTRATION-001",
      "删除：把半年数字混入单季输入"],
     inputs=r03_in, status="needs_numeric_data")
 
+# ================= review round-2 fixes (docs/lenovo_selected_v1_review.md §3.1–3.5) =================
+# Anchors re-verified row-by-row against .cache/lenovo_pdf_text on 2026-10-05
+# (.cache/candidates/crossref_audit.py full inventory + anchor_check.py: 53/53 row-label+column OK).
+F25Q4 = "FY25Q4_220520251203.pdf"
+F24Q1A = "FY24Q1_170820231201.pdf"
+F24Q2A = "FY24Q2_161120231219.pdf"
+F24Q3A = "FY24Q3_220220241202.pdf"
+F25Q1A = "FY25Q1_150820241201.pdf"
+F25Q2A = "FY25Q2_151120240721.pdf"
+LBL = {"revenue": "收入", "gross_profit": "毛利", "operating_income": "經營溢利",
+       "net_income": "期內溢利", "cogs": "銷售成本", "inventory": "存貨",
+       "accounts_payable": "應付貿易賬款及票據", "cash": "現金及現金等價物"}
+BS_ASSET = {(2025, 4): (F25Q4, 19), (2026, 1): (P26Q1, 15), (2026, 4): (P26Q4, 19), (2027, 1): (P27, 14)}
+BS_LIAB = {(2025, 4): (F25Q4, 20), (2026, 1): (P26Q1, 16), (2026, 4): (P26Q4, 20), (2027, 1): (P27, 15)}
+CASH_PG = {(2026, 1): (P26Q1, 15), (2027, 1): (P27, 14)}
+IS_SQ = {(2024, 1): (F24Q1A, 11), (2024, 2): (F24Q2A, 16), (2024, 3): (F24Q3A, 15),
+         (2025, 1): (F25Q1A, 12), (2025, 2): (F25Q2A, 15), (2025, 3): (P25Q3, 15),
+         (2026, 1): (P26Q1, 13), (2026, 2): (P26Q2, 16), (2026, 3): (P26Q3, 16), (2027, 1): (P27, 12)}
+CTX9M = {(2024, 1), (2024, 2), (2025, 1), (2025, 2)}
+
+def new_crossref(sel, inp):
+    """Per-input anchor: value sits in cited page's cited row/column, verified 2026-10-05."""
+    m, fy, q = inp["metric"], inp["fiscal_year"], inp["fiscal_quarter"]
+    pe = PE[q](fy) if q else f"{fy}-03-31"
+    if inp["period_type"] == "fiscal_year_sum":
+        pdf, pg, label = P26Q4, 17, LBL[m]
+        col = "本期欄" if fy == 2026 else "比較欄"
+        period = f"綜合損益表 截至 {pe} 止全年（兩年度欄：FY{fy} 為{'本期' if fy == 2026 else '比較'}欄）"
+        note = ("全年行 DB 四季求和与年报利润表行千美元精确一致；原锚 p6 为摘要取整表，"
+                "只可量级核对，不得冒充精确输入来源（本轮修正）")
+    elif m in ("inventory", "accounts_receivable"):
+        pdf, pg = BS_ASSET[(fy, q)]
+        label = "存貨" if m == "inventory" else ("應收貿易賬款及票據" if (fy, q) == (2025, 4) else "應收貿易賬款、租賃款及票據")
+        col, period = "本期欄", f"綜合資產負債表 {pe} 本期欄"
+        note = "所属期原生公告本期欄逐行核对（DB accounts_receivable 对应行含租赁款项，FY26Q1 起并表列示）；次期公告比较欄同值，交叉复核"
+    elif m == "accounts_payable":
+        pdf, pg = BS_LIAB[(fy, q)]
+        col, period, label = "本期欄", f"綜合資產負債表 {pe} 本期欄", LBL[m]
+        note = "所属期原生公告负债表本期欄逐行核对；次期公告比较欄同值，交叉复核"
+    elif m == "cash":
+        pdf, pg = CASH_PG[(fy, q)]
+        col, period, label = "本期欄", f"綜合資產負債表 {pe} 本期欄", LBL[m]
+        note = "补充观察行；期末现金及等价物，非现金流量表科目"
+    elif sel == "R02":
+        pdf, pg, label = P27, 7, "收入"
+        col = "本期收入欄" if fy == 2027 else "上年同期收入欄"
+        period = "分部資料頁合計行（行内四数值：本期收入、本期經營溢利、上年同期收入、上年同期溢利）"
+        note = "上轮已逐行验证 p7 正确，本轮未改动"
+    else:
+        pdf, pg = IS_SQ[(fy, q)]
+        col, period, label = "本期欄", f"綜合損益表 截至 {pe} 止三個月本期欄", LBL[m]
+        note = ("9M 上下文对照行，非必答计算路径" if (sel == "S04" and (fy, q) in CTX9M)
+                else "所属期原生公告利润表本期欄逐行核对；下一期公告比较欄同值，交叉复核")
+    return {"pdf": pdf, "pdf_page": pg, "kind": "exact_thousands", "row_label": label,
+            "value_column": col, "period_column": period, "note": note}
+
+for rec in records:
+    for inp in rec["required_inputs"]:
+        src = inp.get("source", {})
+        if src.get("type") != "db":
+            continue
+        cr = new_crossref(rec["selected_id"], inp)
+        src["pdf_crossref"] = cr
+        src["note"] = cr["note"]
+
+# §3.1 运行侧只留科目/期间/统一指标定义；针对本题的求解路线移 evaluator 侧
+ROUTE_MARKERS = {"S02": "经营利润桥", "S05": "ΔM = Σ", "S07": "经营利润增量 = 毛利增量",
+                 "R02": "贡献 = 分部收入同比变化", "R03": "差分得到"}
+for rec in records:
+    mv = ROUTE_MARKERS.get(rec["selected_id"])
+    if not mv:
+        continue
+    defs_ = rec["run_side_visible"]["metric_definitions"]
+    moved = [d for d in defs_ if mv in d]
+    kept = [d for d in defs_ if mv not in d]
+    if len(moved) != 1:
+        raise RuntimeError(f"{rec['selected_id']}: route line not found")
+    if not any("单位百万美元" in d for d in kept):
+        kept.append("单位百万美元")
+    rec["run_side_visible"]["metric_definitions"] = kept
+    rec["gold_evaluator_side"]["acceptable_methods_evaluator_side"] = [
+        moved[0],
+        "（上列为 evaluator 可接受算法说明，不作为开放业务题的运行侧输入；据其作答不作提示扣分依据）"]
+    rec["scoring"]["method_note"] = ("运行侧仅提供科目、期间与统一指标定义；本题完整解题路线见 "
+                                     "gold_evaluator_side.acceptable_methods_evaluator_side，若需给出公式提示"
+                                     "应作为另一'有方法提示诊断条件'单独运行，不与自主归线基线混算")
+
+# §3.2 内部算术自查阈值与答案显示容差分离
+for rec in records:
+    for c in rec["calculations"]:
+        c["tolerance_scope"] = "internal_selfcheck_only"
+    rec["scoring"]["answer_numeric_check"] = {
+        "basis": "答案数值按'同一口径 + 答案自身显示精度'判定；不得用 calculations[].tolerance_abs（内部自查阈值）拒绝合理舍入表达，如 DIO 47.2317 答 47.23 天、增量 1711.812 答 1711.8 百万美元均判对",
+        "unit_normalization": "金额先统一为百万美元再比较（'17.12 亿美元'等等价换算按换算后显示精度判定）；百分比/百分点/倍数先按输出单位换算；比率与百分点混淆算口径错",
+        "display_rounding_rules": {
+            "days": "保留 k 位小数时接受 |ans-gold| ≤ 0.5×10^-k（含 gold 4 位与答案 2 位的对齐）",
+            "usd_mn": "同上按显示位数舍入区间判定",
+            "percent_and_pp": "同上；增幅约 80%、14.2% 等口语化省略位按区间覆盖判定",
+            "ratio": "3 位口径值答 2 位（如 1.46 倍）按显示精度区间判定"},
+        "tie_and_residual": "勾稽/残差以未舍入输入在 evaluator 侧验证，不要求答案写出'残差=0'",
+        "guard": "显示精度只覆盖舍入；量级错误、方向相反、期间错配、平均/期末口径混用等实质错误仍判错"}
+
+# §3.3 断言分层：core 必答题 / optional 加分项 / method_dependent 仅按答案声明口径 / internal 仅内部自查
+LAYERS = {
+ "S01": dict(core=["dio_prior", "dio_curr", "dio_delta", "avg_inv_growth", "cogs_growth"],
+             optional=["closing_inv_growth", "avg_inv_prior", "avg_inv_curr"], method=[], internal=[]),
+ "S02": dict(core=["d_gross_profit", "d_net_opex", "d_operating_income", "oi_growth_pct", "gm_FY2025", "gm_FY2026"],
+             optional=["d_revenue", "revenue_growth_pct", "net_opex_FY2025", "net_opex_FY2026",
+                       "gm_delta_pp", "oi_margin_FY2025", "oi_margin_FY2026"],
+             method=[], internal=["bridge_tie"]),
+ "S03": dict(core=["h1_net_income_growth", "d_q1_net_income", "d_q2_net_income",
+                   "q2_d_gross_profit", "q2_d_net_opex", "q2_d_operating_income"],
+             optional=["h1_net_income_FY2025", "h1_net_income_FY2026", "d_h1_net_income",
+                       "q2_revenue_growth", "q2_net_income_yoy_pct"],
+             method=[], internal=["ni_decomp_tie", "q2_bridge_tie"]),
+ "S04": dict(core=["net_opex_FY2024Q3", "net_opex_FY2025Q3", "opex_growth", "revenue_growth",
+                   "opex_ratio_FY2024Q3", "opex_ratio_FY2025Q3", "opex_ratio_delta_bps"],
+             optional=["context_9m_opex_ratio_delta_bps"], method=[], internal=[]),
+ "S05": dict(core=["gm_FY2025Q1", "gm_FY2025Q2", "gm_FY2025Q3", "gm_FY2026Q1", "gm_FY2026Q2", "gm_FY2026Q3",
+                   "gm_9m_FY2025", "gm_9m_FY2026", "gm_9m_delta"],
+             optional=["simple_mean_FY2026"],
+             method=["rate_contrib_Q1", "rate_contrib_Q2", "rate_contrib_Q3",
+                     "mix_contrib_Q1", "mix_contrib_Q2", "mix_contrib_Q3"],
+             internal=["decomp_tie"]),
+ "S06": dict(core=["d_inventory", "d_receivable", "d_payable", "net_balance_occupation"],
+             optional=["ap_vs_inv_ratio", "ap_covers_pct", "dso_prior_avg", "dso_curr_avg", "dio_prior_avg",
+                       "dio_curr_avg", "dpo_prior_avg", "dpo_curr_avg", "ccc_prior_avg", "ccc_curr_avg",
+                       "ccc_delta_avg", "cash_delta"],
+             method=["alt_dso_pt_prior", "alt_dio_pt_prior", "alt_dpo_pt_prior",
+                     "alt_ccc_pt_prior", "alt_ccc_pt_curr", "alt_ccc_pt_delta"],
+             internal=[]),
+ "S07": dict(core=["d_gross_profit", "d_net_opex", "d_operating_income", "gm_FY2025Q1", "gm_FY2026Q1",
+                   "oi_margin_delta_pp"],
+             optional=["net_opex_FY2025Q1", "net_opex_FY2026Q1", "oi_growth_pct", "revenue_growth_pct",
+                       "net_opex_change_pct", "gm_delta_pp", "gp_contribution_share", "opex_contribution_share"],
+             method=[], internal=["bridge_tie"]),
+ "R01": dict(core=["d_reported", "d_adjusted", "adjustment_total_curr", "adjustment_total_prior", "warrant_swing"],
+             optional=[], method=[], internal=["bridge_curr_tie", "bridge_prior_tie", "yoy_tie"]),
+ "R02": dict(core=["contrib_idg", "contrib_isg", "contrib_ssg", "contrib_elimination"],
+             optional=["growth_idg", "growth_isg", "growth_ssg", "share_of_delta_isg", "share_of_delta_idg"],
+             method=[], internal=["contrib_tie", "segment_sum_tie_curr", "segment_sum_tie_prior"]),
+ "R03": dict(core=["isg_op_FY2025Q1_derived", "isg_op_FY2026Q1_derived", "d_h1", "d_q1", "d_q2", "qoq_q2_vs_q1"],
+             optional=["isg_revenue_growth_q2", "isg_revenue_growth_h1"],
+             method=[], internal=["quarter_decomp_tie"])}
+POLICY = ("core=数字层'数字正确'维度的必答集合（同口径+显示精度判定，见 answer_numeric_check）；"
+          "optional_support=可选支持数字，答对加分、未答不扣；"
+          "method_dependent=仅当答案声明采用对应口径/分解时适用——如采取其他精确分解，按答案自述方法重算并核验其勾稽，"
+          "不强制命中本表数值；internal_selfcheck_only=仅供自查器以未舍入输入验证 gold，不要求答案复述中间变量或'残差=0'。"
+          "不要求写出全部计算步骤，但实质性数字/方向/口径错误仍判错。")
+for rec in records:
+    lay = LAYERS[rec["selected_id"]]
+    allc = [c["calculation_id"] for c in rec["calculations"]]
+    union = lay["core"] + lay["optional"] + lay["method"] + lay["internal"]
+    assert sorted(union) == sorted(allc) and len(set(union)) == len(union), rec["selected_id"]
+    sc = rec["scoring"]
+    sc.pop("optional_assertions", None)
+    sc["numeric_assertions"] = [f"calc:{x}" for x in lay["core"]]
+    sc["optional_support_assertions"] = lay["optional"]
+    sc["method_dependent_assertions"] = lay["method"]
+    sc["internal_selfcheck_only"] = lay["internal"]
+    sc["assertion_policy"] = POLICY
+    if rec["selected_id"] in ("S05", "S06"):
+        sc["alternate_correct_decompositions_accepted"] = True
+
+# §3.4 S07 evaluator 背景列错置修正 + forbidden_claims 限定
+s07 = next(r for r in records if r["selected_id"] == "S07")
+g = s07["gold_evaluator_side"]
+old3 = [s for s in g["layer3_followups"] if "631,046" in s]
+assert len(old3) == 1, old3
+g["layer3_followups"][g["layer3_followups"].index(old3[0])] = (
+    "非 HKFRS 调节表（FY26Q1 公告 p10 四列表逐列核对：本期调整后经营溢利 631,046 千美元、上年调整后经营溢利 572,214 千美元；"
+    "497,341 是本期调整后除税前利润，不是上年经营利润——此前背景串混列，结构化解释以本行为准）、分部利润、现金流核对。"
+    "该明细留 evaluator 背景，不作为 S07 核心评分必答项；引用四列原文可以，但须标明列与期间。")
+fc = s07["scoring"]["forbidden_claims"]
+i2 = fc.index("断言'盈利能力显著增强'成立或不成立（超出证据）")
+fc[i2] = ("无依据断定改善的持续性或根因（反向：'报表经营利润与经营利润率显著改善，但持续性未知'是允许且正确的表述，"
+          "不得因表面改善结论而判错）")
+
+# 来源锚点相关叙述同步（db_support.notes / period_vs_availability）
+NOTES2 = {
+ "S01": "全部输入 DB original 可查；各行 pdf_crossref 已按'该数字、该行、该栏期间'逐行核对至所属期公告"
+        "（存货 FY25Q4 p19/FY26Q1 p15/FY26Q4 p19/FY27Q1 p14；销售成本 FY26Q1 p13、FY27Q1 p12），"
+        "不再统一锚定 FY27Q1 p14/p5（p5 为摘要取整，冒充精确来源属错置，已修正）；当季天数 91 为题目内统一定义。",
+ "S02": "四季收入/毛利/经营溢利 DB 精确值与 FY26Q4 年报利润表 p17 两栏逐行一致（四季求和恰等于年报行千美元值，"
+        "非摘要取整）；FY26Q4 利润表行为 q4_backout 派生原值。",
+ "S05": "六个单季收入/毛利全部 DB 精确值（FY2025 三季毛利 2559.849/2795.750/2959.391）；各行锚定所属期公告利润表本期欄"
+        "（FY25Q1 p12 / FY25Q2 p15 / FY25Q3 p15 / FY26Q1 p13 / FY26Q2 p16 / FY26Q3 p16），9M 表可勾稽。",
+ "S06": "全部输入 DB original 可查；三余额按期末日各取所属期公告资产负债表本期欄"
+        "（FY25Q4 p19/p20、FY26Q1 p15/p16、FY26Q4 p19/p20、FY27Q1 p14/p15），收入/成本 FY26Q1 p13、FY27Q1 p12，"
+        "期末现金 FY26Q1 p15、FY27Q1 p14；均 2026-10-05 逐行核对，不再引用摘要页。",
+ "S07": "核心四层数字 DB 可查，与 FY26Q1 公告利润表 p13 两栏逐行一致（本期欄 FY2026Q1/比較欄 FY2025Q1；"
+        "原注 p6 为摘要取整页，已修正）；调整后口径明细仅 evaluator 背景。"}
+PVA2 = ("当前数据回顾分析（DB original 值 + 所示公告页码），非严格时点隔离评测；各行数字取所属期原生公告本期欄"
+        "（S02 年度比较欄除外），2026-10-05 按行、栏、期间逐条核对；未涉重述。")
+for rec in records:
+    if rec["selected_id"] in NOTES2:
+        rec["db_support"]["notes"] = NOTES2[rec["selected_id"]]
+    if "p8" in rec["db_support"].get("notes", "") and rec["selected_id"] == "S03":
+        rec["db_support"]["notes"] = ("四季利润层数据完整；16 行输入按所属期公告利润表本期欄逐行核对"
+                                      "（FY25Q1 p12 / FY26Q1 p13 / FY25Q2 p15 / FY26Q2 p16）；"
+                                      "派生费用与公告千美元级勾稽（2,503.710/2,145.151 千美元级）复核于 2026-10-05。")
+    rec["period_vs_availability"] = PVA2
+
+# revision 记录：第二轮小修
+ROUND2_APPLIED = {
+ "S01": ["§3.5 六行输入锚点逐条改至所属期公告本期欄（原 p14/p5 错置修正）", "§3.2 显示容差分离", "§3.3 断言分层"],
+ "S02": ["§3.1 增量桥移出运行侧", "§3.5 六行改锚年报利润表 p17 精确两栏（p6 摘要降为量级核对）", "§3.2", "§3.3"],
+ "S03": ["§3.5 十六行由 p8 摘要改锚各所属期利润表本期欄", "§3.2", "§3.3"],
+ "S04": ["§3.5 十八行改锚原生公告（含 9M 上下文行标注非必答）", "§3.2", "§3.3"],
+ "S05": ["§3.1 ΔM 分解式与'其他分解同样接受'评分指令移出运行侧", "§3.5 十二行改锚本期欄", "§3.2",
+         "§3.3 逐季 rate/mix 改为方法限定，简单平均对照改可选"],
+ "S06": ["§3.5 十四行改锚期末日所属期资产负债表本期欄，收入/成本 p12/p13，现金 p15/p14", "§3.2",
+         "§3.3 天数层改可选支持、期末口径改方法限定、现金列为补充观察"],
+ "S07": ["§3.1 增量桥移出运行侧", "§3.4 p10 四列错置更正（本期调整后经营溢利 631.046/上年 572.214 百万美元；497.341 为本期调整后除税前利润）",
+         "§3.3 forbidden_claims 限定为无依据断定持续性/根因，允许'报表利润显著改善但持续性未知'", "§3.5 六行改锚 p13", "§3.2"],
+ "R01": ["§3.2", "§3.3 桥勾稽三项改内部自查"],
+ "R02": ["§3.1 贡献加总路线移出运行侧", "§3.2", "§3.3 增速/份额改可选、三项 tie 改内部自查；p7 锚点经验证未改动"],
+ "R03": ["§3.1 Q1 差分步骤移出运行侧", "§3.2", "§3.3 差分 Q1 两值并入核心（gold 层），tie 改内部自查"]}
+for rec in records:
+    rec["case_revision"] = 2
+    rec["revision"]["review_round2"] = {
+        "spec": "docs/lenovo_selected_v1_review.md",
+        "applied": ROUND2_APPLIED[rec["selected_id"]],
+        "adjudications": "S06 接受 5258.727（用户已同步更正审核与返工两份文档）；S01 原公式正确、错置在旧答案文字，修法已复核无需追加实验；"
+                         "S01–S07 本批全部作为开发集，不指定留出；R01–R03 维持 needs_numeric_data，本次不授权建表/补数实施。",
+        "anchor_verification": "2026-10-05 .cache/candidates/anchor_check.py 53/53 行级 OK（行标签+栏位+千美元值）"}
+
 # ================= write =================
 assert len(records) == 10, len(records)
 seen = set()

@@ -109,3 +109,19 @@
 - 结构与来源自查：`scripts/lenovo_candidates/self_check_selected_v1.py` 对 cases.jsonl 执行——query 与返工文档逐字一致、original_query/diagnostic_query 规则、input_id 与 calculation_id 唯一、单位/实体/period_type 白名单、DB 输入与 live DB 差 ≤0.001（fiscal_year_sum 按四季求和验证）、PDF 输入数值串在被引页缓存文本中逐字存在、计算 inputs 引用闭合、纯数值公式经受限 AST 重跑并与 result 在容差内一致、numeric_assertions 可解析、run_side_visible 无 gold/管理解释泄漏、R 案例状态与缺口登记一致——输出 `errors=0`。
 - 构建脚本归档：`scripts/lenovo_candidates/writers/build_selected_v1.py`（幂等：candidates.jsonl + live DB → cases.jsonl，数字全部现取，未从笔记转录）。
 - 本轮不做：跑 Agent、扩题、改 ETL/harness、回测、修其余 40 条、自标业务 PASS、建分部/调整数数据表。
+
+## 13. 审核二轮五项小修（docs/lenovo_selected_v1_review.md §3.1–3.5，2026-10-05）
+
+审核裁定：返工整体合格、不整批重做；S01–S07 完成五处小修后进入首轮开发基线，R01–R03 继续 `needs_numeric_data` 搁置、本次不授权建表。三处裁定已落入每条 case 的 `revision.review_round2.adjudications`：S06 接受 5258.727（审核/返工两份文档同步更正）；S01 原公式正确、错置仅在旧答案文字、修法已复核无需追加实验；S01–S07 本批全部作开发集、不指定留出；R01–R03 维持待补数、不授权建表。`case_revision` 由 1 升到 2。
+
+五项按 §3.1–3.5 逐案实施（各案实际改动见 `revision.review_round2.applied`）：
+
+- §3.1 运行侧去解题路线：S02/S07 增量桥、S05 ΔM 分解式与"其他分解同样接受"指令、R02 贡献加总、R03 Q1 差分步骤，从 `run_side_visible` 的 metric_definitions 移入 `gold_evaluator_side.acceptable_methods_evaluator_side`，并在 `scoring.method_note` 登记；科目/期间/统一指标定义保持可见（S06"选定三余额净占用 = Δ存货 + Δ应收 − Δ应付"属批准的定义，保留）。自查器除答案数字外，新增 `FORBIDDEN_ROUTES` 路线串扫描。
+- §3.2 内部精度与显示容差分离：每个 calc 标 `tolerance_scope=internal_selfcheck_only`（仅约束受限 AST 内部重跑，不用于判答案错）；`scoring.answer_numeric_check` 另立按显示精度舍入的核验规则（天数/百万美元/百分比与 pp/比率各按 |ans−gold|≤0.5×10^−k 判定；单位先统一；勾稽按未舍入输入、不要求答案写"残差=0"），使 S01 DIO 47.2317 显示 47.23 判对。
+- §3.3 断言分层：`numeric_assertions` 拆为 core（必答）/optional_support/method_dependent（按答案自述方法核验，不强制命中 rate/mix 等）/internal_selfcheck（桥勾稽、tie、残差不要求复述）四层，四层互斥且并集=全部 calc（自查器结构断言）。各案 core/optional/method/internal 计数：S01 5/3/0/0·S02 6/7/0/1·S03 6/5/0/2·S04 7/1/0/0·S05 9/1/6/1·S06 4/12/6/0·S07 6/8/0/1·R01 5/0/0/3·R02 4/5/0/3·R03 6/2/0/1。S07 `forbidden_claims` 收窄为"无依据断定持续性/根因"，明示"报表经营利润与经营利润率显著改善，但持续性未知"为允许且正确、不得因表面改善结论判错。
+- §3.4 S07 evaluator 背景更正：p10 四列错置改正——631,046 为本期调整后经营溢利、497,341 为本期调整后除税前利润（非上年经营利润）；层背景写作本期/上年调整后经营溢利 631.046/572.214 百万美元，明细留 evaluator 背景不列必答。
+- §3.5 PDF 交叉引用逐条修到"数字属于该页该行该栏"：脚本化重建，未动 ETL。`crossref_audit.py` 枚举每条 DB 输入千美元值在缓存文本出现的全部页，`anchor_check.py` 按计划锚点做行级栏位列+账户标签+精确千美元串核对，53/53 全 OK（见 `review_round2.anchor_verification`）。DB 输入的 `pdf_crossref` 现强制 `kind`（exact_thousands / crosscheck_rounded_mn）、`row_label`、`value_column`、`period_column`、`note`；S02 年报 p17 双栏为精确锚、p6 摘要降为 crosscheck_rounded_mn 量级核对并要求 note 标容差；S04 的 9M 上下文行标"非必答计算路径"；R02 p7 经验证保留。摘要舍入值若使用必须标 crosscheck 类型/单位/容差，"DB/PDF 双证一致"改为以逐行核对为准。
+
+自查器同步升级（`self_check_selected_v1.py`）：`case_revision==2` 且 `review_round2.applied` 必填；DB `pdf_crossref` 强制字段与精确千美元串、`row_label` 落页核对（用 NFKC `norm` 比较，因公告文本用兼容表意文字 U+F90A 变体，普通汉字标签需归一化才匹配）；`tolerance_scope`、四层断言完整性、`FORBIDDEN_ROUTES` 路线泄漏全部纳入。
+
+复现与状态：`.cache/candidates/build_selected_v1.py`（已同步归档 `scripts/lenovo_candidates/writers/build_selected_v1.py`）幂等重建 cases.jsonl（与重建前字节一致），双绿复现——`self_check ... errors=0`、`verify_selected_v1 ... ALL VERIFIED`。`candidates.jsonl`、ETL、harness 未改动，未跑 Agent，未推送。结构级检查已按五项加固，但语义判断（分层是否恰当、路线是否真正移出）仍属人工复审范围，本批不自标业务 PASS，待人工审核。

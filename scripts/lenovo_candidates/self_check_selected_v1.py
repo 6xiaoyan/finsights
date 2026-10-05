@@ -1,6 +1,12 @@
 # -*- coding: utf-8 -*-
 """selected_v1 自查器：结构、单位、引用完整性、DB/PDF 溯源、公式重算、query 逐字一致。
 
+审核二轮加固（docs/lenovo_selected_v1_review.md §3.1–3.5）：
+  §3.1 run_side_visible 既不得出现答案数字，也不得出现本题完整解题路线（FORBIDDEN_ROUTES）；
+  §3.2 每个 calc 标 tolerance_scope=internal_selfcheck_only，评分另设 answer_numeric_check；
+  §3.3 断言分 core/optional/method/internal 四层，须互斥且覆盖全部 calc；
+  §3.5 DB 输入的 pdf_crossref 逐条锚定到"数字属于该页该行该栏"（exact_thousands 串+row_label 落页）。
+
 用法：PYTHONIOENCODING=utf-8 .venv/Scripts/python scripts/lenovo_candidates/self_check_selected_v1.py
 只读校验，不修改任何数据文件。
 """
@@ -29,6 +35,13 @@ EXPECTED = {
     "LV-FY2026Q2-ISG-LOSS-Q1CONCENTRATION-001": "联想 FY2026 上半年的 ISG 亏损变化集中在哪些季度？请比较两个季度与上年同期，判断现有数字是否支持逐季恶化的说法。",
 }
 PERIOD_TYPES = {"time_point", "single_quarter", "fiscal_year_sum", "half_year", "nine_month_sum"}
+# review fix §3.1: run side must not carry the case's full solving route. These marker strings
+# (bridge/decomposition formulas, differential steps, acceptance clauses, residual-zero clauses)
+# were the route content now relocated to evaluator side. The kept S06 统一指标定义
+# "选定三余额净占用 = Δ存货 + Δ应收 − Δ应付" uses Δ存货/Δ应收/Δ应付, none of these markers.
+FORBIDDEN_ROUTES = ["Σ[w0", "ΔM", "同样接受", "交互项", "差分得到", "增量 = 毛利增量",
+                    "增量=毛利增量", "Δ经营利润", "经营利润桥", "Σ分部贡献",
+                    "贡献 = 分部收入同比变化", "贡献=分部收入同比变化", "残差=0", "残差 = 0"]
 
 errors = []
 def err(msg):
@@ -106,8 +119,10 @@ for rec in recs:
     if o is None:
         err(f"{cid}: not in original candidates")
         continue
-    if rec.get("case_revision") != 1:
-        err(f"{cid}: case_revision != 1")
+    if rec.get("case_revision") != 2:
+        err(f"{cid}: case_revision != 2 (review round-2 fixes applied)")
+    if not (rec.get("revision") or {}).get("review_round2", {}).get("applied"):
+        err(f"{cid}: revision.review_round2.applied missing")
     if rec.get("original_query") != o["query"]:
         err(f"{cid}: original_query != original candidate query")
     if rec.get("query") != EXPECTED[cid]:
@@ -145,8 +160,35 @@ for rec in recs:
                 if v is None or abs(v - ri["value"]) > 0.001:
                     err(f"{cid}:{iid}: DB mismatch {ri['value']} vs {v}")
             cr = src.get("pdf_crossref")
-            if cr and page_text(cr["pdf"][:-4], cr["pdf_page"]) is None:
-                err(f"{cid}:{iid}: crossref page missing {cr}")
+            if not cr:
+                err(f"{cid}:{iid}: DB input lacks pdf_crossref anchor")
+            else:
+                for fld in ("kind", "row_label", "value_column", "period_column", "note"):
+                    if not cr.get(fld):
+                        err(f"{cid}:{iid}: pdf_crossref missing field {fld}")
+                if cr.get("kind") not in ("exact_thousands", "crosscheck_rounded_mn"):
+                    err(f"{cid}:{iid}: pdf_crossref kind invalid: {cr.get('kind')}")
+                pt = page_text(cr["pdf"][:-4], cr["pdf_page"])
+                if pt is None:
+                    err(f"{cid}:{iid}: crossref page missing {cr.get('pdf')} p{cr.get('pdf_page')}")
+                else:
+                    # review fix §3.5: not just "page exists" — the cited row and the exact
+                    # value must be on that page (row/column/period verified at build time
+                    # via .cache/candidates/anchor_check.py, 53/53 OK 2026-10-05).
+                    if cr.get("kind") == "exact_thousands":
+                        want = f"{round(ri['value'] * 1000):,}"
+                        if want not in pt:
+                            err(f"{cid}:{iid}: exact thousands {want} not on cited page {cr['pdf']} p{cr['pdf_page']}")
+                    elif cr.get("kind") == "crosscheck_rounded_mn":
+                        if abs(ri["value"] - round(ri["value"])) > 0.02:
+                            err(f"{cid}:{iid}: crosscheck_rounded_mn value should be a rounded-millions magnitude check")
+                        want = f"{int(round(ri['value'])):,}"
+                        if want not in pt and f"{int(round(ri['value']))}" not in pt:
+                            err(f"{cid}:{iid}: rounded millions {want} not on cited page")
+                        if not cr.get("note") or "容差" not in cr.get("period_column", "") + cr.get("note", ""):
+                            err(f"{cid}:{iid}: crosscheck_rounded_mn must state rounding tolerance in note/period_column")
+                    if cr.get("row_label") and norm(cr["row_label"]) not in norm(pt):
+                        err(f"{cid}:{iid}: row label '{cr['row_label']}' not on cited page {cr['pdf']} p{cr['pdf_page']}")
         elif src.get("type") == "pdf":
             raw = src.get("raw_value", "")
             nums = re.findall(r"\(?-?[\d,]+\)?(?:\s*千美元)?", raw)
@@ -189,6 +231,8 @@ for rec in recs:
             err(f"{cid}: calc {c['calculation_id']} result None")
         if c.get("tolerance_abs") is None and c.get("tolerance_pct") is None:
             err(f"{cid}: calc {c['calculation_id']} no tolerance")
+        if c.get("tolerance_scope") != "internal_selfcheck_only":
+            err(f"{cid}: calc {c['calculation_id']} tolerance_scope != internal_selfcheck_only (review fix 3.2)")
         val = arith(c["formula"])
         if val is not None:
             if abs(val - c["result"]) > c["tolerance_abs"] + 1e-9:
@@ -199,6 +243,33 @@ for rec in recs:
     for a in rec["scoring"].get("numeric_assertions", []):
         if a.startswith("calc:") and a[5:] not in {c["calculation_id"] for c in rec["calculations"]}:
             err(f"{cid}: numeric_assertion unknown calc {a}")
+    # review fix §3.2/§3.3: layered assertions + separate answer-display check required
+    sc = rec["scoring"]
+    calc_ids = {c["calculation_id"] for c in rec["calculations"]}
+    if "answer_numeric_check" not in sc:
+        err(f"{cid}: scoring.answer_numeric_check missing (display tolerance separated from internal)")
+    if "assertion_policy" not in sc:
+        err(f"{cid}: scoring.assertion_policy missing")
+    layers = {"core": [a[5:] if a.startswith("calc:") else a for a in sc.get("numeric_assertions", [])],
+              "optional": sc.get("optional_support_assertions"),
+              "method": sc.get("method_dependent_assertions"),
+              "internal": sc.get("internal_selfcheck_only")}
+    for k, v in layers.items():
+        if v is None:
+            err(f"{cid}: scoring layer '{k}' missing")
+            continue
+        if len(v) != len(set(v)):
+            err(f"{cid}: scoring layer '{k}' has duplicates")
+        for x in v:
+            if x not in calc_ids:
+                err(f"{cid}: layer '{k}' references unknown calc {x}")
+    flat = sum((v for v in layers.values() if v is not None), [])
+    if len(flat) != len(set(flat)):
+        err(f"{cid}: assertion layers overlap (same calc in two layers)")
+    if set(flat) != calc_ids:
+        err(f"{cid}: assertion layers must cover all {len(calc_ids)} calcs, missing {sorted(calc_ids - set(flat))}")
+    if "optional_assertions" in sc:
+        err(f"{cid}: legacy scoring.optional_assertions should be replaced by optional_support_assertions")
     for layer in ("layer1_facts", "layer2_assumptions_boundaries", "layer3_followups"):
         if not rec["gold_evaluator_side"].get(layer):
             err(f"{cid}: gold missing {layer}")
@@ -206,6 +277,13 @@ for rec in recs:
     for forbidden_num in ["152.361", "1690.299", "1522.683", "631.046", "10.3", "56 个基点"]:
         if forbidden_num in rv:
             err(f"{cid}: run_side_visible leaks answer value {forbidden_num}")
+    # review fix §3.1: answer numbers alone are not enough — the run side must not hand the
+    # Agent this case's full solving route (bridge/decomposition formulas, differential steps,
+    # acceptance clauses, residual-zero clauses). Routes were relocated to evaluator side at
+    # build time (ROUTE_MARKERS); metric/period/统一指标定义 remain visible.
+    for route in FORBIDDEN_ROUTES:
+        if route in rv:
+            err(f"{cid}: run_side_visible leaks solving route '{route}' (review fix 3.1)")
     if rec.get("diagnostic_query") is not None and cid != "LV-FY2025Q3-OPEXRATIO-56BPS-001":
         err(f"{cid}: unexpected diagnostic_query")
     if cid == "LV-FY2025Q3-OPEXRATIO-56BPS-001" and rec.get("diagnostic_query") != o["query"]:
