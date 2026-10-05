@@ -1,0 +1,231 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-10-05",
+  "governing_spec": "docs/lenovo_selected_cases_rework.md",
+  "scope_note": "R01/R02/R03 仅登记补数规格并保持 needs_numeric_data，本轮不建数据表、不改 ETL；S 系列补查项为 evaluator 侧额外证据需求，不影响当前可评分口径。",
+  "compliance_redline": "只使用公开财报数据与自行合成数据；不使用任何联想内部数据（含脱敏）。真实分部/调整明细严禁以合成 facts_detail 充当。",
+  "blocking_gaps": [
+    {
+      "gap_id": "GAP-R01-nonifrs-adjustments",
+      "case_id": "LV-FY2027Q1-OI-BRIDGE-001",
+      "case_status": "needs_numeric_data",
+      "capability": "报表口径/调整后口径、非现金公允值项目",
+      "missing_fields": [
+        "non_ifrs_adjustments（两期全部项目）",
+        "adjusted_operating_income"
+      ],
+      "required_table": {
+        "name_suggestion": "non_ifrs_reconciliation",
+        "grain": "一行 = 一个调节表行项 × 一个期间（单季）",
+        "columns": [
+          "company_id",
+          "fiscal_year",
+          "fiscal_quarter",
+          "period_type=single_quarter",
+          "line_item",
+          "adjustment_nature(cash/non_cash)",
+          "sign_convention(加回/扣减)",
+          "value_thousand_usd",
+          "value_usd_mn",
+          "source_pdf",
+          "source_page",
+          "url",
+          "sha256",
+          "version"
+        ],
+        "periods_required": [
+          "FY2027Q1 (period_end 2026-06-30)",
+          "FY2026Q1 (period_end 2025-06-30)"
+        ],
+        "rows_expected_from_filing": {
+          "FY2027Q1": "呈报经营溢利 19.202；FVTPL 金融资产公允值 -250.083；并购无形摊销 +16.524；并购费用 +1.240；减值及撇销 +22.229；认股权证衍生金融负债公允值亏损 +1,690.299；联营公司减值 +23.272；调节合计 +1,503.481；经调整经营溢利 1,522.683（百万美元）",
+          "FY2026Q1": "呈报经营溢利 784.809；FVTPL 金融资产公允值 -20.893；并购无形摊销 +16.458；撇销 +3.033；认股权证衍生金融负债公允值收益 -152.361；调节合计 -153.763；经调整经营溢利 631.046（百万美元）"
+        },
+        "anchor": {
+          "pdf": "FY27Q1_130820261201.pdf",
+          "pdf_pages": [
+            9
+          ],
+          "url": "https://www1.hkexnews.hk/listedco/listconews/sehk/2026/0813/2026081300142_c.pdf",
+          "sha256": "337d22412402e35a7d4c1ca2b01e19e30ec409ad503b148765e55ee1c4d0f0ec"
+        },
+        "note": "行名与符号以公告 p9 千美元原值为准入库；呈报经营溢利行须与 DB facts.operating_income 双证一致。"
+      },
+      "verification_done": "两期桥内求和 19.202→1,522.683、784.809→631.046 已按 p9 行级字面量复算闭合；恒等式 Δ调整后=Δ呈报+Δ调节合计（-765.607+1,657.244=891.637）已验证（scripts/lenovo_candidates/verify_selected_v1.py）。",
+      "exclusions": "管理层对经营原因的解释不进入运行侧输入；不混用归母利润调节桥；调整项会计性质可作统一元数据。",
+      "activation_condition": "数据层建设完成并经用户裁定后，方可上线数值评分；本轮不擅自建表。"
+    },
+    {
+      "gap_id": "GAP-R02-segment-revenue-table",
+      "case_id": "LV-FY2027Q1-SEGM-CALIBER-001",
+      "case_status": "needs_numeric_data",
+      "capability": "分部规模、增长金额贡献与抵销",
+      "missing_fields": [
+        "segment_revenue（两期）",
+        "intersegment_elimination（两期）"
+      ],
+      "first_version_scope": "只做收入层：三分部收入 + 抵销 + 集团收入两期完整表；分部经营溢利与除税前桥留待补表后单独决定。",
+      "required_table": {
+        "name_suggestion": "segment_revenue_quarterly",
+        "grain": "一行 = 一个分部行项 × 一个期间（单季）× measure=revenue",
+        "columns": [
+          "company_id",
+          "fiscal_year",
+          "fiscal_quarter",
+          "period_type=single_quarter",
+          "segment(IDG/ISG/SSG/elimination/group)",
+          "measure",
+          "value_thousand_usd",
+          "value_usd_mn",
+          "source_pdf",
+          "source_page",
+          "url",
+          "sha256",
+          "version"
+        ],
+        "periods_required": [
+          "FY2027Q1 (2026-06-30)",
+          "FY2026Q1 (2025-06-30)"
+        ],
+        "rows_expected_from_filing": {
+          "FY2027Q1": "IDG 17,105.518；ISG 8,510.078；SSG 2,883.628；抵销 -1,556.458；集团 26,942.766（百万美元）",
+          "FY2026Q1": "IDG 13,459.338；ISG 4,290.149；SSG 2,257.718；抵销 -1,177.336；集团 18,829.869（百万美元）"
+        },
+        "anchor": {
+          "pdf": "FY27Q1_130820261201.pdf",
+          "pdf_pages": [
+            7
+          ],
+          "url": "https://www1.hkexnews.hk/listedco/listconews/sehk/2026/0813/2026081300142_c.pdf",
+          "sha256": "337d22412402e35a7d4c1ca2b01e19e30ec409ad503b148765e55ee1c4d0f0ec"
+        },
+        "consistency_check": "分部合计−抵销=集团收入两期均须闭合，且集团行与 DB facts.revenue 单季值一致（已验证 Δ=+8,112.897）。"
+      },
+      "prohibitions": "禁用合成 facts_detail 充当真实分部数据；docs/evidence/attribution_case/lenovo_real_segments.csv 仅覆盖 FY23 期间，不能支持本题。",
+      "activation_condition": "真实分部表入可查询数据层并经用户裁定后启用。"
+    },
+    {
+      "gap_id": "GAP-R03-isg-quarter-half-table",
+      "case_id": "LV-FY2026Q2-ISG-LOSS-Q1CONCENTRATION-001",
+      "case_status": "needs_numeric_data",
+      "capability": "累计口径掩盖单季方向、分部亏损定位",
+      "missing_fields": [
+        "segment_revenue_isg（单季+半年×两年度）",
+        "segment_operating_profit_isg（单季+半年×两年度）"
+      ],
+      "required_table": {
+        "name_suggestion": "segment_period_tables（或等价查询层）",
+        "grain": "一行 = 一个期间类型 × 一个 measure × 一个期间；半年与单季必须是独立 period_type（half_year / single_quarter），不得把半年记录伪装成 Q2 行",
+        "columns": [
+          "company_id",
+          "fiscal_year",
+          "period_type(half_year|single_quarter)",
+          "fiscal_quarter(单季行)",
+          "period_end",
+          "segment=ISG",
+          "measure(revenue|operating_profit)",
+          "value_thousand_usd",
+          "value_usd_mn",
+          "source_pdf",
+          "source_page",
+          "url",
+          "sha256",
+          "version",
+          "derivation_note(Q1 回推行标 derived_backout)"
+        ],
+        "periods_required": [
+          "FY2026H1/FY2025H1（截至 2025-09-30 / 2024-09-30）",
+          "FY2026Q2/FY2025Q2（单季）",
+          "FY2026Q1/FY2025Q1 可由半年−单季回推，入库时标注派生"
+        ],
+        "rows_expected_from_filing": {
+          "revenue_usd_mn": "H1 6,465.167 → 8,377.292；Q2 3,305.370 → 4,087.143（FY2025 → FY2026）",
+          "operating_profit_usd_mn": "H1 -73.002 → -117.555；Q2 -35.728 → -32.035；回推 Q1 -37.274 → -85.520"
+        },
+        "anchor": {
+          "pdf": "FY26Q2_201120250729.pdf",
+          "pdf_pages": [
+            7,
+            10
+          ],
+          "url": "https://www1.hkexnews.hk/listedco/listconews/sehk/2025/1120/2025112000058_c.pdf",
+          "sha256": "56f3219fcc0a287c1ca92745fb8fdf09d99be27525dfb5e5906f50187c0eaf5d"
+        },
+        "note": "p7 为六个月分部表（半年行），p10 为三个月分部表（单季行）；千美元原值入库，回推 Q1 行须同时保留差分公式。"
+      },
+      "exclusions": "投资额/费用构成明细另属补查项（见 non_blocking_followups）；'AI 投资导致亏损'仅作 evaluator 披露背景。",
+      "activation_condition": "真实 ISG 季度/半年表可查询并经用户裁定后启用；与 GAP-R02 同属分部补数簇，建设决定应整体裁定。"
+    }
+  ],
+  "non_blocking_followups": [
+    {
+      "case_id": "LV-FY2027Q1-INV-DIO-001",
+      "side": "evaluator",
+      "items": [
+        "存货构成（原材料/在途/半成品/产成品）",
+        "分部收入与毛利结构",
+        "零部件价格与供需的外部证据"
+      ],
+      "purpose": "验证备货/积压/成本上涨等竞争假设；当前口径不影响 DIO 可评分部分"
+    },
+    {
+      "case_id": "LV-FY2026Q4-GM-OPEX-001",
+      "side": "evaluator",
+      "items": [
+        "IDG/ISG/SSG 分部毛利或分部利润率两期数据"
+      ],
+      "purpose": "验证'产品组合变化与 ISG 低利润率'解释；集团数字只能定位层级不能证因"
+    },
+    {
+      "case_id": "LV-FY2026Q2-Q2VSH1-001",
+      "side": "evaluator",
+      "items": [
+        "经营费用自然分类明细（僱員福利、广告宣传、认股权证公允值等）两期数据",
+        "应占溢利（含 NCI 拆分）"
+      ],
+      "purpose": "定位 Q2 净费用增量 +358.559 的构成；缺此不强制根因判断"
+    },
+    {
+      "case_id": "LV-FY2025Q3-OPEXRATIO-56BPS-001",
+      "side": "evaluator",
+      "items": [
+        "费用分类/固定-可变拆分明细"
+      ],
+      "purpose": "区分规模摊薄与真实降本行动"
+    },
+    {
+      "case_id": "LV-FY2026Q3-GM-DRIFT-001",
+      "side": "evaluator",
+      "items": [],
+      "purpose": "当前口径完全自含；如需验证 mix 经营原因则同 S02 分部毛利补查"
+    },
+    {
+      "case_id": "LV-FY2027Q1-WC-CCC-001",
+      "side": "evaluator",
+      "items": [
+        "现金流量表科目（经营现金流、存货增加、应付增加等）",
+        "外汇折算与合并范围变动影响",
+        "实际账期与应收保理/证券化安排"
+      ],
+      "purpose": "资产负债表不能代替现金流量表；净占用不等于经营现金流，判定现金压力须这些补查项"
+    },
+    {
+      "case_id": "LV-FY2026Q1-GM-OI-DIVERGE-001",
+      "side": "evaluator",
+      "items": [
+        "FY2026Q1 非 HKFRS 调节明细（调整后经营溢利 631.046/572.214、认股权证公允值收益 152.361）",
+        "现金流量表"
+      ],
+      "purpose": "判断净费用下降与改善的可持续性；这些披露保留为 evaluator 背景，不作对 Agent 的强制命中"
+    }
+  ],
+  "corrections_registered": [
+    {
+      "case_id": "LV-FY2027Q1-WC-CCC-001",
+      "field": "三余额净占用",
+      "old": 5280.727,
+      "new": 5258.727,
+      "reason": "原候选公式串 dInv=7020.312（实际 6999.312，多计 21.000）、dAR=8470.213（实际 8469.213，多计 1.000）的算术错误；余额四值与 DB/PDF p14/p15 双证一致，故只改差分与合计。证据链见 revision_notes.md §11。"
+    }
+  ]
+}
