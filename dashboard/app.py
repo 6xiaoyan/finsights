@@ -119,7 +119,7 @@ show = pd.DataFrame([{**{k: r.get(k) for k in ("query_id", "trial", "status", "l
                                                "prompt_tokens", "completion_tokens")},
                       "query 摘要": r["question"][:36],
                       "标记": r["flag_label"]} for r in table])
-st.dataframe(show, use_container_width=True, hide_index=True)
+st.dataframe(show, width="stretch", hide_index=True)
 
 # ---------- 单条详情 ----------
 sel_q = st.selectbox("选中 query 详情",
@@ -131,7 +131,7 @@ qid = sel_q.split(" ")[0]
 row = next(r for r in table if r["query_id"] == qid)
 st.caption(f"标记原因：{row['flag_label']}")
 
-if row["source"].startswith("评测"):
+if row.get("source", "").startswith("评测"):
     st.info("评测 run：完整 trace 见 package_path 下的 jsonl；结果以 summary.json 记录为准。")
     st.json({"correct": row.get("correct"), "detail": row.get("detail"), "status": row["status"]})
     st.stop()
@@ -194,7 +194,7 @@ with right:
                  "final": "最终提交", "result": "结果记录", "llm_retry": f"API 重试（{e.get('attempt')}）",
                  "error": f"错误：{e.get('error', '')[:60]}"}.get(t, t)
         rows_tl.append({"#": i, "事件": t, "说明": brief, "step": e.get("step")})
-    st.dataframe(pd.DataFrame(rows_tl), hide_index=True, use_container_width=True)
+    st.dataframe(pd.DataFrame(rows_tl), hide_index=True, width="stretch")
     sel_ev = st.selectbox("选中事件详情", [f"#{i} {r['事件']}" for i, r in enumerate(rows_tl, 1)] or [None])
     if sel_ev:
         ev = events[int(sel_ev.split(" ")[0][1:]) - 1]
