@@ -159,3 +159,65 @@ def test_cli_export_row_cap_unit(tmp_path):
     rec = payload["results"][0]
     assert len(rec["rows"]) == cli_mod.MAX_EXPORT_ROWS
     assert rec["truncated"] == 50
+
+
+def _sub(payload):
+    """子 Agent 的结构化输出（无工具调用 → 解析 JSON）。"""
+    return ChatResult(content="```json\n" + json.dumps(payload, ensure_ascii=False) + "\n```",
+                      tool_calls=[], usage={"prompt_tokens": 50, "completion_tokens": 10,
+                                            "total_tokens": 60})
+
+
+def _asst_calls(cid, name, args):
+    return ChatResult(content=None, tool_calls=[_call(cid, name, args)],
+                      usage={"prompt_tokens": 100, "completion_tokens": 20, "total_tokens": 120},
+                      message={"role": "assistant", "content": None, "tool_calls": [
+                          {"id": cid, "type": "function", "function": {
+                              "name": name, "arguments": json.dumps(args, ensure_ascii=False)}}]})
+
+
+def test_cli_multi_agent_full_package(tmp_path, monkeypatch):
+    """multi_agent CLI 接线（交接 §10/§12）：三角色调用 → 候选审查 → 导出完整包，全程 mock。"""
+    ans_md = "结论：库存上升与收入同向；具体数字见 claims，本轮不主张未引用数值。"
+    script = [
+        _asst_calls("p1", "plan_analysis", {"action": "create", "reason": "首轮"}),
+        _sub({"revision_reason": "初版", "nodes": [{
+            "node_id": "n1", "goal": "取存货与收入同比", "depends_on": [], "input_refs": [],
+            "completion_criteria": "给出同比方向", "required_for_answer": True}]}),
+        _asst_calls("e1", "execute_analysis", {"node_id": "n1"}),
+        _sub({"facts": [{"rid": "r1", "field": "inventory", "value": 1.0, "unit": "usd_mn",
+                         "data_nature": "reported"}],
+              "calculations": [], "interpretations": [], "hypotheses": [],
+              "limitations": [], "missing_inputs": ["mock 无真实期间"], "summary": "方向已确认"}),
+        _asst_calls("d1", "draft_answer", {"answer_md": ans_md, "status": "answered",
+                                           "claims": []}),
+        _asst_calls("r1c", "review_analysis",
+                    {"target_type": "answer", "target_id": "answer-cand2",
+                     "target_version": "1"}),
+        _sub({"verdict": "accepted", "findings": [], "unresolved_items": []}),
+        _asst_calls("f1", "final_answer",
+                    {"answer_md": ans_md, "status": "answered", "claims": [],
+                     "answer_artifact_id": "answer-cand2"}),
+    ]
+    rc = _run_main(tmp_path, script, monkeypatch,
+                   extra=["--agent-mode", "multi_agent", "--max-steps", "12"])
+    assert rc == 0, "multi 提交条件满足时应走 answered/核验通过路径"
+    d = _run_dir(tmp_path)
+    for f in ("question.json", "answer.md", "trace.jsonl", "results.json", "run_meta.json",
+              "review.md", "analysis_review.md"):
+        assert (d / f).exists(), f
+    assert (d / "analysis" / "analysis_state.json").exists()
+    m = json.loads((d / "run_meta.json").read_text(encoding="utf-8"))
+    assert m["agent_mode"] == "multi_agent"
+    ma = m["multi_agent"]
+    assert ma["subagent_calls"] == 3 and ma["plan_revisions"] == 1
+    assert ma["semantic_review_status"] == "accepted"
+    assert ma["human_review_status"] == "pending"
+    assert ma["role_prompt_sha256_12"], "角色提示哈希必须入 run_meta"
+    assert ma["effective_budgets"]["total_subagent_calls"] == ma["cfg_budgets"]["total_subagent_calls"]
+    roles = {e.get("role") for e in (json.loads(l) for l in
+             (d / "trace.jsonl").read_text(encoding="utf-8").splitlines()) if e.get("role")}
+    assert {"planner", "worker", "reviewer"} <= roles
+    md = (d / "analysis_review.md").read_text(encoding="utf-8")
+    assert "TaskContract" in md and "n1" in md and "accepted" in md
+    assert "human_review_status：pending" in md

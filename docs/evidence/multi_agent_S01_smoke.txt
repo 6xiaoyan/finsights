@@ -1,0 +1,5 @@
+D:\finsights\agent\cli.py:106: Pandas4Warning: The default 'epoch' date format is deprecated and will be removed in a future version, please use 'iso' date format instead.
+  rec["rows"] = json.loads(df.to_json(orient="records"))
+D:\finsights\agent\cli.py:106: Pandas4Warning: The default 'epoch' date format is deprecated and will be removed in a future version, please use 'iso' date format instead.
+  rec["rows"] = json.loads(df.to_json(orient="records"))
+运行异常（已保存已获得的轨迹）：agent.loop.TraceWriter.event() got multiple values for keyword argument 'role'

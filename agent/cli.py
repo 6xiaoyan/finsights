@@ -133,6 +133,31 @@ def _export_package(out_dir: Path, question: str, as_of, db_path: Path, client,
                                            "latency_s", "sql_errors", "refuse_reason")},
         "verified": out.verified, "status": out.answer.status,
     }
+    if meta["agent_mode"] == "multi_agent":
+        # §5/§9/§10：记录实际生效的 multi 预算、角色模型与角色提示哈希（不含密钥）
+        multi_prompts = Path("agent/prompts/multi")
+        meta["multi_agent"] = {
+            "cfg_budgets": getattr(ctx, "multi_cfg", None) or {},
+            "effective_budgets": info.get("budgets_effective"),
+            "role_model": client.model,
+            "role_prompt_sha256_12": {
+                p.name: _file_hash(p) for p in sorted(multi_prompts.glob("*.md"))
+            } if multi_prompts.is_dir() else None,
+            "subagent_calls": info.get("subagent_calls"),
+            "subagent_role_calls": info.get("subagent_role_calls", {}),
+            "subagent_refusals": info.get("subagent_refusals", 0),
+            "subagent_child_steps": info.get("subagent_child_steps", 0),
+            "plan_revisions": info.get("plan_revisions"),
+            "reviews_total": info.get("reviews_total"),
+            "findings_total": info.get("findings_total"),
+            "artifacts_total": info.get("artifacts_total"),
+            "artifacts_stale": info.get("artifacts_stale"),
+            "semantic_review_status": info.get("semantic_review_status"),
+            "task_coverage_status": info.get("task_coverage_status"),
+            "human_review_status": info.get("human_review_status"),
+            "nodes_incomplete": info.get("nodes_incomplete"),
+            "stop_reason": info.get("stop_reason"),
+        }
     (out_dir / "run_meta.json").write_text(json.dumps(meta, ensure_ascii=False, indent=1),
                                            encoding="utf-8")
 
@@ -191,8 +216,50 @@ def _export_package(out_dir: Path, question: str, as_of, db_path: Path, client,
             "- facts_detail 中合成明细已标记 synthetic=TRUE；无真实业务分部数据时 Agent 应说明缺口，"
             "合成明细不代表真实经营事实。",
             "- 数字核验通过仅指现有数字/引用规则通过，不代表经营归因正确。"]
+    if getattr(ctx, "analysis_state", None) is not None:
+        rev += ["", "## 多 Agent 状态（独立字段，不合并进 verified）", "",
+                f"- numeric_verified：{out.verified}"
+                "（沿用原数字核验含义）",
+                f"- semantic_review_status：{info.get('semantic_review_status')}",
+                f"- task_coverage_status：{info.get('task_coverage_status')}",
+                "- human_review_status：pending（需人工审阅，不因模型 accepted 自动标 PASS）",
+                f"- 子 Agent 调用：{info.get('subagent_calls')}（子循环合计步数 "
+                f"{info.get('subagent_child_steps', 0)}），计划修订："
+                f"{info.get('plan_revisions')}，findings：{info.get('findings_total')}"
+                f"，未处理 findings：{len(info.get('unresolved_findings') or [])}",
+                f"- 终止原因：{info.get('stop_reason') or '（已提交）'}；"
+                f"未完成节点：{info.get('nodes_incomplete') or '（无）'}",
+                "- 过程产物：analysis/analysis_state.json、analysis_review.md"]
     (out_dir / "review.md").write_text("\n".join(rev) + "\n", encoding="utf-8")
+
+    # multi_agent 过程产物（§10）：analysis_state.json 由状态层直接写在 <run>/analysis/ 下，
+    # 这里补人工可读的 analysis_review.md（异常中途中断的包同样可得）
+    state = getattr(ctx, "analysis_state", None)
+    if state is not None:
+        from agent.multi import analysis_review_md
+        (out_dir / "analysis_review.md").write_text(
+            analysis_review_md(state, {**info, "numeric_verified": out.verified}),
+            encoding="utf-8")
+        if "multi_agent" in meta:
+            meta["multi_agent"]["process_files"] = ["analysis_state.json",
+                                                    "analysis_review.md"]
+        (out_dir / "run_meta.json").write_text(json.dumps(meta, ensure_ascii=False, indent=1),
+                                               encoding="utf-8")
     return meta
+
+
+def _comparison(question: str) -> tuple[str, list[str]]:
+    """multi_agent TaskContract 用（handoff §6.1）：解析用户明确的比较口径。
+
+    通用词表匹配，不写逐题字符串；解析不到记 unknown，由 Agent 澄清，不擅自升级为用户要求。
+    同比与环比同时出现时主比较记 yoy（可补充环比分析，但不能替代主比较）。
+    """
+    yoy = any(p in question for p in ("同比", "去年同期", "上年同期", "较去年", "相比去年"))
+    qoq = any(p in question for p in ("环比", "上季度", "上一季度", "较上季", "相比上季", "比上季"))
+    notes = []
+    if yoy and qoq:
+        notes.append("query 同时提到同比与环比：主比较按同比，环比为补充，不替代主比较")
+    return ("yoy" if yoy else "qoq" if qoq else "unknown"), notes
 
 
 def parse_scope(question: str) -> dict:
@@ -211,7 +278,9 @@ def parse_scope(question: str) -> dict:
             qmap = {"一": 1, "二": 2, "三": 3, "四": 4}
             qq = qmap[m.group(2)] if m.group(2) in qmap else int(m.group(2))
             period = f"{m.group(1)}Q{qq}"
-    return {"company": company, "period": period,
+    comparison, notes = _comparison(question)
+    return {"company": company, "period": period, "comparison": comparison,
+            "scope_notes": notes,
             "raw": {"company_in_query": company is not None, "period_in_query": period is not None}}
 
 
@@ -235,6 +304,9 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--max-rpm", type=float, default=None)
     ap.add_argument("--max-steps", type=int, default=None,
                     help="覆盖 config 的 agent.max_steps；预算会记录进 run_meta.json")
+    ap.add_argument("--agent-mode", default="single_agent",
+                    choices=["single_agent", "multi_agent"],
+                    help="multi_agent：主 Agent 调度规划/执行/审核子 Agent")
     ap.add_argument("--out-root", default="runs")
     args = ap.parse_args(argv)
 
@@ -260,6 +332,7 @@ def main(argv: list[str] | None = None) -> int:
     ctx = make_run_ctx(str(db_path), Paced(client, limiter), run_id=f"cli-{run_id}",
                        as_of=as_of, config_path=args.config, enabled_tools=enabled_tools,
                        max_steps=args.max_steps)
+    ctx.agent_mode = args.agent_mode
 
     # ---- 初始数据包（固定规则，step=0，先于 Agent 自主取数）----
     pk_metrics = list(rule.get("metrics") or [])
@@ -272,6 +345,11 @@ def main(argv: list[str] | None = None) -> int:
         packet_args["period_to"] = f"FY{fy}Q{qq}" if parsed["period"].startswith("FY") else parsed["period"]
     ctx._parsed_scope = parsed
     ctx._initial_rule = rule
+    # multi_agent 的 TaskContract 需要这些解析结果（handoff §6.1）；单 Agent 路径不受影响
+    ctx.parsed_scope_extra = {"company": parsed["company"], "period": parsed["period"],
+                              "comparison": parsed["comparison"],
+                              "scope_notes": parsed["scope_notes"]}
+    ctx.multi_cfg = dict(cfg_full.get("multi_agent") or {})   # multi 模式预算（§9）
     packet = tool_data.execute("query_metric", packet_args, ctx.tool_ctx, step=0)
     if not packet.ok:
         print(f"初始数据包执行失败：{packet.text}", file=sys.stderr)
@@ -281,12 +359,20 @@ def main(argv: list[str] | None = None) -> int:
 
     out = None
     try:
-        out = loop_run(args.question, ctx)
+        if args.agent_mode == "multi_agent":
+            from agent.multi import run_multi
+            # 传 ctx.llm（Paced）而不是裸 client：子 Agent 的每次请求同样计入 RPM 节流（§9）
+            out = run_multi(args.question, ctx, ctx.llm,
+                            Path(args.out_root) / f"cli-{run_id}")
+        else:
+            out = loop_run(args.question, ctx)
     except Exception as e:  # PRD 3.4：运行中出错也保存已获得的轨迹和状态
         info_err = {"trace": list(ctx.trace.events), "steps": ctx.stats.get("steps", 0),
                     "prompt_tokens": ctx.stats.get("prompt_tokens", 0),
                     "completion_tokens": ctx.stats.get("completion_tokens", 0),
-                    "latency_s": round(time.time() - ctx.stats.get("t_start", 0), 2),
+                    # §10：latency 用单调时钟时差；stats["t_start"] 也是 monotonic，不能与 time.time() 相减
+                    "latency_s": (round(time.monotonic() - ctx.stats["t_start"], 2)
+                                  if ctx.stats.get("t_start") else 0.0),
                     "sql_errors": 0, "refuse_reason": f"运行异常: {type(e).__name__}: {e}"}
         from eval.schema import Answer
         out_err = type("Out", (), {"answer": Answer(answer_md=f"运行异常终止：{e}", status="refuse"),

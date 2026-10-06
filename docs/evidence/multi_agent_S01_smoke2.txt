@@ -1,0 +1,125 @@
+# 证据摘录：S01 multi_agent 第一次可运行的 live 冒烟（P6-M2）
+
+运行包：runs/multi_agent_S01_smoke2/cli-20261006-170258　时间：2026-10-06T17:13:08
+commit：fbfc5f0（dirty=True）　运行模型：agnes-3.0-flash　模式：multi_agent
+说明：本文件是失败/部分成功运行的真实材料摘录（handoff §12 允许失败、完整保存）。
+LLM_API_KEY 不在此文件与运行包内；run_meta 的密钥字段已脱敏。
+
+## 1. 结局与资源（run_meta）
+```
+status=refuse  verified=False  refuse_reason=时间预算耗尽
+budget={"max_steps": 40, "max_tokens": 500000, "max_wall_s": 600.0}
+usage={"steps": 14, "prompt_tokens": 221345, "completion_tokens": 14615, "latency_s": 609.75, "sql_errors": 0, "refuse_reason": "时间预算耗尽"}
+subagent_calls=14  subagent_child_steps=34  plan_revisions=2  reviews_total=0
+semantic_review_status=not_reviewed  task_coverage_status=partial  human_review_status=pending  nodes_incomplete=['n4', 'n5']
+effective_budgets={"total_subagent_calls": 12, "max_plan_nodes": 8, "worker_max_steps": 6, "max_node_attempts": 2, "max_plan_revisions": 3, "max_final_revisions": 2}
+```
+
+## 2. 子 Agent 调度（trace：12 次启动 = planner 4 + worker 8，reviewer 0）
+- main_step=1 planner@1#plan
+- main_step=2 worker@2#n1
+- main_step=2 worker@2#n2
+- main_step=2 worker@2#n3
+- main_step=3 worker@3#n4
+- main_step=4 worker@4#n4
+- main_step=5 planner@5#plan
+- main_step=8 planner@8#plan
+- main_step=9 planner@9#plan
+- main_step=10 worker@10#n1
+- main_step=10 worker@10#n2
+- main_step=10 worker@10#n3
+
+## 3. 主 Agent 的工具结果（顺序与拒绝原因）
+- main_step=1 plan_analysis ok=True :: 计划 revision=1 已保存（5 节点）。变更原因：首轮规划：需依次完成数据获取（存货余额、营收、成本）与基准计算（同比、周转天数），最后形成支持与不支持的解释。。当前状态：{"contract_version": "c1", "latest_revision": 1, "nodes": [{"node_id": "n1", "go
+- main_step=2 execute_analysis ok=True :: 节点 n1 执行完成，artifact=art1（attempt 1，状态 completed）。缺口：无。摘要：已取到联想存货期末余额：FY2027Q1 = 15,741.90 百万美元（自然季 2026Q2，91 天）；FY2026Q1 = 8,742.64 百万美元（自然季 2025Q2，91 天）。期初/上期末：FY2027Q1 
+- main_step=2 execute_analysis ok=True :: 节点 n2 执行完成，artifact=art2（attempt 1，状态 completed）。缺口：无。摘要：已获取联想 FY2026Q1（18,829.9 百万美元）和 FY2027Q1（26,942.8 百万美元）的营业收入数据，口径一致（均为财年总收入，单位百万美元），数据来源为 semantic layer 取数结果 r3。。
+- main_step=2 execute_analysis ok=True :: 节点 n3 执行完成，artifact=art3（attempt 1，状态 completed）。缺口：无。摘要：已获取联想 FY2026Q1 与 FY2027Q1 的销货成本及营业收入数据：FY2026Q1 COGS=16055.4 百万美元（收入 18829.9），FY2027Q1 COGS=22490.8 百万美元（收入 26942
+- main_step=3 execute_analysis ok=False :: 错误: 节点 n4 执行失败（无合法输出），已记录。[状态] revision=1 nodes=[{"node_id": "n1", "goal": "获取联想 FY2027Q1 及 FY2026Q1 的存货期末余额（以及期初/上期末）数据，按合并报表口径。", "depends_on": [], "execution_status": 
+- main_step=4 execute_analysis ok=False :: 错误: 节点 n4 执行失败（无合法输出），已记录。[状态] revision=1 nodes=[{"node_id": "n1", "goal": "获取联想 FY2027Q1 及 FY2026Q1 的存货期末余额（以及期初/上期末）数据，按合并报表口径。", "depends_on": [], "execution_status": 
+- main_step=5 plan_analysis ok=False :: plan_invalid: plan_invalid: 依赖 n1 不存在
+- main_step=8 plan_analysis ok=False :: plan_invalid: plan_invalid: 依赖 n1 不存在
+- main_step=9 plan_analysis ok=True :: 计划 revision=2 已保存（5 节点）。变更原因：n4 节点因目标描述抽象导致执行失败。本次修订将 n4 细化为包含明确算术逻辑的计算节点，通过 input_refs 显式绑定已完成的 n1, n2, n3 产。当前状态：{"contract_version": "c1", "latest_revision": 2, "nodes
+- main_step=10 execute_analysis ok=True :: 节点 n1 执行完成，artifact=art6（attempt 1，状态 completed）。缺口：存货分项目明细（原材料/在产品/产成品）；合并报表范围说明及是否有重大并表变化；存货计价与跌价准备相关说明。摘要：已获取联想 FY2026Q1 与 FY2027Q1 的期末及期初存货数据（合并报表口径）：FY2026Q1 期初 7,92
+- main_step=10 execute_analysis ok=True :: 节点 n2 执行完成，artifact=art7（attempt 1，状态 completed）。缺口：无。摘要：已获取 Lenovo FY2026Q1 与 FY2027Q1 两期营业收入（revenue，单位 usd_mn）：FY2026Q1 = 18,829.9，FY2027Q1 = 26,942.8（来源 rid=r3）。。建议用 
+- main_step=10 execute_analysis ok=True :: 节点 n3 执行完成，artifact=art8（attempt 1，状态 completed）。缺口：无。摘要：已获取 Lenovo FY2026Q1 COGS=16,055.4 usd_mn 和 FY2027Q1 COGS=22,490.8 usd_mn，单位均为百万美元，数据来源为语义层 facts 表（r24）。。建议用 revi
+- main_step=11 execute_analysis ok=False :: 错误: 子调用预算耗尽（total_subagent_calls）
+- main_step=12 draft_answer ok=True :: 已保存候选答案（answer_artifact_id=answer-cand9）。请用 review_analysis(target_type=answer, target_id=该 ID) 审查后用 final_answer 引用提交。[状态] revision=2 nodes=[{"node_id": "n1", "goal": "获
+- main_step=13 review_analysis ok=False :: 错误: 子调用预算耗尽（total_subagent_calls）
+- main_step=14 final_answer ok=False :: 核验未通过：答案未通过核验，请修正后重新提交 final_answer： 1. claim 1 的数值 8742.64（usd_mn）在 art6 中找不到——rid art6 不存在 2. claim 2 的数值 15741.9（usd_mn）在 art6 中找不到——rid art6 不存在 3. claim 3 的数值 80.1（%
+
+## 4. W1：Worker 步数耗尽 → 整节点证据被丢弃（n4 两次）
+- worker@2#n1 ok=True child_steps=4 tokens=12882/931 error=（空）
+- worker@2#n2 ok=True child_steps=2 tokens=6057/581 error=（空）
+- worker@2#n3 ok=True child_steps=3 tokens=10308/677 error=（空）
+- worker@3#n4 ok=False child_steps=6 tokens=27373/659 error=（空）
+- worker@4#n4 ok=False child_steps=6 tokens=30325/794 error=（空）
+- worker@10#n1 ok=True child_steps=3 tokens=10094/1297 error=（空）
+- worker@10#n2 ok=True child_steps=4 tokens=13901/570 error=（空）
+- worker@10#n3 ok=True child_steps=2 tokens=6040/465 error=（空）
+- 失败 attempt 期间 Worker 真实拿到的 rid（子事件）：
+  - main_step=3 child_step=0 list_metrics rid=r4 :: [r4] list_metrics() rows=37 cols=[name, label_zh, type, unit, dims] | name | label_zh | ty
+  - main_step=3 child_step=1 query_metric rid=None :: 工具错误: ValueError: 未知的指标或维度: 'company'。合法名称: ['region', 'product_line']
+  - main_step=3 child_step=2 query_metric rid=r6 :: [r6] query_metric(metrics=[inventory,cogs], companies=[Lenovo,HP,Dell], period_from=FY2025
+  - main_step=3 child_step=3 query_metric rid=r7 :: [r7] query_metric(metrics=[inventory,cogs], companies=[Lenovo,HP,Dell], period_from=FY2025
+  - main_step=3 child_step=4 query_metric rid=r8 :: [r8] query_metric(metrics=[inventory,cogs], companies=[Lenovo,HP,Dell], period_from=FY2024
+  - main_step=3 child_step=5 calc rid=r9 :: [r9] calc(expression=r6.inventory[Lenovo, FY2027Q1], refs=[r6]) rows=1 cols=[value] | valu
+  - main_step=3 child_step=5 calc rid=r10 :: [r10] calc(expression=r6.inventory[Lenovo, FY2026Q1], refs=[r6]) rows=1 cols=[value] | val
+  - main_step=3 child_step=5 calc rid=r11 :: [r11] calc(expression=r6.inventory[Lenovo, FY2026Q4], refs=[r6]) rows=1 cols=[value] | val
+  - main_step=3 child_step=5 calc rid=r12 :: [r12] calc(expression=r7.inventory[Lenovo, FY2025Q4], refs=[r7]) rows=1 cols=[value] | val
+  - main_step=4 child_step=0 list_metrics rid=r4 :: [r4] list_metrics() rows=37 cols=[name, label_zh, type, unit, dims] | name | label_zh | ty
+  - main_step=4 child_step=1 query_metric rid=r13 :: [r13] query_metric(metrics=[inventory], companies=[Lenovo], period_from=FY26Q4, period_to=
+  - main_step=4 child_step=1 query_metric rid=r14 :: [r14] query_metric(metrics=[cogs,gross_profit,revenue], companies=[Lenovo], period_from=FY
+  - main_step=4 child_step=2 query_metric rid=r15 :: [r15] query_metric(metrics=[inventory], companies=[Lenovo], period_from=FY26Q1, period_to=
+  - main_step=4 child_step=3 query_metric rid=r16 :: [r16] query_metric(metrics=[inventory], companies=[Lenovo], period_from=FY25Q4, period_to=
+  - main_step=4 child_step=4 calc rid=r17 :: [r17] calc(expression=r13.inventory[Lenovo,FY27Q1] / r15.inventory[Lenovo,FY26Q1] - 1, ref
+  - main_step=4 child_step=4 calc rid=r18 :: [r18] calc(expression=(r13.inventory[Lenovo,FY26Q4] + r13.inventory[Lenovo,FY27Q1]) / 2, r
+  - main_step=4 child_step=4 calc rid=r19 :: [r19] calc(expression=(r16.inventory[Lenovo,FY25Q4] + r15.inventory[Lenovo,FY26Q1]) / 2, r
+  - main_step=4 child_step=4 calc rid=r20 :: [r20] calc(expression=r14.cogs[Lenovo,FY27Q1] / r14.cogs[Lenovo,FY26Q1] - 1, refs=[r14]) r
+  - main_step=4 child_step=4 calc rid=r21 :: [r21] calc(expression=r14.revenue[Lenovo,FY27Q1] / r14.revenue[Lenovo,FY26Q1] - 1, refs=[r
+  - main_step=4 child_step=5 calc rid=None :: 工具错误: CalcRejected: 表达式中不允许的节点: Attribute
+
+## 5. W6：final_answer 的数字核验反馈（前 700 字符）
+```
+核验未通过：答案未通过核验，请修正后重新提交 final_answer：
+1. claim 1 的数值 8742.64（usd_mn）在 art6 中找不到——rid art6 不存在
+2. claim 2 的数值 15741.9（usd_mn）在 art6 中找不到——rid art6 不存在
+3. claim 3 的数值 80.1（%）在 art6 中找不到——rid art6 不存在
+4. claim 4 的数值 13731.4（usd_mn）在 art6 中找不到——rid art6 不存在
+5. claim 5 的数值 8333.22（usd_mn）在 art6 中找不到——rid art6 不存在
+6. claim 6 的数值 55.4（天）在 art8 中找不到——rid art8 不存在
+7. claim 7 的数值 47.2（天）在 art8 中找不到——rid art8
+```
+本次提交 claims=14 条，ref 取值=['art6', 'art7', 'art8']
+
+## 6. 任务图与证据状态（analysis_state.json）
+- revision 1：首轮规划：需依次完成数据获取（存货余额、营收、成本）与基准计算（同比、周转天数），最后形成支持与不支持的解释。
+  - n1 exec=completed review=not_reviewed attempt=1 latest=art1
+  - n2 exec=completed review=not_reviewed attempt=1 latest=art2
+  - n3 exec=completed review=not_reviewed attempt=1 latest=art3
+  - n4 exec=failed review=not_reviewed attempt=2 latest=art5
+  - n5 exec=pending review=not_reviewed attempt=0 latest=None
+- revision 2：n4 节点因目标描述抽象导致执行失败。本次修订将 n4 细化为包含明确算术逻辑的计算节点，通过 input_refs 显
+  - n1 exec=completed review=not_reviewed attempt=1 latest=art6
+  - n2 exec=completed review=not_reviewed attempt=1 latest=art7
+  - n3 exec=completed review=not_reviewed attempt=1 latest=art8
+  - n4 exec=pending review=not_reviewed attempt=0 latest=None
+  - n5 exec=pending review=not_reviewed attempt=0 latest=None
+- art1 node=n1 rev=1 attempt=1 status=completed stale=True facts=5 calcs=0 missing=[]
+- art2 node=n2 rev=1 attempt=1 status=completed stale=True facts=2 calcs=0 missing=[]
+- art3 node=n3 rev=1 attempt=1 status=completed stale=True facts=4 calcs=0 missing=[]
+- art4 node=n4 rev=1 attempt=1 status=failed stale=True facts=0 calcs=0 missing=[]
+- art5 node=n4 rev=1 attempt=2 status=failed stale=True facts=0 calcs=0 missing=[]
+- art6 node=n1 rev=2 attempt=1 status=completed stale=False facts=4 calcs=2 missing=['存货分项目明细（原材料/在产品/产成品）', '合并报表范围说明及是否有重大并表变化']
+- art7 node=n2 rev=2 attempt=1 status=completed stale=False facts=2 calcs=0 missing=[]
+- art8 node=n3 rev=2 attempt=1 status=completed stale=False facts=2 calcs=0 missing=[]
+- reviews=[]　answer_candidate=answer-cand9
+
+## 7. 运行包文件清单
+- analysis\analysis_state.json　25479 bytes
+- analysis_review.md　15394 bytes
+- answer.md　412 bytes
+- question.json　1082 bytes
+- results.json　47852 bytes
+- review.md　5091 bytes
+- run_meta.json　3660 bytes
+- trace.jsonl　52123 bytes

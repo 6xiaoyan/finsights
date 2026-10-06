@@ -253,7 +253,9 @@ def run(question: str, ctx: RunContext) -> FinalAnswer:
                 try:
                     resp = ctx.llm.chat(view, tools=TOOL_SCHEMAS)
                     for ev in getattr(ctx.llm, "last_call_events", []) or []:
-                        ctx.trace.event(type="llm_retry", **ev)
+                        # ev 自带 type="llm_retry"，重复传 type 会触发
+                        # TypeError: got multiple values for keyword argument 'type'
+                        ctx.trace.event(**ev)
                 except ContextTooLong:
                     # reactive（V4.40）：同一轮最多兜底 1 次；PTL 逐组丢弃在状态里累积（V4.41）
                     resp = ctx.llm.chat(context_manager.on_context_overflow(view, ctx),

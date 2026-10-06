@@ -102,8 +102,9 @@ class PlanAnalysisArgs(BaseModel):
     artifact_ids: list[str] = Field(default_factory=list, description="相关 artifact")
 
 class ExecuteAnalysisArgs(BaseModel):
-    node_id: str = Field(description="要执行的节点")
-    plan_revision: int = Field(description="计划修订号")
+    node_id: str = Field(description="要执行的节点（必填；live 冒烟里模型漏传过 node_id，"
+                                      "参数校验必须把它挡住而不是当成一个不存在的节点）")
+    plan_revision: int = Field(default=0, description="计划修订号；省略或 0 表示当前最新 revision")
     extra_instructions: str = Field(default="", description="补充指令")
     respond_to_review: str = Field(default="", description="待回应的 review ID（可空）")
 
@@ -115,7 +116,15 @@ class ReviewAnalysisArgs(BaseModel):
 
 class DraftAnswerArgs(BaseModel):
     answer_md: str = Field(description="候选答案全文（不可变保存）")
-    claims: list[Claim] = Field(default_factory=list, description="与正文对应的 claims")
+    claims: list[Claim] = Field(
+        default_factory=list,
+        description="与正文对应的 claims。每条 claim 的 ref 必须填取数工具返回的结果 rid"
+                    "（形如 r17，程序按结果库核对）；分析产物 ID（art1、answer-cand2）不是 rid，"
+                    "产物归属只写进 source_artifact_ids")
+    source_artifact_ids: list[str] = Field(
+        default_factory=list,
+        description="本候选答案依据的 analysis artifact ID 列表（如 art1、art2）。"
+                    "程序会检查它们存在且未被标 stale；引用失效 artifact 会被拒绝提交")
 
 class AssessmentMeta(BaseModel):
     """模型主观置信度（交接 §4.1）：结构化元信息，不进入数字扫描。"""
@@ -136,12 +145,44 @@ class FinalAnswerArgs(BaseModel):
                                        "数字保留足够精度（照抄工具有效位），舍入超过 0.5% 会被打回")
     claims: list[Claim] = Field(default_factory=list,
                                 description="与正文数字一一对应：text=正文中的数字上下文，value/unit/ref(result_id)。"
+                                            "ref 只认取数工具返回的 rid（r1、r2…），分析产物 ID（art1）不能当 ref 用。"
                                             "只 claim 正文出现的数字；置信度等元数字不需要数据 claim")
     status: Literal["answered", "clarify", "refuse"] = "answered"
     assessment_metadata: list["AssessmentMeta"] = Field(
         default_factory=list,
         description="模型主观评估元信息（confidence ∈ [0,1]，kind=model_subjective）。"
                     "不是财报事实、不需要 rid；正文不要重复写置信度数字")
+    answer_artifact_id: str = Field(
+        default="",
+        description="multi_agent 模式必填：draft_answer 返回的候选答案 artifact_id，"
+                    "且该候选必须已被 review_analysis(answer) 判为 accepted。"
+                    "single_agent 模式留空。本字段不参与数字核验。")
+
+
+# ---- multi_agent 主循环子工具（handoff §7）：只在 multi 模式暴露，不进单 Agent 工具面 ----
+
+MULTI_ARGS_MODELS: dict[str, type[BaseModel]] = {
+    "plan_analysis": PlanAnalysisArgs,
+    "execute_analysis": ExecuteAnalysisArgs,
+    "review_analysis": ReviewAnalysisArgs,
+    "draft_answer": DraftAnswerArgs,
+}
+
+MULTI_DESCRIPTIONS: dict[str, str] = {
+    "plan_analysis": "创建（action=create）或修订（action=revise）任务图；节点由 Planner 给出，"
+                     "程序校验依赖、版本与节点上限。何时使用：开始分析时先 create；"
+                     "审查发现口径/覆盖问题或需要新增取数节点时 revise。何时不用：已有计划还重复 create"
+                     "（会被拒绝，请改用 revise）。",
+    "execute_analysis": "执行任务图中的一个就绪节点：Worker 在独立上下文里取数/计算并产出 artifact。"
+                        "何时使用：计划里存在依赖已满足、尚未完成的节点。何时不用：节点已完成并通过审核"
+                        "（要重做先 revise）；依赖未满足会返回 dependency_missing，先补齐依赖节点。",
+    "review_analysis": "让 Reviewer 审查 plan / artifact / answer 三类对象之一，产出 verdict"
+                       "（accepted|needs_revision|inconclusive）与 findings。何时使用：每个 artifact "
+                       "完成后，以及候选答案提交前（target_type=answer）。何时不用：对象尚未产出。",
+    "draft_answer": "保存不可变的候选答案（answer_md + claims），返回 answer_artifact_id。"
+                    "何时使用：分析证据足够、准备收尾时。何时不用：还没取数；保存后必须先 "
+                    "review_analysis(target_type=answer) 得到 accepted，再用 final_answer 引用该 ID。",
+}
 
 
 class LoadSkillArgs(BaseModel):
@@ -255,7 +296,23 @@ def all_tool_schemas() -> list[dict]:
 
 
 def all_args_models() -> dict[str, type[BaseModel]]:
-    return {**ARGS_MODELS, **LOOP_ARGS_MODELS}
+    return {**ARGS_MODELS, **LOOP_ARGS_MODELS, **MULTI_ARGS_MODELS}
+
+
+def multi_tool_schemas() -> list[dict]:
+    """multi_agent 主 Agent 的工具面（handoff §5）：三类子工具 + draft_answer + recall + final_answer。
+
+    单 Agent 的 all_tool_schemas() 保持不变——四类子工具只在 multi 模式暴露。
+    recall 保留只读证据查看能力（§5），不重新查库。
+    """
+    all_schemas = {sc["function"]["name"]: sc for sc in all_tool_schemas()}
+    out = [all_schemas[n] for n in ("recall", "final_answer") if n in all_schemas]
+    for name, model in MULTI_ARGS_MODELS.items():
+        schema = model.model_json_schema()
+        schema.pop("$defs", None)
+        out.append({"type": "function", "function": {
+            "name": name, "description": MULTI_DESCRIPTIONS[name], "parameters": schema}})
+    return out
 
 
 def validate_args(name: str, args: dict) -> BaseModel:

@@ -26,6 +26,13 @@ class Paced:
             self._limiter.wait()
         return self._client.chat(messages, tools=tools, **kw)
 
+    def __getattr__(self, name: str) -> Any:
+        # 其余属性透传给真实客户端：last_call_events（重试留痕）、nudged、model 等。
+        # 没有这层代理，ctx.llm 是 Paced 时 getattr(last_call_events) 恒空，重试不可追查。
+        if name.startswith("_"):
+            raise AttributeError(name)
+        return getattr(self._client, name)
+
 
 def run(question: str, llm: LLMClient | None = None, db_path: Path = DB_PATH,
         as_of=None, limiter: Any = None,
