@@ -141,6 +141,11 @@ def _export_package(out_dir: Path, question: str, as_of, db_path: Path, client,
         ans.append("\n## 引用\n")
         for c in out.answer.claims:
             ans.append(f"- {c.text}  [{c.value} {c.unit} → {c.ref}]\n")
+    if getattr(out.answer, "assessment_metadata", None):
+        ans.append("\n## 模型主观评估（非财报事实，未参与数字核验）\n")
+        for a in out.answer.assessment_metadata:
+            ans.append(f"- {a.assumption_id}: {a.description}（confidence={a.confidence}，模型主观评估）\n")
+    ans.append(f"\n- 概念字典版本: {meta.get('dictionary_version')}\n")
     (out_dir / "answer.md").write_text("".join(ans), encoding="utf-8")
 
     # ---- review.md（PRD 3.4：人工可读审阅摘要，三视角待人工判断栏默认"未评审"）----

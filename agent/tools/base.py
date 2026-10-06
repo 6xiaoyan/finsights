@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, field_validator, Field
 
 from eval.schema import Claim
 from semantic.compiler import MetricRequest
@@ -95,6 +95,20 @@ class TodoWriteArgs(BaseModel):
     items: list[TodoItem] = Field(description="完整的新计划列表（整体替换旧列表）")
 
 
+class AssessmentMeta(BaseModel):
+    """模型主观置信度（交接 §4.1）：结构化元信息，不进入数字扫描。"""
+    assumption_id: str = Field(description="假设/结论标识，如 H1")
+    description: str = Field(description="该置信度针对的判断，一句话")
+    confidence: float = Field(description="0–1 的小数；模型主观评估，非已校准概率")
+
+    @field_validator("confidence")
+    @classmethod
+    def _bounded(cls, v):
+        if not (0.0 <= float(v) <= 1.0):
+            raise ValueError("confidence 必须在 [0,1] 内")
+        return float(v)
+
+
 class FinalAnswerArgs(BaseModel):
     answer_md: str = Field(description="中文结论（Markdown）。正文中出现的每个数字都必须有一条对应 claim；"
                                        "数字保留足够精度（照抄工具有效位），舍入超过 0.5% 会被打回")
@@ -102,6 +116,10 @@ class FinalAnswerArgs(BaseModel):
                                 description="与正文数字一一对应：text=正文中的数字上下文，value/unit/ref(result_id)。"
                                             "只 claim 正文出现的数字；置信度等元数字不需要数据 claim")
     status: Literal["answered", "clarify", "refuse"] = "answered"
+    assessment_metadata: list["AssessmentMeta"] = Field(
+        default_factory=list,
+        description="模型主观评估元信息（confidence ∈ [0,1]，kind=model_subjective）。"
+                    "不是财报事实、不需要 rid；正文不要重复写置信度数字")
 
 
 class LoadSkillArgs(BaseModel):

@@ -101,6 +101,13 @@ def render(res: StoredResult, cfg: dict | None = None) -> str:
     if len(df) > rows_shown or rows_shown == 0 and len(df) > 0:
         out += f"\n（结果共 {len(df)} 行，此处只显示前 {rows_shown} 行；" \
                f'完整结果可用 recall("{res.id}", offset={rows_shown}) 查看）'
+    ids = list((res.meta or {}).get("concept_ids") or [])
+    if ids:  # 概念口径块追加在截断提示之后，不被数据行吞掉（交接 §3.5）
+        from agent import concepts
+        out += "\n【口径 " + concepts.version() + "】" + "；".join(concepts.brief_for(ids))
+    dn = (res.meta or {}).get("data_nature")
+    if dn:
+        out += f"\n【数据性质】{dn}"
     return out
 
 
@@ -400,7 +407,13 @@ def _h_recall(args, ctx: ToolContext, step: int) -> Outcome:
 
 def _stored(tool: str, args: dict, df: pd.DataFrame, ctx: ToolContext, step: int,
             sql: str | None, unit: str = "") -> Outcome:
-    res = ctx.store.put(tool, args, df, sql=sql, step=step, unit=unit)
+    from agent import concepts
+    ids = concepts.concepts_for(tool, set(map(str, df.columns)) if df is not None else set())
+    nature = None
+    if df is not None and "synthetic" in df.columns:
+        nature = "synthetic" if bool(df["synthetic"].astype(bool).all()) else "real/synthetic 混合"
+    res = ctx.store.put(tool, args, df, sql=sql, step=step, unit=unit,
+                        meta={**concepts.concept_meta(ids, tool), "data_nature": nature})
     return Outcome(render(res, ctx.cfg), rid=res.id, ok=True, stored=res)
 
 

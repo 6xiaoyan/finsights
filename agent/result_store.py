@@ -148,6 +148,7 @@ class StoredResult:
     created_step: int
     digest: str = ""
     unit: str = ""
+    meta: dict = field(default_factory=dict)  # 概念字典绑定（交接 §3.4）
 
     def candidates(self) -> list[float]:
         return _num_cells(self.df) + _series_derivs(self.df)
@@ -167,7 +168,7 @@ class ResultStore:
         return self._by_id[rid] if rid else None
 
     def put(self, tool: str, args: dict, df: pd.DataFrame, sql: str | None = None,
-            step: int = 0, unit: str = "") -> StoredResult:
+            step: int = 0, unit: str = "", meta: dict | None = None) -> StoredResult:
         key = f"{tool}|{_canon(args)}|{self.data_version}"
         with self._lock:
             if key in self._by_key:
@@ -175,7 +176,7 @@ class ResultStore:
             self._n += 1
             res = StoredResult(id=f"r{self._n}", tool=tool, args=dict(args),
                                data_version=self.data_version, df=df, sql=sql,
-                               created_step=step, unit=unit)
+                               created_step=step, unit=unit, meta=dict(meta or {}))
             res.digest = make_digest(res)
             self._by_id[res.id] = res
             self._by_key[key] = res.id
@@ -218,6 +219,7 @@ class ResultStore:
                 "id": res.id, "tool": res.tool, "args": res.args,
                 "data_version": res.data_version, "sql": res.sql,
                 "created_step": res.created_step, "digest": res.digest, "unit": res.unit,
+                "meta": res.meta,
                 "rows": res.df.to_dict(orient="records"),
             }, ensure_ascii=False, default=_jsonable))
         path.write_text("\n".join(lines) + "\n", encoding="utf-8")

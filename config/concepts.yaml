@@ -1,0 +1,124 @@
+# 概念字典（交接 handoff_concept_dictionary_verifier.md §3）：单一来源，供系统提示、
+# 工具说明与结果渲染使用。通用业务元数据；不含案例答案、管理层解释或解题路线。
+version: v1
+concepts:
+  - id: yoy
+    name: 同比
+    aliases: [YoY, 同比变化]
+    definition: 本期对上年同一期间的比较。
+    formula: "(本期 - 上年同期) / 上年同期，遵守负数与零分母规则"
+    inputs: [本期值, 上年同期值]
+    unit: ratio（×100 为百分数）
+    common_misuse: 把环比差值当作同比；把自然季度与财年同名季期混同。
+    boundary: 仅数学比较，不构成经营因果。
+    auto_trigger: [variance.yoy, variance]
+  - id: qoq
+    name: 环比
+    aliases: [QoQ, 环比变化]
+    definition: 本期对上一连续财季的比较。
+    formula: "(本期 - 上季) / 上季，Q1 的上季为上财年 Q4"
+    inputs: [本期值, 上季值]
+    unit: ratio
+    common_misuse: 在 peer_compare/seasonal_check 输出上仍称"同比"。
+    boundary: 同上。
+    auto_trigger: [variance.qoq, peer_compare, seasonal_check]
+  - id: avg_balance
+    name: 平均余额
+    aliases: [平均存货, 平均应收, 平均应付]
+    definition: (期初余额 + 期末余额) / 2；期初为上一连续财季期末。
+    formula: "(本期余额 + 上季余额) / 2"
+    inputs: [本期余额, 上季余额]
+    unit: usd_mn
+    common_misuse: 单期调用时用期末值静默代替平均（已在工具内自动前补一期）。
+    boundary: 与发生额（流量）期间必须对应。
+    auto_trigger: [working_capital]
+  - id: dio
+    name: 存货周转天数
+    aliases: [DIO]
+    definition: 平均存货 / 单季 COGS × 实际天数；平均存货在分子。
+    formula: "avg_inventory / cogs * days"
+    inputs: [平均存货, 单季COGS, 天数]
+    unit: days
+    common_misuse: 把 COGS 放分子；把期末余额当平均；把天数算少 1 天。
+    boundary: 只反映存货周转效率，不证明需求或供应链因果。
+    auto_trigger: [working_capital.dio]
+  - id: dso
+    name: 应收账款周转天数
+    aliases: [DSO]
+    definition: 平均应收 / 单季收入 × 实际天数。
+    formula: "avg_receivable / revenue * days"
+    inputs: [平均应收, 单季收入, 天数]
+    unit: days
+    common_misuse: 期末口径替代平均口径；收入用错期间。
+    boundary: 同 DIO。
+    auto_trigger: [working_capital.dso]
+  - id: dpo
+    name: 应付账款周转天数
+    aliases: [DPO]
+    definition: 平均应付 / 单季 COGS × 实际天数；近似口径，非合同付款期限。
+    formula: "avg_payable / cogs * days"
+    inputs: [平均应付, 单季COGS, 天数]
+    unit: days
+    common_misuse: 与账期/票据混淆（联想口径已统一为含票据）。
+    boundary: 近似口径。
+    auto_trigger: [working_capital.dpo]
+  - id: ccc
+    name: 现金转换周期
+    aliases: [CCC]
+    definition: DIO + DSO − DPO。
+    formula: "dio + dso - dpo"
+    inputs: [dio, dso, dpo]
+    unit: days
+    common_misuse: 单独用 CCC 证明现金流改善或资金来源。
+    boundary: 不构成现金流因果。
+    auto_trigger: [working_capital.ccc]
+  - id: margin
+    name: 利润率
+    aliases: [毛利率, 经营利润率, gross_margin]
+    definition: 相应利润 / 同期间收入。
+    formula: "gross_profit / revenue"
+    inputs: [利润, 同期间收入]
+    unit: ratio
+    common_misuse: 比率与金额互换；分母用错期间。
+    boundary: 比率不可当金额引用。
+    auto_trigger: [query_metric.ratio]
+  - id: pct_vs_pp
+    name: 百分比与百分点
+    aliases: [pp, percentage point]
+    definition: 相对变化（ratio）与比率差（percentage point）不同。
+    formula: "15%→16% 是 +1pp，相对变化 +6.67%"
+    inputs: [两个比率]
+    unit: ratio / pp
+    common_misuse: 把 +1pp 写成 +6.67%，或反之。
+    boundary: 表述约定。
+    auto_trigger: [variance, query_metric.ratio]
+  - id: quarter_vs_cum
+    name: 季度与累计
+    aliases: [Q2/H1, Q3/9M]
+    definition: 单季发生额与年初至今累计发生额不同；余额类无累计概念。
+    formula: ""
+    inputs: []
+    unit: ""
+    common_misuse: 把六个月/九个月累计表当单季值。
+    boundary: 使用累计表必须先差分。
+    auto_trigger: [variance, query_metric]
+  - id: z_hist
+    name: 季节性 z 分数
+    aliases: [历史分位, z-score]
+    definition: 当前环比相对历年同财季环比分布的位置；历史样本数 n 需标明。
+    formula: "(当前环比 - 同季均值) / 同季标准差"
+    inputs: [当前环比, 历史同季样本]
+    unit: ratio
+    common_misuse: 异常 z 当成经营根因；不标 n。
+    boundary: 异常不等于根因。
+    auto_trigger: [seasonal_check]
+  - id: peer
+    name: 同行比较
+    aliases: [peer]
+    definition: 同一自然季度三家公司的环比对比；各家财季截止日不同。
+    formula: "(本期 - 上自然季) / 上自然季"
+    inputs: [三家同自然季值]
+    unit: ratio
+    common_misuse: 同向变化推断同一因果。
+    boundary: 同向不证明同因。
+    auto_trigger: [peer_compare]

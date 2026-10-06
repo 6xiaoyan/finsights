@@ -20,7 +20,11 @@ _NUMBER_RE = re.compile(r"(?<![A-Za-z0-9.])\d+(?:[.,]\d+)*%?")  # 千分位+小�
 
 
 def bare_numbers(text: str) -> list[str]:
-    """提取文本中的"真数值"（排除年份/季度标签/序号/rid 引用后）。"""
+    """提取文本中的"真数值"（排除年份/季度标签/序号/rid 引用后）。
+
+    Markdown 行首列表序号（如 `2. `、`3） `）仅移除序号本身，其后的财务数字仍参与扫描（交接 §4.2）。
+    """
+    text = re.sub(r"(?m)^\s*\d{1,2}[.、)]\s+", " ", text)
     return _NUMBER_RE.findall(_EXCLUDE_RE.sub(" ", text))
 
 

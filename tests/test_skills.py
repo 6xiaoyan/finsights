@@ -81,7 +81,7 @@ def test_v4_15_attribution_content():
         assert label in body, f"缺少根因标签: {label}"
     # V5.10 首轮 live 发现输出格式漂移：技能与打分器（eval/graders/l3）约定统一为
     # 独立行「根因标签: <label>」+ 结构化 confidence 字段
-    assert "根因标签: <label>" in body and '"confidence"' in body   # 归因答案格式
+    assert "根因标签: <label>" in body and "assessment_metadata" in body  # 归因答案格式（置信度改结构化字段，交接 §4.1）
     assert "可检验假设" in body                    # 业务软先验小节（PRD 4.3）
 
 

@@ -50,7 +50,10 @@ description: 回答"为什么某指标变化了"类归因问题时使用。按�
 ## 归因答案格式
 answer_md 必须含**独立一行** `根因标签: <label>`（label 在枚举内，打分器只读这一行）；
 正文排除其他候选标签时用中文表述（如"非行业普遍""不属季节性"），不要重复英文标签词。
-同行可给出结构化字段：`{"account": ..., "direction": "up|down|none", "confidence": 0-1}`。
+同行可给出结构化字段：`{"account": ..., "direction": "up|down|none"}` 放在 claims/answer_md 中，
+label 必须在枚举内。**置信度通过 final_answer 的 `assessment_metadata` 字段提交**
+（assumption_id + description + confidence 0–1，kind=model_subjective）——它是模型主观评估，
+不是财报事实：不要把 confidence 数字写进正文，也不需要数据 claim 佐证。
 
 ## 可检验假设（业务软先验，必须用数据证明，不能直接当结论）
 - 开学季备货：联想 Q2（自然）存货上升 → 必须用 seasonal_check 证明当前变化在历年同季度

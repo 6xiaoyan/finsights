@@ -1,0 +1,32 @@
+{
+  "selection_version": "20261005-v1",
+  "status": "revision2_approved_for_manual_development_baseline",
+  "source_dataset": "candidates.jsonl",
+  "instructions": "docs/lenovo_selected_cases_rework.md",
+  "split_status": "not_assigned",
+  "latest_review": {
+    "date": "2026-10-05",
+    "commit": "04a9c42",
+    "case_revision": 2,
+    "dataset": "selected_v1/cases.jsonl",
+    "dataset_sha256": "dc5158c64c8d5def4d5a8ba3bd014b7c304cbed07a60acffc016bbee7f5e6f26",
+    "review_document": "docs/lenovo_selected_v1_review.md",
+    "approved_development_cases": ["S01", "S02", "S03", "S04", "S05", "S06", "S07"],
+    "blocked_on_numeric_data": ["R01", "R02", "R03"],
+    "holdout_cases": [],
+    "agent_runs_performed_in_review": 0,
+    "note": "下面 action 字段保留首轮选题返工历史；最新状态以 latest_review 为准。批准数据集人工审阅可用性，不标 Agent 业务 PASS。"
+  },
+  "cases": [
+    {"selection_id": "S01", "case_id": "LV-FY2027Q1-INV-DIO-001", "action": "revise_with_existing_data", "capability": "stock_flow_and_denominator_effect"},
+    {"selection_id": "S02", "case_id": "LV-FY2026Q4-GM-OPEX-001", "action": "revise_with_existing_data", "capability": "profit_layer_decomposition"},
+    {"selection_id": "S03", "case_id": "LV-FY2026Q2-Q2VSH1-001", "action": "revise_with_existing_data", "capability": "quarter_vs_cumulative"},
+    {"selection_id": "S04", "case_id": "LV-FY2025Q3-OPEXRATIO-56BPS-001", "action": "revise_with_existing_data", "capability": "amount_vs_intensity"},
+    {"selection_id": "S05", "case_id": "LV-FY2026Q3-GM-DRIFT-001", "action": "revise_with_existing_data", "capability": "weighted_contribution"},
+    {"selection_id": "S06", "case_id": "LV-FY2027Q1-WC-CCC-001", "action": "revise_with_existing_data", "capability": "working_capital_and_cash_evidence"},
+    {"selection_id": "S07", "case_id": "LV-FY2026Q1-GM-OI-DIVERGE-001", "action": "narrow_gold_to_visible_data", "capability": "profit_quality_and_followup_evidence"},
+    {"selection_id": "R01", "case_id": "LV-FY2027Q1-OI-BRIDGE-001", "action": "revise_and_register_numeric_gap", "capability": "reported_adjusted_profit_bridge"},
+    {"selection_id": "R02", "case_id": "LV-FY2027Q1-SEGM-CALIBER-001", "action": "narrow_task_and_register_numeric_gap", "capability": "segment_amount_contribution"},
+    {"selection_id": "R03", "case_id": "LV-FY2026Q2-ISG-LOSS-Q1CONCENTRATION-001", "action": "revise_and_register_numeric_gap", "capability": "segment_loss_time_decomposition"}
+  ]
+}

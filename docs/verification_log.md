@@ -461,3 +461,13 @@ GLM 按交接实现（A1 计量与输出上限、A2 活动证据保护、A3 显�
 | 看板（dashboard_design.md） | 实现完成 | dashboard/app.py + index.py + rules.py；启动：`.venv/Scripts/python -m streamlit run dashboard/app.py`（HTTP 200 烟测过）；已索引 20 个实验（含 3 个 CLI 包与全部评测 run），标红规则 8 项测试 + 索引烟测通过 |
 | P1/P3 tag | DONE | phase-P1-done / phase-P3-done 已按关闭证据汇总（docs/evidence/tag_closure_P1_P3.md）打在 840071c 并推送；phase-P4-done 按裁定不打 |
 | V4.44 | FAIL-待后续人工优化（选 C） | 不调参数、不重跑 16K 压力题；原失败证据保留 |
+
+### 第二轮 S01 五项对照明细（handoff §6 要求逐项观察）
+
+| 观察点 | 结果 |
+|---|---|
+| DIO 核心数字（55.56 天）保留 | ✓ |
+| 平均存货口径/同比 +64.78% 解释补出 | ✗（仍未出现，属模型行为，待逐题讨论） |
+| 34.31% 误标同比 | ✓ 已消失 |
+| 合成明细参与业务解释 | ✗ 仍在（观察项保留，未解决） |
+| 正文 confidence 数字 | ✓ 已消失（协议改结构化字段生效） |

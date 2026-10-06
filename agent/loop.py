@@ -139,6 +139,12 @@ def user_message(question: str, ctx: RunContext) -> dict:
     content = question
     if ctx.as_of is not None:
         content += f"\n（as_of 数据截止提醒：动态信息以 {ctx.as_of.isoformat()} 为准）"
+    try:  # 概念口径基础块（交接 §3.2）：每次运行自动提供，随 question 常驻
+        from agent import concepts
+        fy_map = {"Lenovo": "3 月底", "HP": "10 月底", "Dell": "1/2 月底（52/53 周）"}
+        content += "\n\n" + concepts.base_block(fy_map)
+    except Exception:
+        pass
     return {"role": "user", "content": content}
 
 
