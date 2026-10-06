@@ -126,6 +126,8 @@ def _export_package(out_dir: Path, question: str, as_of, db_path: Path, client,
         "budget": {"max_steps": ctx.budget.max_steps, "max_tokens": ctx.budget.max_tokens,
                    "max_wall_s": ctx.budget.max_wall_s},
         "tools_disabled": DISABLED_TOOLS,
+        "agent_mode": getattr(ctx, "agent_mode", "single_agent"),
+        "dictionary_version": _dict_version(),
         "dev_model_note": "开发执行模型与项目运行模型（client.model）是不同配置；详见交付说明",
         "usage": {k: info.get(k) for k in ("steps", "prompt_tokens", "completion_tokens",
                                            "latency_s", "sql_errors", "refuse_reason")},
@@ -211,6 +213,11 @@ def parse_scope(question: str) -> dict:
             period = f"{m.group(1)}Q{qq}"
     return {"company": company, "period": period,
             "raw": {"company_in_query": company is not None, "period_in_query": period is not None}}
+
+
+def _dict_version() -> str:
+    from agent import concepts
+    return concepts.version()
 
 
 def _is_dirty() -> bool:

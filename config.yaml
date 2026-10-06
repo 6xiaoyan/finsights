@@ -53,3 +53,12 @@ context:
 initial_packet:
   metrics: [inventory, revenue, cogs, accounts_receivable, accounts_payable]
   quarters_back: 8          # 自问题期间（含）向前 N 个连续财季；期间未解析时取库内最近 N 期
+
+# multi_agent 模式（handoff_multi_agent_attribution_development.md §9；候选起点，不宣称足够）
+multi_agent:
+  total_subagent_calls: 12
+  max_plan_nodes: 8
+  worker_max_steps: 6
+  max_node_attempts: 2
+  max_plan_revisions: 3
+  max_final_revisions: 2

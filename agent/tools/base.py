@@ -95,6 +95,28 @@ class TodoWriteArgs(BaseModel):
     items: list[TodoItem] = Field(description="完整的新计划列表（整体替换旧列表）")
 
 
+class PlanAnalysisArgs(BaseModel):
+    action: str = Field(description="create=创建计划；revise=修订计划")
+    expected_revision: int | None = Field(default=None, description="期望的当前 revision（可空）")
+    reason: str = Field(description="创建/修订原因")
+    artifact_ids: list[str] = Field(default_factory=list, description="相关 artifact")
+
+class ExecuteAnalysisArgs(BaseModel):
+    node_id: str = Field(description="要执行的节点")
+    plan_revision: int = Field(description="计划修订号")
+    extra_instructions: str = Field(default="", description="补充指令")
+    respond_to_review: str = Field(default="", description="待回应的 review ID（可空）")
+
+class ReviewAnalysisArgs(BaseModel):
+    target_type: str = Field(description="plan | artifact | answer")
+    target_id: str = Field(description="目标 ID")
+    target_version: str = Field(default="", description="目标版本/哈希")
+    focus: str = Field(default="", description="审查重点（可空）")
+
+class DraftAnswerArgs(BaseModel):
+    answer_md: str = Field(description="候选答案全文（不可变保存）")
+    claims: list[Claim] = Field(default_factory=list, description="与正文对应的 claims")
+
 class AssessmentMeta(BaseModel):
     """模型主观置信度（交接 §4.1）：结构化元信息，不进入数字扫描。"""
     assumption_id: str = Field(description="假设/结论标识，如 H1")

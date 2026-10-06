@@ -471,3 +471,15 @@ GLM 按交接实现（A1 计量与输出上限、A2 活动证据保护、A3 显�
 | 34.31% 误标同比 | ✓ 已消失 |
 | 合成明细参与业务解释 | ✗ 仍在（观察项保留，未解决） |
 | 正文 confidence 数字 | ✓ 已消失（协议改结构化字段生效） |
+
+## 多 Agent 归因第一版（2026-10-06，handoff_multi_agent_attribution_development.md）
+
+| 检查 | 状态 | 证据 |
+|---|---|---|
+| 状态协议（§6） | PASS | agent/analysis_state.py：TaskContract/Plan/Node/AnalysisArtifact/Review 全部 pydantic extra=forbid；plan 校验（ID 唯一/依赖存在/无环/无自依赖/节点数上限）；修订不可覆盖；依赖重做 → 下游 stale + 旧 accepted 审核失效 |
+| 三类子工具（§7） | 实现 | plan_analysis（create/revise + plan_invalid 不存半份图）；execute_analysis（依赖/版本检查 → 独立 worker 上下文 → artifact 保存，缺依赖返回 dependency_missing）；review_analysis（对象存在/版本一致校验 → reviewer → findings/unresolved_items） |
+| 最终提交（§8） | 实现 | draft_answer 保存不可变候选 → review_analysis(answer) → final_answer 引用 answer_artifact_id；answer_md 哈希与候选一致性校验（防审查 A 提交 B）；numeric_verified 与 semantic_review_status/task_coverage_status 分列；verified 保持数字核验含义 |
+| 预算（§9） | 实现 | total_subagent_calls=12/max_plan_nodes=8/worker_max_steps=6/max_node_attempts=2/max_plan_revisions=3/max_final_revisions=2（config multi_agent 段）；子调用计入共享预算；超限返回错误不自动提高 |
+| 离线验收（§11） | PASS | tests/test_multi_agent.py 11 项：环/缺依赖/重复 ID 拒绝、合法修订新版本、contract 不可静默改、证据 ID 无冲突、旧审核失效、synthetic 保留、未审候选拒绝、哈希不一致拒绝、预算执行 |
+| S01 live 冒烟（§12） | 待运行 | 离线通过后执行；独立输出目录 runs/multi_agent_S01/；不可用则交付失败包 |
+| 交付 | 部分 | 交付文档待冒烟后完成；不 push |
