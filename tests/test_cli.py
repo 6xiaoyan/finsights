@@ -214,7 +214,9 @@ def test_cli_multi_agent_full_package(tmp_path, monkeypatch):
     assert ma["semantic_review_status"] == "accepted"
     assert ma["human_review_status"] == "pending"
     assert ma["role_prompt_sha256_12"], "角色提示哈希必须入 run_meta"
-    assert ma["effective_budgets"]["total_subagent_calls"] == ma["cfg_budgets"]["total_subagent_calls"]
+    assert ma["effective_rounds"]["worker_max_steps"] == ma["cfg_rounds"]["worker_max_steps"]
+    assert "子调用总数" in ma["canceled_limits"]         # 导出标明开发模式取消了资源停止上限
+    assert ma["kept_runtime_guards"]                     # 仍保留 RPM 节流等接口机制
     roles = {e.get("role") for e in (json.loads(l) for l in
              (d / "trace.jsonl").read_text(encoding="utf-8").splitlines()) if e.get("role")}
     assert {"planner", "worker", "reviewer"} <= roles

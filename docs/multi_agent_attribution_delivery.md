@@ -1,4 +1,4 @@
-# 多 Agent 归因第一版交付说明（P6-M1 实现 + P6-M2 修复与实测）
+# 多 Agent 归因第一版交付说明（P6-M1 实现 + P6-M2 修复与实测 + P6-M3 开发裁定落地）
 
 日期：2026-10-06。开发执行模型：GLM（本会话）。项目运行模型：agnes-3.0-flash（未改）。
 依据规格：`docs/handoff_multi_agent_attribution_development.md`（§1–§13）。
@@ -170,7 +170,7 @@ n4 子循环里有一次 `calc` 被 `CalcRejected: 表达式中不允许的节�
 
 ## 6. 与 single_agent 的差异
 
-对照口径先说清：下表比的是**同一 `--max-steps 40` 预算与同一模型**。初始数据包（`cli.py` step=0 生成）在两种模式走同一段代码，且都只写进 ResultStore 与 trace，从不注入任一模式的模型 prompt（`agent/prompts/system.md` 与 `user_message` 都不提及它，`build_view` 只压缩已有消息）——所以 `initial_packet` **不是** single/multi 的提示差异，成本差异与它无关。"成本"一行的十倍量级来自 multi 把每次子 Agent（planner/worker/reviewer）都当作独立请求（各自完整角色 prompt + 任务上下文）、且 Worker 重新取数而非复用数据包，属结构差异。
+对照口径先说清：下表比的是**同一 `--max-steps 40` 预算与同一模型**。初始数据包（`cli.py` step=0 生成）在两种模式走同一段代码，且都只写进 ResultStore 与 trace，从不注入任一模式的模型 prompt（`agent/prompts/system.md` 与 `user_message` 都不提及它，`build_view` 只压缩已有消息）——所以 `initial_packet` **不是** single/multi 的提示差异，成本差异与它无关。成本量级不能凭本轮单独下"十倍"结论：有概念字典后 single S01 实测约 119,898 prompt tokens，本轮 multi 为 221,345，约 1.85 倍，但两次预算与运行结果都不同，**不构成严格同条件对照**，只能各报实测、不外推倍数（M2 复审 §6-2）。multi 相对 single 会多耗的原因仍是结构性的：每次子 Agent（planner/worker/reviewer）都当作独立请求（各自完整角色 prompt + 任务上下文），且 Worker 重新取数而非复用数据包。
 
 | 维度 | single_agent | multi_agent（本轮实测） |
 |---|---|---|
@@ -178,7 +178,7 @@ n4 子循环里有一次 `calc` 被 `CalcRejected: 表达式中不允许的节�
 | 证据组织 | 一条 Result Store 时间线 | 计划版本 + 节点 artifact（facts/calculations/limitations/missing_inputs）+ 候选答案，全部落 `analysis_state.json` |
 | 收尾条件 | 数字核验通过即可 `final_answer` | 数字核验 **且** §8 提交条件（已审候选、版本一致、必要节点有结果或明确缺口、来源 artifact 未失效） |
 | 上下文 | 走 5 层压缩流水线（L1–L5） | 子 Agent 各自独立子上下文，天然分段；主循环目前不接压缩（§7） |
-| 成本 | 早期 v1 单 Agent 基线 prompt 为万级（提示结构、概念字典与本轮不同，非同条件对照） | 本轮 221,345 prompt + 14,615 completion，48 次 LLM 请求（14 主步 + 34 子步）——相对单 Agent 至少一个数量级以上，但精确倍数需同题同条件对照才能定（§7 第 9 项），不外推 |
+| 成本 | 有概念字典后 single S01 约 119,898 prompt tokens（非同条件对照，预算/结果均不同） | 本轮 221,345 prompt + 14,615 completion，48 次 LLM 请求（14 主步 + 34 子步）；相对上述 single 约 1.85 倍，但两次不同条件，只各报实测、不下倍数结论（§6/§7 第 9 项） |
 | 可审计性 | `review.md` 单份 | 多 `analysis_review.md`（任务图/节点状态/事实 rid/审查/候选与边界声明） |
 | 回归影响 | — | single 的取数/判据/工具面未改动：子工具不泄漏进 `all_tool_schemas()`，`tests/test_tools.py` 与 CLI 用例钉住。本轮只动了两处共享的可观测性 plumbing——`v1.Paced.__getattr__` 透传 `last_call_events`（之前 Paced 把它藏起来，单 Agent 的重试事件被静默丢弃）、`agent/loop.py` 的 `llm_retry` 事件不再重复传 `type`（配合上一条，否则单 Agent 首次重试就会 `TypeError` 崩溃）。单 Agent 路径只因此新增"重试留痕"，不改回答内容/数字核验；全库 228 项离线回归绿 |
 
@@ -186,7 +186,7 @@ n4 子循环里有一次 `calc` 被 `CalcRejected: 表达式中不允许的节�
 
 需要人来定的（我没有自行放宽预算、换模型或改判据）：
 
-1. **时间预算与限速不匹配**：`max_wall_s=600` + 免费档 8 RPM 装不下一次 multi 运行（48 次请求 ≥ 600s 是算术必然）。要么给 multi 单独放宽 wall/token，要么减小任务图，属配置决策。
+1. **（已被 2026-10-06 开发裁定取代）时间/墙钟与限速的关系此前被写成"48 次请求 ≥ 600s 是算术必然"，不成立**：仅按请求配额估算是约 6 分钟（48÷8 RPM），但 609.75s 里还包含模型响应、工具执行、等待与重试；且生效 RPM 当时没有落盘，不能用它独立解释本次耗时（M2 复审 §6-1）。正确的做法是记录生效 RPM 并拆分耗时来源，而不是把超时归因于单一限速。**该 `max_wall_s=600` 触顶路径现已不存在**——开发裁定取消了 multi 的墙钟/token/次数停止上限，multi 只以最大轮数收敛，仅保留 RPM 节流、单请求超时与有限网络重试这些接口机制。
 2. **12 次子调用额度与角色配比**：本轮 reviewer 0 次，`semantic_review_status` 因此只能是 `not_reviewed`。是否给三种角色分设额度（而不是共享）需要裁定。
 3. **`calc` 表达式归一化**：n4 的某个 Worker 步里一次 `calc` 被 `CalcRejected: 表达式中不允许的节点: Attribute` 拒掉，
    而同一轮里 `r13.inventory[Lenovo,FY27Q1] / r15.inventory[Lenovo,FY26Q1] - 1`（无空格）与
@@ -198,10 +198,38 @@ n4 子循环里有一次 `calc` 被 `CalcRejected: 表达式中不允许的节�
 7. **暂不支持删除节点**：只能 `required_for_answer=false` 让它不再阻塞收尾。
 8. **运行包没有回显实际命令行与限速参数**：`--max-rpm`、`--max-steps` 里只有后者能从 `run_meta.budget` 反推，
    前者不落盘（§4 的调用形式因此是重建的）。是否把生效命令行写进 run_meta 属交付口径决策。
-9. **multi 的 prompt 成本 10 倍于单 Agent，结构原因未量化**：本轮 221,345 prompt tokens 来自 14 次主 Agent 请求叠加 34 次子 Agent 步——planner/worker 每次请求都自带完整角色 prompt、任务上下文与已取到的工具结果，反复进模型。初始数据包在两种模式都只进 ResultStore、从不进任一模式的 prompt（§6），所以这一成本差与 `initial_packet` 无关。要判断差值里多少来自 Worker 重复取数、多少来自角色 prompt 本身，需要一次同题 single 对照，不能靠本轮数字外推。
+9. **multi 的 prompt 成本高于单 Agent，但倍数不可凭本轮外推**：本轮 221,345 prompt tokens 来自 14 次主 Agent 请求叠加 34 次子 Agent 步——planner/worker 每次请求都自带完整角色 prompt、任务上下文与已取到的工具结果，反复进模型。有概念字典后 single S01 实测约 119,898 prompt tokens，两者比值约 1.85，但两次预算和运行结果不同，**不是同条件对照**，不能据此得出"十倍/一个数量级"之类结论。初始数据包在两种模式都只进 ResultStore、从不进任一模式的 prompt（§6），所以这一成本差与 `initial_packet` 无关。要判断差值里多少来自 Worker 重复取数、多少来自角色 prompt 本身，需要一次同题同条件 single 对照。
 10. **七题全量 multi_agent 实验未跑**：按规格留给用户看过本次冒烟后另行决定；本轮也仅此一次 live 运行。
 11. 单 Agent 基线那边仍待决策的四个杠杆（A max_steps / B grounding 抑制 / C verifier 严格度 / D gold 标注）依旧挂起，不因 P6 改变。
 
-停止点：M2 交付到此。离线 228 项全绿，S01 冒烟包与证据已完整保存，未 push。
-下一批动作应由人工审阅本次冒烟后给出：是调预算/额度配置、还是修 `calc` 归一化、或进入七题批量实验。
+## 8. 开发裁定落地（P6-M3，2026-10-06 后续）
+
+上文 §2/§4–§7 记录的是 M2 那次带资源停止上限（时间/token/子调用额度）的实现与冒烟，属于历史证据，旧运行包不追改。
+本节说明据"最新裁定"（`docs/handoff_multi_agent_attribution_development.md` 顶部 + `docs/multi_agent_M2_review.md` 裁定段）
+在 M3 对代码做的改动，避免把上面的旧机制读成当前行为。改动为代码 + 离线回归 + 本文件更正，**未做在线运行、未 push**。
+
+取消的资源停止上限（只以最大轮数收敛，每轮＝一次模型请求）：
+- 主循环不再有 token/墙钟提前 `break`（`agent/multi.py` 删去 `used_tokens>=max_tokens` 与 `monotonic()-t0>max_wall_s` 两处出口）；轮数用尽只如实报"未达提交条件"，保存中间产物、绝不自标通过。
+- 删除 `_subagent_refusal()` 子调用额度闸门；不再有任何"子调用预算耗尽/不再启动子调用"的前置拒绝。
+- `_tool_execute` 去掉"节点尝试次数上限"拦截；`attempt` 仅作历史留痕。
+- `save_plan` 的"节点数上限 / 计划修订上限"与 `final_answer` 的"最终修订次数上限"改为 `0=不拦`（`AnalysisState` 默认上限 0；`max_final_revisions` 停止移除，`final_rejects` 只计数）。
+- `subagents.SubAgentRunner` 的收尾轮改到 `max_steps` **之内**：保留最后一轮禁用工具、只交协议 JSON，`child_steps` 即真实请求数，不存在循环外隐藏的 +1（旧写法 6 步实发 7 次）。
+- `config.yaml multi_agent` 段由六项资源额度改为四个轮数键（`main/planner/worker/reviewer_max_steps`）。
+
+保留的机制（取消上限不等于放宽判据）：RPM 节流 / 单请求超时 / 有限网络重试（接口级，非整次墙钟预算）；依赖存在·自依赖·成环·版本一致·角色权限·数据性质·claims 引用口径·最终候选审查等**全部正确性校验仍会拒绝非法调用**。
+
+复审点名的两处缺陷修复：
+- §2：`PlanProposal.validate_semantics()` 收窄为**局部**校验（node_id 非空/本批不重复/不自依赖），合并整图的依赖/环/节点数统一交 `save_plan()`。此前补丁"只改 n2、沿用 n1 依赖"在工具入口被判 `依赖 n1 不存在`；新增 `test_patch_revise_via_tool_entry_keeps_unchanged_evidence` 走真实 `_tool_plan` 入口钉住（成功且 n1 证据保留；未知依赖/成环补丁仍拒、失败不改状态）。
+- §3：真实启动计数移入唯一写 `subagent_start` 的 `_run_role()`，`subagent_calls` 与 trace `subagent_start` 天然一一对应；参数预检拒绝与正确性校验拒绝改记 `subagent_refusals`（主循环按"派发前后启动数是否变化"通用地归类）。`test_w2_launch_count_matches_trace_refusals_separate` 验证。
+
+顺带修正的一处真实判据 bug：`save_plan` 补丁改动检测里列表字段（`depends_on`/`input_refs`）误用 `==`，会把"只改依赖边"判成没改、把"原样重列带依赖的节点"判成已改（无谓作废旧证据），已改为 `!=`，与标量分支同口径。
+
+导出字段更名：`run_meta.multi_agent` 与 `analysis_review.md` 的资源段由 `budgets_effective/cfg_budgets` 改为
+`effective_rounds/cfg_rounds/canceled_limits/kept_runtime_guards/consumption/final_answer_rejects`，明确标注开发模式取消了哪些上限、保留了哪些机制、以及完整消耗（记录不拦截）。
+
+离线回归：`tests/test_multi_agent.py` 38 passed、全库 229 passed（复现命令同 §1，`--basetemp` 用工作区目录）。
+仍未做的：S01 单题 live 复审链、七题批量——均不属本次裁定授权范围，留人工决定。
+
+停止点：M3 落地到此。离线 229 项全绿（M2 时的 228 项 + 本轮补丁入口回归），S01 冒烟包与证据按历史原样保存，未追改、未 push、未做在线运行。
+下一批动作仍需人工裁定：是否用新实现跑一次 S01 单题 live（重点观察 Reviewer 与收尾链），以及是否进入七题批量。数字判据未放宽，中间候选不标业务 PASS。
 

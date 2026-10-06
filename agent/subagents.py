@@ -83,18 +83,39 @@ class SubAgentRunner:
                     {"role": "user", "content": user_content}]
         events: list[dict] = []
         in_tok = out_tok = 0
+        requests = 0                # 实际发出的模型请求数＝消耗的轮数（含收尾轮）
         correction_used = False
         payload: dict | None = None
-        step = -1
-        exhausted = False          # 整段步数都在调用工具 → 没有机会自己收尾
+        exhausted = False           # 收尾前一直在调用工具 → 没有自行交付协议 JSON
+        finalized = False           # 结果是在"预留的最后一轮"里交付的
+        # 最新裁定（2026-10-06）：每轮＝一次模型请求，无工具输出、协议纠错和收尾请求都算一轮；
+        # 额外收尾轮必须在 max_steps 之内——最后一轮不再开放工具，只要求交付已有证据与缺口，
+        # 不能用隐藏的 +1 追加请求绕过上限（旧写法在循环外补一次 chat，实际用了 max_steps+1 轮）。
+        last_round = self.max_steps - 1
         for step in range(self.max_steps):
-            resp = self.llm.chat(messages, tools=schemas or None, role="agent")
+            delivering = step == last_round
+            if delivering:
+                messages.append({"role": "user", "content":
+                    "现在不要再调用任何工具。基于上面已经真实拿到的工具结果，只输出一个符合协议的 "
+                    "JSON 对象：已完成的数字写进 facts/calculations（rid 必须是你确实拿到过的，"
+                    "不得凭记忆补数），没做完的写进 missing_inputs 与 limitations，"
+                    "summary 说明当前进展与缺口。"})
+                events.append({"type": "subagent_finalize", "role": self.role,
+                               "step": step, "steps_exhausted": exhausted})
+            resp = self.llm.chat(messages, tools=None if delivering else (schemas or None),
+                                 role="agent")
+            requests += 1
             # §9/§10：子 Agent 的 API 重试同样要留痕（共享客户端每次 chat 重置该列表）
             for ev in getattr(self.llm, "last_call_events", []) or []:
-                events.append({**ev, "role": self.role, "step": step})
+                events.append({**ev, "role": self.role, "step": step,
+                               **({"phase": "finalize"} if delivering else {})})
             u = resp.usage or {}
             in_tok += u.get("prompt_tokens", 0)
             out_tok += u.get("completion_tokens", 0)
+            if delivering:
+                payload = _extract_json(resp.content or "")
+                finalized = payload is not None
+                break
             if resp.tool_calls:
                 exhausted = True
                 calls = []
@@ -133,36 +154,17 @@ class SubAgentRunner:
                 events.append({"type": "protocol_correction", "role": self.role, "step": step})
                 continue
             break
-        # M2 live 取证：Worker 常把步数全部花在取数/计算上（S01 冒烟 n4 两次都是
-        # child_steps=6 用满 → payload=None → 整节点判"无合法输出"，前面算出的 r17–r21 全丢）。
-        # 程序在这里补一次"不再调用工具，只交协议 JSON"的收尾请求：已完成部分得以入库，
-        # 未完成部分进 missing_inputs（§6.3：blocked 保存已完成部分，不等于节点完成）。
-        finalized = False
-        if payload is None:
-            messages.append({"role": "user", "content":
-                "现在不要再调用任何工具。基于上面已经真实拿到的工具结果，只输出一个符合协议的 "
-                "JSON 对象：已完成的数字写进 facts/calculations（rid 必须是你确实拿到过的，"
-                "不得凭记忆补数），没做完的写进 missing_inputs 与 limitations，"
-                "summary 说明当前进展与缺口。"})
-            events.append({"type": "subagent_finalize", "role": self.role,
-                           "step": step + 1, "steps_exhausted": exhausted})
-            resp = self.llm.chat(messages, tools=None, role="agent")
-            for ev in getattr(self.llm, "last_call_events", []) or []:
-                events.append({**ev, "role": self.role, "step": step + 1, "phase": "finalize"})
-            u = resp.usage or {}
-            in_tok += u.get("prompt_tokens", 0)
-            out_tok += u.get("completion_tokens", 0)
-            payload = _extract_json(resp.content or "")
-            finalized = payload is not None
         error = ""
         if payload is None:
             error = ("子循环步数耗尽且收尾仍无合法 JSON" if exhausted
                      else "收尾输出仍不是合法 JSON")
         elif "error" in payload:
             error = str(payload.get("error"))[:200] or "子 Agent 报告无法完成"
+        # child_steps 就是实际发出的模型请求数（收尾轮已计入），不超过 max_steps——最新裁定要求
+        # 每轮＝一次模型请求，收尾轮在预算之内，不存在隐藏的 +1 追加请求。
         return SubResult(ok=payload is not None and "error" not in payload,
                          payload=payload, error=error,
-                         child_steps=(step + 1) + (1 if finalized or payload is None else 0),
+                         child_steps=requests,
                          prompt_tokens=in_tok, completion_tokens=out_tok, events=events,
                          finalized=finalized, steps_exhausted=exhausted)
 
@@ -173,17 +175,18 @@ class PlanProposal(BaseModel):
     revision_reason: str = ""
     nodes: list[dict]
 
-    def validate_semantics(self, max_nodes: int):
+    def validate_semantics(self, max_nodes: int = 0):
+        """只校验补丁的**局部**约束（M2 复审 §2）：node_id 非空、本批不重复、不自依赖。
+
+        补丁式修订常常只列改动节点（例如把 n2 的口径细化，depends_on 沿用已在图里的 n1），
+        此时 n1 不在本次 nodes 中——若在这里查"依赖必须存在于本次列表"就会把合法补丁判成
+        `依赖 n1 不存在`。合并后的整图校验（依赖存在、节点数、自依赖、成环）统一交给
+        `AnalysisState.save_plan()`，避免两套互相冲突的校验。
+        """
         ids = [n.get("node_id") for n in self.nodes]
         if len(ids) != len(set(ids)) or any(not i for i in ids):
-            raise ValueError("plan_invalid: node_id 缺失或重复")
-        if len(self.nodes) > max_nodes:
-            raise ValueError(f"plan_invalid: 节点数超上限 {max_nodes}")
-        idset = set(ids)
+            raise ValueError("plan_invalid: node_id 缺失或本批重复")
         for n in self.nodes:
-            for d in n.get("depends_on") or []:
-                if d not in idset:
-                    raise ValueError(f"plan_invalid: 依赖 {d} 不存在")
             if n.get("node_id") in (n.get("depends_on") or []):
                 raise ValueError(f"plan_invalid: 自依赖 {n.get('node_id')}")
 

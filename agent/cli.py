@@ -134,11 +134,15 @@ def _export_package(out_dir: Path, question: str, as_of, db_path: Path, client,
         "verified": out.verified, "status": out.answer.status,
     }
     if meta["agent_mode"] == "multi_agent":
-        # §5/§9/§10：记录实际生效的 multi 预算、角色模型与角色提示哈希（不含密钥）
+        # §5/§9/§10 + 开发裁定（2026-10-06）：multi 只以最大轮数控制运行，资源停止上限已取消；
+        # 导出记录生效轮数、被取消的上限清单、以及完整消耗（记录不拦截），均不含密钥。
         multi_prompts = Path("agent/prompts/multi")
         meta["multi_agent"] = {
-            "cfg_budgets": getattr(ctx, "multi_cfg", None) or {},
-            "effective_budgets": info.get("budgets_effective"),
+            "cfg_rounds": getattr(ctx, "multi_cfg", None) or {},
+            "effective_rounds": info.get("effective_rounds"),
+            "canceled_limits": info.get("canceled_limits"),
+            "kept_runtime_guards": info.get("kept_runtime_guards"),
+            "consumption": info.get("consumption"),
             "role_model": client.model,
             "role_prompt_sha256_12": {
                 p.name: _file_hash(p) for p in sorted(multi_prompts.glob("*.md"))
@@ -147,6 +151,7 @@ def _export_package(out_dir: Path, question: str, as_of, db_path: Path, client,
             "subagent_role_calls": info.get("subagent_role_calls", {}),
             "subagent_refusals": info.get("subagent_refusals", 0),
             "subagent_child_steps": info.get("subagent_child_steps", 0),
+            "final_answer_rejects": info.get("final_answer_rejects", 0),
             "plan_revisions": info.get("plan_revisions"),
             "reviews_total": info.get("reviews_total"),
             "findings_total": info.get("findings_total"),

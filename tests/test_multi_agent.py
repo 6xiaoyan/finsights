@@ -152,9 +152,16 @@ def test_hash_mismatch_rejected(tmp_path):
     assert any("哈希不一致" in p for p in problems)  # 防审查 A 提交 B
 
 
-def test_budget_enforced():
-    ma = {"total_subagent_calls": 2, "used_subagent_calls": 2}
-    assert ma["used_subagent_calls"] >= ma["total_subagent_calls"]  # 超限 → 拒绝子调用
+def test_resource_limits_are_canceled_not_rounds():
+    """结构回归：MULTI_ROUNDS 只含轮数键；旧资源停止上限归入 CANCELED_LIMITS（记录不拦截）。"""
+    from agent.multi import CANCELED_LIMITS, KEPT_RUNTIME_GUARDS, MULTI_ROUNDS
+    assert set(MULTI_ROUNDS) == {"main_max_steps", "planner_max_steps",
+                                 "worker_max_steps", "reviewer_max_steps"}
+    joined = " ".join(CANCELED_LIMITS)
+    for gone in ("max_wall_s", "max_tokens", "子调用总数", "任务图节点数",
+                 "单节点尝试次数", "计划修订次数", "最终答案修订次数"):
+        assert gone in joined
+    assert any("RPM" in g for g in KEPT_RUNTIME_GUARDS)   # 保留接口节流，不是整次墙钟预算
 
 
 # ---------------- 13. live 冒烟崩溃回归（docs/evidence/multi_agent_S01_smoke.txt）
@@ -260,39 +267,48 @@ def _minimal_ctx(tmp_path, script, max_steps=3, tokens=None):
     return ctx
 
 
-def test_contract_and_config_budgets(tmp_path):
+def test_contract_and_effective_rounds(tmp_path):
+    """contract 承接解析要求；config 收紧的是轮数而非资源额度（开发裁定 2026-10-06）。"""
     from agent.llm import ChatResult
-    from agent.multi import MULTI_BUDGET, run_multi
+    from agent.multi import MULTI_ROUNDS, run_multi
     idle = [ChatResult(content="先不提交", tool_calls=[],
                        usage={"prompt_tokens": 10, "completion_tokens": 2})] * 2
     ctx = _minimal_ctx(tmp_path, list(idle))
     ctx.parsed_scope_extra = {"company": "Lenovo", "period": "FY2027Q1",
                               "comparison": "yoy", "scope_notes": ["主比较按同比"]}
-    ctx.multi_cfg = {"total_subagent_calls": 3, "bogus_key": 99}
+    ctx.multi_cfg = {"worker_max_steps": 3, "bogus_key": 99}
     final = run_multi("联想 FY2027Q1 库存增长，请比较上年同期", ctx, ctx.llm, tmp_path / "run")
     persisted = json.loads((tmp_path / "run" / "analysis" / "analysis_state.json")
                            .read_text(encoding="utf-8"))
     assert persisted["contract"]["company"] == "Lenovo"
     assert persisted["contract"]["period"] == "FY2027Q1"
     assert persisted["contract"]["comparison"] == "yoy"        # §6.1：同比要求不被静默丢掉
-    eff = final.stats["budgets_effective"]
-    assert eff["total_subagent_calls"] == 3                    # config 收紧生效
-    assert eff["max_plan_nodes"] == MULTI_BUDGET["max_plan_nodes"]  # 未配置项退回默认
-    assert "bogus_key" not in eff                              # 未知配置键不扩大预算
+    eff = final.stats["effective_rounds"]
+    assert eff["worker_max_steps"] == 3                        # config 收紧轮数生效
+    assert eff["planner_max_steps"] == MULTI_ROUNDS["planner_max_steps"]  # 未配置项退回默认
+    assert "bogus_key" not in eff                              # 未知配置键不进生效轮数
+    # 导出明确标记 development 取消了哪些资源停止上限、保留了哪些接口运行机制
+    assert "子调用总数" in final.stats["canceled_limits"]
+    assert any("RPM" in g for g in final.stats["kept_runtime_guards"])
 
 
-def test_token_budget_stops_before_subagent_calls(tmp_path):
+def test_old_resource_thresholds_no_longer_block(tmp_path):
+    """开发裁定反向钉住：即便旧口径 token/时间"已耗尽"，主循环仍照常发下一轮请求，不再提前退出。"""
     from agent.llm import ChatResult
     from agent.multi import run_multi
-    ctx = _minimal_ctx(tmp_path, [ChatResult(content="不该被请求", tool_calls=[],
-                                             usage={"prompt_tokens": 1, "completion_tokens": 1})],
-                       max_steps=6)
-    ctx.stats["prompt_tokens"] = ctx.budget.max_tokens         # 已用满
+    ctx = _minimal_ctx(tmp_path, [
+        ChatResult(content="先不提交", tool_calls=[],
+                   usage={"prompt_tokens": 1, "completion_tokens": 1}),
+        ChatResult(content="还是不提交", tool_calls=[],
+                   usage={"prompt_tokens": 1, "completion_tokens": 1}),
+    ], max_steps=6)
+    ctx.budget.max_tokens = 1
+    ctx.budget.max_wall_s = 0
+    ctx.stats["prompt_tokens"] = 10 ** 9                       # 旧阈值下早已"token 耗尽"
     final = run_multi("联想 FY2024Q3 存货同比变化原因", ctx, ctx.llm, tmp_path / "run")
-    assert final.answer.status == "refuse"
-    assert final.stats["stop_reason"] == "token 预算耗尽"
-    assert final.stats["subagent_calls"] == 0                  # 不新起子调用（§9）
-    assert len(ctx.llm.script) == 1                            # 脚本未消费：预算满则不再发请求
+    assert final.stats["stop_reason"] not in ("token 预算耗尽", "时间预算耗尽")
+    assert len(ctx.llm.script) == 0                            # 脚本被真实消费：没被旧阈值提前拦住
+    assert final.stats["subagent_calls"] == 0                  # 模型一直没提交，按轮数未提交收尾
 
 
 # ---------------- 16. 主 Agent 必须真的"看得见"三类子工具（live 冒烟暴露的根因）
@@ -452,7 +468,7 @@ def test_downstream_stale_blocks_review_and_node_review_status(tmp_path):
 def test_review_rejects_stale_or_wrong_version(tmp_path):
     """§7.3：对象存在、引用有效、版本一致才调用 reviewer；stale 目标直接拒绝。"""
     from types import SimpleNamespace
-    from agent.multi import MULTI_BUDGET, _tool_review
+    from agent.multi import _tool_review
     st = _state(tmp_path)
     plan = _plan_with_two_nodes(st)
     a1 = _completed(st, "n1")
@@ -460,7 +476,7 @@ def test_review_rejects_stale_or_wrong_version(tmp_path):
     ctx = SimpleNamespace(trace=SimpleNamespace(event=lambda **kw: None),
                           stats={}, budget=SimpleNamespace(max_tokens=10 ** 9,
                                                            max_wall_s=10 ** 9))
-    ma = dict(MULTI_BUDGET)
+    ma = _ma()
     msg = _tool_review(st, {"target_type": "artifact", "target_id": a1.artifact_id,
                             "target_version": "rev9-attempt9"}, None, "", ctx, 1, ma, tmp_path)
     assert "版本不一致" in msg and st.reviews == {}            # 声明版本不符：不调用 reviewer
@@ -474,7 +490,7 @@ def test_execute_rejected_after_accepted_review(tmp_path):
     """§7.2：已完成且已接受的节点要重做必须先修订计划，不能原地覆盖。"""
     from types import SimpleNamespace
     from agent.analysis_state import Review as RV
-    from agent.multi import MULTI_BUDGET, _artifact_version, _tool_execute
+    from agent.multi import _artifact_version, _tool_execute
     st = _state(tmp_path)
     plan = _plan_with_two_nodes(st)
     a1 = _completed(st, "n1")
@@ -483,7 +499,7 @@ def test_execute_rejected_after_accepted_review(tmp_path):
                      target_version=_artifact_version(a1), verdict="accepted"))
     ctx = SimpleNamespace(trace=SimpleNamespace(event=lambda **kw: None), stats={},
                           store=SimpleNamespace(get=lambda rid: None))
-    msg = _tool_execute(st, {"node_id": "n1"}, None, "", ctx, 1, dict(MULTI_BUDGET))
+    msg = _tool_execute(st, {"node_id": "n1"}, None, "", ctx, 1, _ma())
     assert "已完成并通过审核" in msg
 
 
@@ -651,17 +667,19 @@ def _plain(text):
 
 
 def _ma(**over):
-    from agent.multi import MULTI_BUDGET
-    ma = dict(MULTI_BUDGET)
-    ma.update({"used_subagent_calls": 0, "role_calls": {}, "subagent_refusals": 0})
+    from agent.multi import MULTI_ROUNDS
+    ma = dict(MULTI_ROUNDS)
+    ma.update({"used_subagent_calls": 0, "role_calls": {}, "subagent_refusals": 0,
+               "final_rejects": 0})
     ma.update(over)
     return ma
 
 
 def test_w1_worker_step_exhaustion_gets_finalize_turn(tmp_path):
-    """W1：Worker 把步数全花在取数上，M1 判"无合法输出"丢掉整节点证据（n4 已算出 r17–r21）。
+    """W1：Worker 把轮数花在取数上，M1 判"无合法输出"丢掉整节点证据（n4 已算出 r17–r21）。
 
-    程序补一次"不再调用工具，只交协议 JSON"的收尾轮，已完成部分得以入库，且步数如实累计。
+    最新裁定要求收尾轮在 max_steps 之内：max_steps=3 = 2 轮取数 + 1 轮预留收尾（不再调用工具，
+    只交协议 JSON），已完成部分得以入库，且实际发出的模型请求数＝3（不存在隐藏的 +1 追加请求）。
     """
     from agent.loop import make_run_ctx
     from agent.subagents import SubAgentRunner
@@ -675,15 +693,16 @@ def test_w1_worker_step_exhaustion_gets_finalize_turn(tmp_path):
                     "summary": "已得平均存货与同比，缺分部明细"})]
     llm = _RetryMockLLM(script)
     ctx = make_run_ctx("data/finsights.duckdb", llm, trace_path=tmp_path / "t.jsonl")
-    r = SubAgentRunner(llm, ctx, "worker", "你是 Worker", max_steps=2).run("取存货数据")
+    r = SubAgentRunner(llm, ctx, "worker", "你是 Worker", max_steps=3).run("取存货数据")
     assert r.ok and r.finalized and r.steps_exhausted
     assert r.payload["facts"][0]["value"] == 13731.4           # 证据没有因为步数用尽被丢
     fin = [e for e in r.events if e["type"] == "subagent_finalize"]
     assert len(fin) == 1 and fin[0]["role"] == "worker" and fin[0]["steps_exhausted"] is True
+    assert fin[0]["step"] == 2                                  # 收尾轮是循环内最后一轮（index 2）
     tr = [e for e in r.events if e["type"] == "tool_result"]
     assert tr and all("args_head" in e and "call_id" in e for e in tr)   # §10：参数可复盘
-    assert r.child_steps == 3                                  # 2 步取数 + 1 步收尾（§9）
-    assert llm.script == []                                    # 收尾轮就是最后一次请求
+    assert r.child_steps == 3                                  # 2 轮取数 + 1 轮收尾，均在预算内
+    assert llm.script == []                                    # 收尾轮就是最后一次请求，无隐藏追加
 
 
 def test_w1_partial_result_saved_as_blocked_artifact(tmp_path):
@@ -703,7 +722,7 @@ def test_w1_partial_result_saved_as_blocked_artifact(tmp_path):
                                "calculations": [], "missing_inputs": ["分部明细"],
                                "limitations": [], "summary": "已得存货，缺分部"})])
     ctx.llm = llm
-    txt = _tool_execute(st, {"node_id": "n1"}, llm, "你是 Worker", ctx, 1, _ma(worker_max_steps=2))
+    txt = _tool_execute(st, {"node_id": "n1"}, llm, "你是 Worker", ctx, 1, _ma(worker_max_steps=3))
     art = list(st.artifacts.values())[0]
     assert art.execution_status == "blocked"
     assert [f["rid"] for f in art.facts] == [rid]              # 程序核验过的证据保留
@@ -725,17 +744,19 @@ def test_w1_finalize_still_broken_records_honest_failure(tmp_path):
                          _asst([_call("w2", "list_metrics", {})]),
                          _plain("我还想继续查数")])
     ctx = make_run_ctx("data/finsights.duckdb", llm, trace_path=tmp_path / "t.jsonl")
-    txt = _tool_execute(st, {"node_id": "n1"}, llm, "你是 Worker", ctx, 1, _ma(worker_max_steps=2))
+    txt = _tool_execute(st, {"node_id": "n1"}, llm, "你是 Worker", ctx, 1, _ma(worker_max_steps=3))
     art = list(st.artifacts.values())[0]
     assert art.execution_status == "failed"
     assert art.missing_inputs and "步数耗尽" in art.missing_inputs[0]
     assert "步数耗尽" in txt
 
 
-def test_w2_invalid_and_refused_calls_do_not_consume_subagent_budget(tmp_path):
-    """W2：漏传 node_id 的调用与额度耗尽后被拒的调用都不该算一次子调用（§9 口径）。
+def test_w2_launch_count_matches_trace_refusals_separate(tmp_path):
+    """W2（开发裁定后）：真实启动数＝trace subagent_start 数；被拒调用单独计，绝不出现额度拒绝。
 
-    第一次冒烟 run_meta 报 subagent_calls=14 而 trace 只有 12 次 subagent_start。
+    M2 复审 §3 的口径修复落点：漏 node_id 的参数预检拒绝 + 节点不在计划的正确性拒绝都不启动
+    子 Agent，因而都不计入 subagent_calls，只各自记一次 subagent_refusals；旧的"子调用预算耗尽"
+    拒绝文本已随额度一起取消。
     """
     from agent.loop import make_run_ctx
     from agent.multi import run_multi
@@ -743,28 +764,71 @@ def test_w2_invalid_and_refused_calls_do_not_consume_subagent_budget(tmp_path):
               "required_for_answer": True}]
     llm = _RetryMockLLM([
         _asst([_call("p1", "plan_analysis", {"action": "create", "reason": "首轮"})]),
-        _sub({"revision_reason": "初版", "nodes": nodes}),
-        _asst([_call("e1", "execute_analysis", {"node_id": "n1"})]),      # 额度已用满 → 拒绝
-        _asst([_call("e2", "execute_analysis", {"extra_instructions": "x"})]),  # 漏 node_id
-        _plain("基于现有证据收尾"), _plain("还是不提交"),
+        _sub({"revision_reason": "初版", "nodes": nodes}),          # 唯一真正启动的子 Agent
+        _asst([_call("e1", "execute_analysis", {"extra_instructions": "x"})]),  # 漏 node_id → 预检拒
+        _asst([_call("e2", "execute_analysis", {"node_id": "nX"})]),            # 节点不存在 → 正确性拒
+        _plain("基于现有证据先不提交"), _plain("还是不提交"),
     ])
     ctx = make_run_ctx("data/finsights.duckdb", llm, trace_path=tmp_path / "t.jsonl", max_steps=6)
-    ctx.multi_cfg = {"total_subagent_calls": 1}
     final = run_multi("联想 FY2024Q3 存货同比变化原因", ctx, llm, tmp_path / "run")
     st = final.stats
-    assert st["subagent_calls"] == 1                             # 只有真正启动的 planner 计 1
+    starts = len([e for e in ctx.trace.events if e["type"] == "subagent_start"])
+    assert st["subagent_calls"] == 1 == starts                    # §3：启动数与 subagent_start 一一对应
     assert st["subagent_role_calls"] == {"planner": 1}
-    assert st["subagent_refusals"] == 1                          # 被拒的单独计
-    assert len([e for e in ctx.trace.events if e["type"] == "subagent_start"]) == 1
+    assert st["subagent_refusals"] == 2                           # 两条被拒派发各自单独计
     evs = {e["call_id"]: e for e in ctx.trace.events if e["type"] == "tool_result"}
-    assert evs["e1"]["ok"] is False and "子调用预算耗尽" in evs["e1"]["result_head"]
-    assert evs["e2"]["ok"] is False and evs["e2"]["result_head"].startswith("工具错误")
+    assert evs["e1"]["ok"] is False and evs["e1"]["result_head"].startswith("工具错误")
+    assert evs["e2"]["ok"] is False and evs["e2"]["result_head"].startswith("错误")
+    assert "不在当前计划" in evs["e2"]["result_head"]             # 正确性校验仍拒绝非法派发
+    # 额度拒绝已取消：任何工具结果都不应再出现"预算耗尽/不再启动子调用"
+    assert not any("预算耗尽" in e["result_head"] or "不再启动子调用" in e["result_head"]
+                   for e in evs.values())
     from agent.multi import _validate_subtool_args
     hint = _validate_subtool_args("execute_analysis", {"extra_instructions": "x"})
-    assert hint.startswith("工具错误") and "不占用子调用预算" in hint   # 合法调用不受影响
+    assert hint.startswith("工具错误") and "不计入子 Agent 启动数" in hint
     assert _validate_subtool_args("execute_analysis", {"node_id": "n1"}) == ""
     assert _validate_subtool_args("recall", {}) == ""                   # 非子工具不在此预检
-    assert st["subagent_calls"] == 1                             # 非法参数调用没有偷偷扣额度
+
+
+def test_patch_revise_via_tool_entry_keeps_unchanged_evidence(tmp_path):
+    """M2 复审 §2：走真实 _tool_plan 入口做"只改 n2"的补丁修订——旧写法在参数校验层就把
+    合法补丁判成"依赖 n1 不存在"。补丁合并 + 精确失效后，n1 的证据必须保留；未知依赖与
+    成环补丁仍被拒绝，且失败不改变已保存的计划状态。
+    """
+    from agent.analysis_state import AnalysisArtifact as AA
+    from agent.loop import make_run_ctx
+    from agent.multi import _tool_plan
+    st = _state(tmp_path)
+    st.save_plan([{"node_id": "n1", "goal": "取数"},
+                  {"node_id": "n2", "goal": "对比", "depends_on": ["n1"]}], "初版")
+    a1 = st.add_artifact(AA(artifact_id="", node_id="n1", plan_revision=1, attempt=1,
+                            execution_status="completed", facts=[{"rid": "r1"}]))
+    ctx = make_run_ctx("data/finsights.duckdb", None, trace_path=tmp_path / "t.jsonl")
+    llm = _RetryMockLLM([_sub({"revision_reason": "细化 n2 口径",
+                               "nodes": [{"node_id": "n2", "goal": "改为环比",
+                                          "depends_on": ["n1"], "completion_criteria": "给环比",
+                                          "required_for_answer": True}]})])
+    ctx.llm = llm
+    txt = _tool_plan(st, {"action": "revise", "reason": "细化"}, llm, "你是 Planner", ctx, 1, _ma())
+    assert not txt.startswith("plan_invalid") and not txt.startswith("错误")
+    assert st.latest_revision == 2 and len(st.latest_plan().nodes) == 2   # 补丁合并，n1 仍在图里
+    assert st.artifacts[a1.artifact_id].stale is False                    # 只改 n2 → n1 证据保留
+    assert a1.artifact_id in st.valid_artifact_ids()
+
+    # 未知依赖的补丁：合并后仍依赖不存在的 nZ → save_plan 拒绝，且状态回到修订前
+    before_rev, before_nodes = st.latest_revision, len(st.latest_plan().nodes)
+    llm2 = _RetryMockLLM([_sub({"revision_reason": "坏依赖",
+                                "nodes": [{"node_id": "n3", "goal": "x", "depends_on": ["nZ"]}]})])
+    txt_bad = _tool_plan(st, {"action": "revise", "reason": "坏依赖"}, llm2, "你是 Planner", ctx, 2, _ma())
+    assert txt_bad.startswith("plan_invalid") and "依赖" in txt_bad
+    assert st.latest_revision == before_rev and len(st.latest_plan().nodes) == before_nodes
+
+    # 成环补丁：n1 依赖 n2、n2 依赖 n1 → 合并整图检环拒绝，状态不变
+    llm3 = _RetryMockLLM([_sub({"revision_reason": "造环",
+                                "nodes": [{"node_id": "n1", "goal": "取数", "depends_on": ["n2"]}]})])
+    txt_cycle = _tool_plan(st, {"action": "revise", "reason": "造环"}, llm3, "你是 Planner", ctx, 3, _ma())
+    assert txt_cycle.startswith("plan_invalid") and "环" in txt_cycle
+    assert st.latest_revision == before_rev
 
 
 def test_w3_revise_only_lists_changed_nodes(tmp_path):

@@ -20,14 +20,19 @@ from agent.analysis_state import (
 )
 from agent.tools.base import DESCRIPTIONS
 
-MULTI_BUDGET = {
-    "total_subagent_calls": 12, "max_plan_nodes": 8, "worker_max_steps": 6,
-    "max_node_attempts": 2, "max_plan_revisions": 3, "max_final_revisions": 2,
+#: 开发裁定（handoff「最新裁定」2026-10-06）：multi 模式只以**最大轮数**控制运行。
+#: 每轮＝一次模型请求（无工具输出、协议纠错、收尾交付都各算一轮）。数值是开发起点，不是验收标准。
+MULTI_ROUNDS = {
+    "main_max_steps": 20,      # 与 single 共用 ctx.budget.max_steps，这里只作展示兜底
+    "planner_max_steps": 4,
+    "worker_max_steps": 6,
+    "reviewer_max_steps": 4,
 }
-
-#: 子工具 → 被启动的角色（§9：三种角色各调了几次必须能分开统计）
-_ROLE_OF_TOOL = {"plan_analysis": "planner", "execute_analysis": "worker",
-                 "review_analysis": "reviewer"}
+#: 已取消的资源停止上限：仍完整记录消耗，但不再据此提前退出或前置拒绝。
+CANCELED_LIMITS = ["时间(max_wall_s)", "token(max_tokens)", "子调用总数",
+                   "任务图节点数", "单节点尝试次数", "计划修订次数", "最终答案修订次数"]
+#: 保留的接口运行机制（不是整次分析的墙钟预算）：RPM 节流 / 单请求超时 / 有限网络重试。
+KEPT_RUNTIME_GUARDS = ["API RPM 节流", "单请求超时", "有限网络重试"]
 
 
 def _tool_schemas_multi() -> list[dict]:
@@ -42,21 +47,25 @@ def _tool_schemas_multi() -> list[dict]:
 
 
 def _state_view_text(state: AnalysisState, ma: dict) -> str:
-    """子工具结果附带的精简状态（§7.3）：revision、就绪/受阻节点、有效 artifact、未处理 findings、剩余预算。"""
+    """子工具结果附带的精简状态（§7.3）：revision、就绪/受阻节点、有效 artifact、未处理 findings。
+
+    开发裁定取消子调用总额度，这里只报已启动次数（观察用），不再报"剩余子调用"。
+    """
     v = state.state_view()
     return (f"[状态] revision={v['latest_revision']} "
             f"nodes={json.dumps(v['nodes'], ensure_ascii=False)} "
             f"就绪节点={v['ready_nodes']} 受阻节点={json.dumps(v['blocked_nodes'], ensure_ascii=False)} "
             f"有效 artifacts={v['valid_artifact_ids']}（全部 {v['artifact_ids']}）"
             f"未处理 findings={v['unresolved_findings']} "
-            f"剩余子调用={ma['total_subagent_calls'] - ma.get('used_subagent_calls', 0)}")
+            f"已启动子调用={ma.get('used_subagent_calls', 0)}")
 
 
 def _validate_subtool_args(name: str, args: Any) -> str:
     """子工具参数预检：合法返回空串，非法返回可直接回给模型的错误文本。
 
-    live 冒烟暴露的两类浪费：漏传 node_id 的 execute_analysis 仍吃掉一次子调用额度；
-    参数错误的调用被算进 subagent_calls。预检放在预算检查之前，非法调用不启动子 Agent。
+    预检的作用（开发裁定取消额度后仍然成立）：漏传 node_id 之类的非法调用不启动子 Agent，
+    因此既不产生 subagent_start、也不计入 subagent_calls（M2 复审 §3 的口径一致性），
+    而是单独记一次 subagent_refusals。正确性校验本身不因取消资源上限而放宽。
     """
     from agent.tools.base import MULTI_ARGS_MODELS
     model = MULTI_ARGS_MODELS.get(name)
@@ -64,12 +73,12 @@ def _validate_subtool_args(name: str, args: Any) -> str:
         return ""
     if not isinstance(args, dict):
         return (f"工具错误: {name} 的参数必须是 JSON 对象，收到 "
-                f"{type(args).__name__}。本次调用未启动子 Agent、不占用子调用预算")
+                f"{type(args).__name__}。本次调用未启动子 Agent、不计入子 Agent 启动数")
     try:
         model(**args)
     except (ValidationError, TypeError) as e:
         return (f"工具错误: {name} 参数不合法: {e}。"
-                "本次调用未启动子 Agent、不占用子调用预算；请补全必填参数后重发")
+                "本次调用未启动子 Agent、不计入子 Agent 启动数；请补全必填参数后重发")
     return ""
 
 
@@ -98,42 +107,29 @@ def _claims_ref_hint(claims, state: AnalysisState) -> str:
             "请重新 draft_answer，把这些 ref 改成对应 rid，产物归属只写进 source_artifact_ids。")
 
 
-def _subagent_refusal(ctx: Any, t0: float, used_tokens: int, ma: dict) -> str:
-    """§9：子调用启动前的额度闸门；返回拒绝文本，额度充足返回空串。"""
-    if used_tokens >= ctx.budget.max_tokens:
-        return "错误: token 预算耗尽，不再启动子调用"
-    if time.monotonic() - t0 > ctx.budget.max_wall_s:
-        return "错误: 时间预算耗尽，不再启动子调用"
-    if ma["used_subagent_calls"] >= ma["total_subagent_calls"]:
-        return (f"错误: 子调用预算耗尽（total_subagent_calls={ma['total_subagent_calls']}），"
-               f"不再启动子调用；各角色已用 {json.dumps(ma['role_calls'], ensure_ascii=False)}。"
-               "后续只能基于现有有效证据 draft_answer，或在正文里说明未审查/未完成的节点")
-    return ""
-
-
 def run_multi(question: str, ctx: Any, llm: Any, out_dir: Path) -> Any:
     """multi_agent 主循环。ctx.agent_mode == "multi_agent" 时由 cli 调用。"""
     from agent.loop import FinalAnswer, _final_args
     from eval.schema import Answer
 
-    ma = dict(MULTI_BUDGET)
-    ma["used_subagent_calls"] = 0
+    ma = dict(MULTI_ROUNDS)
+    ma["used_subagent_calls"] = 0    # 实际启动的子 Agent 数（在 _run_role 里 +1，与 subagent_start 一一对应）
     ma["role_calls"] = {}            # 每个角色实际启动次数（§9：三种角色是否真被调用要能查）
-    ma["subagent_refusals"] = 0      # 因预算被拒的调用次数：与已启动次数分开计
-    # 配置可收紧/放宽候选起点（config.yaml multi_agent 段），实际生效值必须进 run_meta（§9）
+    ma["subagent_refusals"] = 0      # 未通过前置校验、根本没启动子 Agent 的调用：单独留痕，不计入启动数
+    ma["final_rejects"] = 0          # final_answer 被核验/提交条件打回的次数（仅记录，不再据此提前停止）
+    # 生效轮数可配置（config.yaml multi_agent 段）；资源上限已取消，这里只收轮数键
     for k, v in (getattr(ctx, "multi_cfg", None) or {}).items():
-        if k in MULTI_BUDGET:
+        if k in MULTI_ROUNDS:
             try:
                 ma[k] = int(v)
             except (TypeError, ValueError):
-                pass    # 非法配置退回默认值，不静默改变预算语义
+                pass    # 非法配置退回默认值，不静默改变轮数语义
     contract = TaskContract(
         query=question, as_of=ctx.as_of.isoformat() if ctx.as_of else None,
         data_version=ctx.store.data_version,
         **(getattr(ctx, "parsed_scope_extra", {}) or {}))
-    state = AnalysisState(contract, out_dir / "analysis",
-                          max_plan_nodes=ma["max_plan_nodes"],
-                          max_plan_revisions=ma["max_plan_revisions"])
+    # 开发裁定：任务图节点数/计划修订次数不再是停止上限，传 0＝不拦（结构合法性仍由 save_plan 校验）
+    state = AnalysisState(contract, out_dir / "analysis")
     ctx.analysis_state = state
 
     prompts = Path("agent/prompts/multi")
@@ -146,20 +142,14 @@ def run_multi(question: str, ctx: Any, llm: Any, out_dir: Path) -> Any:
                  "content": (Path("agent/prompts/multi/main.md").read_text(encoding="utf-8")
                              + "\n\n" + _state_view_text(state, ma))},
                 {"role": "user", "content": question}]
-    t0 = time.monotonic()
-    ctx.stats["t_start"] = t0        # 与单 Agent 同一口径：单调时钟时差（§10 latency_s）
+    ctx.stats["t_start"] = time.monotonic()   # 与单 Agent 同一口径：单调时钟时差（§10 latency_s）
     final: Any | None = None
     stop_reason = ""
-    final_rejects = 0                # §8：max_final_revisions 计数
-    pending_stop = False
+    # 开发裁定（handoff「最新裁定」2026-10-06）：multi 只以最大轮数控制运行——主循环
+    # ctx.budget.max_steps + 每个子 Agent 各自的 max_steps；每轮＝一次模型请求。
+    # 旧的时间/token/子调用次数停止上限全部取消（消耗仍完整记录，见 _multi_stats），
+    # 但不再据此提前 break 或前置拒绝；正确性校验（依赖/版本/角色/数据性质/引用/终审）全部保留。
     for step in range(1, ctx.budget.max_steps + 1):
-        used_tokens = (ctx.stats["prompt_tokens"] + ctx.stats["completion_tokens"])
-        if used_tokens >= ctx.budget.max_tokens:
-            stop_reason = "token 预算耗尽"
-            break
-        if time.monotonic() - t0 > ctx.budget.max_wall_s:
-            stop_reason = "时间预算耗尽"
-            break
         resp = ctx.llm.chat(messages, tools=schemas, role="agent")
         u = resp.usage or {}
         ctx.stats["prompt_tokens"] += u.get("prompt_tokens", 0)
@@ -193,22 +183,18 @@ def run_multi(question: str, ctx: Any, llm: Any, out_dir: Path) -> Any:
                 args = {}
             result_text = ""
             if name in ("plan_analysis", "execute_analysis", "review_analysis"):
-                # 参数预检必须在预算检查之前：第二次 live 冒烟里模型发过漏传 node_id 的
-                # execute_analysis，它照样吃掉一次子调用额度，12 次额度被无效调用浪费。
-                # 非法调用既不启动子 Agent，也不计次、不扣额度。
+                # 参数预检：非法调用根本不启动子 Agent。开发裁定取消了子调用额度，但被拒的调用
+                # 仍要单独留痕（subagent_refusals），且绝不能计入真实启动数（M2 复审 §3：
+                # run_meta 报 subagent_calls=14 而 trace 只有 12 次 subagent_start 的口径失真）。
                 invalid = _validate_subtool_args(name, args)
                 if invalid:
                     result_text = invalid
-                # §9：启动子调用前检查剩余额度；父子合计同一 token/时间预算，耗尽不自动提高。
-                # 计数只在真正启动子 Agent 时 +1：第一次 live 冒烟把被拒的调用也计进去了，
-                # run_meta 报 subagent_calls=14 而 trace 只有 12 次 subagent_start，口径失真。
-                elif (refusal := _subagent_refusal(ctx, t0, used_tokens, ma)):
-                    result_text = refusal
                     ma["subagent_refusals"] = ma.get("subagent_refusals", 0) + 1
                 else:
-                    ma["used_subagent_calls"] += 1
-                    ma["role_calls"][_ROLE_OF_TOOL[name]] = \
-                        ma["role_calls"].get(_ROLE_OF_TOOL[name], 0) + 1
+                    # 真实启动数只在 _run_role 内 +1（与 subagent_start 事件一一对应）。
+                    # 调用前后对比：若本次派发没进入 _run_role（依赖缺失/版本不符/节点已完成等
+                    # 正确性校验拒绝，或参数预检之后的早期返回），记一次 refusal，但不阻止后续推进。
+                    before = ma["used_subagent_calls"]
                     if name == "plan_analysis":
                         result_text = _tool_plan(state, args, llm, role_sys["planner"],
                                                  ctx, step, ma)
@@ -218,6 +204,8 @@ def run_multi(question: str, ctx: Any, llm: Any, out_dir: Path) -> Any:
                     else:
                         result_text = _tool_review(state, args, llm, role_sys["reviewer"],
                                                    ctx, step, ma, out_dir)
+                    if ma["used_subagent_calls"] == before:
+                        ma["subagent_refusals"] = ma.get("subagent_refusals", 0) + 1
             elif name == "recall":
                 result_text = _tool_recall(args, ctx, step, state)
             elif name == "draft_answer":
@@ -249,23 +237,20 @@ def run_multi(question: str, ctx: Any, llm: Any, out_dir: Path) -> Any:
                     # 数字核验沿用 single 路径同一个 verifier（hooks.stop 默认 agent.verifier）：
                     # 判据不改、不跳过勾稽项；ctx.verifier=None 时也必须真正执行核验（§8）
                     verdict = hooks.stop(fa, ctx)
-                    left = max(0, ma["max_final_revisions"] - final_rejects)
+                    # 开发裁定取消"最终答案修订次数"停止上限：核验/提交条件不满足只把问题回给
+                    # 主 Agent 让它继续修订，不再据此提前停止；final_rejects 仅作消耗记录。
                     if not verdict.ok:
-                        final_rejects += 1
+                        ma["final_rejects"] += 1
                         result_text = ("核验未通过：" + (verdict.feedback or "数字/引用核验失败")
-                                       + f"（剩余最终修订 {max(0, left - 1)} 次）")
+                                       + "（请修正数字/引用后重新 draft_answer 并提交）")
                     elif problems:
-                        final_rejects += 1
+                        ma["final_rejects"] += 1
                         result_text = ("多 Agent 提交条件未满足：" + "；".join(problems[:3])
-                                       + f"（剩余最终修订 {max(0, left - 1)} 次）")
+                                       + "（请按上述条件补齐后重新提交）")
                     else:
                         final = _final_answer_multi(fa, ctx, state, answer_artifact,
                                                     numeric_ok=True, stop_reason="", ma=ma)
                         result_text = "已提交（含已审候选与数字核验）。"
-                    if final_rejects > ma["max_final_revisions"]:
-                        # §8：上限后保留失败候选与明确"未通过"状态，不包装成合格结果
-                        stop_reason = "最终候选核验/审查未通过（修订上限耗尽）"
-                        pending_stop = True
             else:
                 result_text = f"错误: 未知工具 {name}"
             messages.append({"role": "tool", "tool_call_id": tc.id, "content": result_text})
@@ -275,10 +260,11 @@ def run_multi(question: str, ctx: Any, llm: Any, out_dir: Path) -> Any:
                             args_head=(args_json or "")[:300],
                             ok=_tool_call_ok(result_text), result_len=len(result_text),
                             result_head=result_text[:400])
-        if final is not None or pending_stop:
+        if final is not None:
             break
     if final is None:
-        stop_reason = stop_reason or "步数预算耗尽"
+        # 只以最大轮数收敛：轮数用尽即如实报告"未达提交条件"，保存中间产物，绝不自标通过。
+        stop_reason = stop_reason or f"主循环轮数用尽（max_steps={ctx.budget.max_steps}，未提交最终答案）"
         ans = Answer(answer_md=f"多 Agent 运行未完成：{stop_reason}。"
                                f"已完成部分见 analysis_state.json。",
                      status="refuse")
@@ -315,7 +301,17 @@ def _multi_stats(state: AnalysisState, ma: dict, stop_reason: str, ctx: Any) -> 
         "subagent_calls": ma.get("used_subagent_calls", 0),
         "subagent_role_calls": dict(ma.get("role_calls") or {}),
         "subagent_refusals": ma.get("subagent_refusals", 0),
-        "budgets_effective": {k: ma.get(k, MULTI_BUDGET[k]) for k in MULTI_BUDGET},
+        "final_answer_rejects": ma.get("final_rejects", 0),
+        # 开发裁定：导出明确标记生效轮数 + 被取消的资源上限 + 完整消耗（记录不拦截）。
+        "effective_rounds": {k: ma.get(k) for k in MULTI_ROUNDS},
+        "canceled_limits": list(CANCELED_LIMITS),
+        "kept_runtime_guards": list(KEPT_RUNTIME_GUARDS),
+        "consumption": {
+            "prompt_tokens": ctx.stats.get("prompt_tokens", 0),
+            "completion_tokens": ctx.stats.get("completion_tokens", 0),
+            "main_rounds": ctx.stats.get("steps", 0),
+            "subagent_child_rounds": ctx.stats.get("subagent_child_steps", 0),
+        },
         "plan_revisions": state.latest_revision,
         "reviews_total": len(state.reviews),
         "findings_total": sum(len(r.findings) for r in state.reviews.values()),
@@ -365,11 +361,17 @@ def _tool_recall(args: dict, ctx: Any, step: int, state: AnalysisState | None = 
 
 
 def _run_role(role: str, sys_prompt: str, user: str, llm, ctx: Any, step: int,
-              max_steps: int, **ident) -> Any:
+              max_steps: int, ma: dict | None = None, **ident) -> Any:
     """同步执行一个子 Agent 并写调度事件（§10：角色、节点/目标、子步数、token、耗时、调用 ID）。
 
     子事件已自带 role 与子循环 step，转发时主循环步数记为 main_step，避免关键字冲突。
+    真实启动计数在这里 +1（M2 复审 §3）：_run_role 是唯一写 subagent_start 的入口，
+    所以 subagent_calls 与 trace 中 subagent_start 数天然一一对应，被前置/正确性校验拒绝、
+    根本没走到这里的调用不会计入启动数（改记 subagent_refusals）。
     """
+    if ma is not None:
+        ma["used_subagent_calls"] = ma.get("used_subagent_calls", 0) + 1
+        ma["role_calls"][role] = ma["role_calls"].get(role, 0) + 1
     agent_call_id = f"{role}@{step}#{ident.get('node_id') or ident.get('target_id') or 'plan'}"
     ctx.trace.event(type="subagent_start", role=role, step=step,
                     agent_call_id=agent_call_id, **ident)
@@ -406,13 +408,14 @@ def _tool_plan(state: AnalysisState, args: dict, llm, sys_prompt: str,
             "未列出的既有节点沿用原定义与原执行/审核状态；写了但定义未变的节点同样保留结果；"
             "定义变了的节点及其下游会失效，需要重新 execute_analysis。"
             "暂不支持删除节点，不想让它阻塞收尾就设 required_for_answer=false。")
-    r = _run_role("planner", sys_prompt, user, llm, ctx, step, 4)
+    r = _run_role("planner", sys_prompt, user, llm, ctx, step,
+                  ma["planner_max_steps"], ma)
     if not r.ok:
         return "错误: " + (r.error or "Planner 未输出合法计划")
     from agent.subagents import PlanProposal
     try:
         prop = PlanProposal(**r.payload)
-        prop.validate_semantics(state.max_plan_nodes)
+        prop.validate_semantics()   # 仅补丁局部校验；合并整图校验（依赖/环/自依赖）在 save_plan
         plan = state.save_plan(r.payload["nodes"], prop.revision_reason)
     except (ValidationError, ValueError) as e:
         return f"plan_invalid: {e}"
@@ -495,8 +498,8 @@ def _tool_execute(state: AnalysisState, args: dict, llm, sys_prompt: str,
         return f"错误: 节点 {node_id} 不在当前计划"
     if node.execution_status == "completed" and node.review_status == "accepted":
         return f"错误: 节点 {node_id} 已完成并通过审核；如需重做请先修订计划"
-    if node.attempt >= ma.get("max_node_attempts", 2):
-        return f"错误: 节点 {node_id} 已达尝试上限"
+    # 开发裁定取消"单节点尝试次数"停止上限：attempt 仍作为历史递增记录（artifact 溯源用），
+    # 但不再据此拒绝执行。同一节点重复 execute_analysis 允许（补算/重做），只保留下面依赖校验。
     deps_bad = [d for d in node.depends_on
                 if not any(n.node_id == d and n.execution_status == "completed"
                            for n in plan.nodes)]
@@ -515,7 +518,7 @@ def _tool_execute(state: AnalysisState, args: dict, llm, sys_prompt: str,
             "synthetic 数据必须如实标 data_nature=synthetic，不得用于真实经营结论；"
             "没有来源的数字请写进 missing_inputs 而不是编造 fact。")
     r = _run_role("worker", sys_prompt, user, llm, ctx, step,
-                  ma.get("worker_max_steps", 6), node_id=node_id,
+                  ma["worker_max_steps"], ma, node_id=node_id,
                   plan_revision=plan.revision, attempt=node.attempt + 1)
     if not r.ok:
         from agent.analysis_state import AnalysisArtifact as AA
@@ -620,7 +623,8 @@ def _tool_review(state: AnalysisState, args: dict, llm, sys_prompt: str,
             "\"findings\": [{category, statement, explanation, suggested_action, node_id}], "
             "\"unresolved_items\": []}。分类只能用 task_scope/caliber/evidence_quality/"
             "contradiction/unsupported_cause/missing_alternative/other。")
-    r = _run_role("reviewer", sys_prompt, user, llm, ctx, step, 4,
+    r = _run_role("reviewer", sys_prompt, user, llm, ctx, step,
+                  ma["reviewer_max_steps"], ma,
                   target_type=ttype, target_id=tid, target_version=tver)
     if not r.ok:
         # §6.4/§7.3：审查无法给出依据时保存 inconclusive 记录，主 Agent 有可检查的失败产物
@@ -855,13 +859,22 @@ def analysis_review_md(state: AnalysisState, stats: dict | None = None) -> str:
               str(cand.get("answer_md", ""))[:4000], ""]
     else:
         L.append("（未调用 draft_answer，无候选答案）")
+    cons = st.get("consumption") or {}
     L += ["", "## 资源与调度", "",
-          f"- 子 Agent 调用：{st.get('subagent_calls', 0)}"
-          f"／生效预算：{json.dumps(st.get('budgets_effective') or {}, ensure_ascii=False)}",
+          f"- 开发裁定：仅以最大轮数控制运行；已取消资源停止上限="
+          f"{st.get('canceled_limits') or CANCELED_LIMITS}",
+          f"- 保留的接口运行机制（非整次分析墙钟预算）：{st.get('kept_runtime_guards') or KEPT_RUNTIME_GUARDS}",
+          f"- 生效轮数：{json.dumps(st.get('effective_rounds') or MULTI_ROUNDS, ensure_ascii=False)}",
+          f"- 子 Agent 真实启动：{st.get('subagent_calls', 0)}（与 trace subagent_start 一一对应）"
+          f"／角色分布：{json.dumps(st.get('subagent_role_calls') or {}, ensure_ascii=False)}"
+          f"／前置或正确性校验拒绝（未启动）：{st.get('subagent_refusals', 0)}",
           f"- 计划修订：{st.get('plan_revisions', 0)}　review 数：{st.get('reviews_total', 0)}　"
-          f"findings：{st.get('findings_total', 0)}　未处理 findings：{len(st.get('unresolved_findings') or [])}",
-          f"- token：prompt={st.get('prompt_tokens')}，completion={st.get('completion_tokens')}，"
-          f"steps={st.get('steps')}，子循环合计步数={st.get('subagent_child_steps', 0)}，"
+          f"findings：{st.get('findings_total', 0)}　未处理 findings：{len(st.get('unresolved_findings') or [])}"
+          f"　final_answer 打回：{st.get('final_answer_rejects', 0)} 次（仅记录，不据此提前停止）",
+          f"- 实际消耗（记录不拦截）：prompt={cons.get('prompt_tokens', st.get('prompt_tokens'))}，"
+          f"completion={cons.get('completion_tokens', st.get('completion_tokens'))}，"
+          f"主循环轮数={cons.get('main_rounds', st.get('steps'))}，"
+          f"子循环合计轮数={cons.get('subagent_child_rounds', st.get('subagent_child_steps', 0))}，"
           f"latency_s={st.get('latency_s')}",
           f"- 未完成节点：{st.get('nodes_incomplete') or '（无）'}", "",
           "## 边界声明", "",

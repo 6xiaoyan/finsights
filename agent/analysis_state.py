@@ -152,7 +152,13 @@ class AnalysisState:
     """版本化分析状态：plan 修订不可覆盖；依赖重做使下游 stale；每次提交后持久化。"""
 
     def __init__(self, contract: TaskContract, out_dir: Path,
-                 max_plan_nodes: int = 8, max_plan_revisions: int = 3):
+                 max_plan_nodes: int = 0, max_plan_revisions: int = 0):
+        """max_plan_nodes/max_plan_revisions 在开发裁定下默认 0＝不再作为停止上限。
+
+        保留这两个形参只为兼容既有调用与测试：传 >0 时仍作为硬性结构约束拒绝（节点数/修订数），
+        传 0 时不再因数值达阈值而拒绝推进（handoff「最新裁定」取消任务图节点数与计划修订次数上限）。
+        环、缺依赖、自依赖等属于正确性检查，无论是否为 0 都继续拒绝。
+        """
         self.contract = contract
         self.contract_version = "c1"
         self.latest_revision = 0
@@ -182,10 +188,11 @@ class AnalysisState:
            白耗 2 次 planner 调用。
         ② 精确失效——只有定义变化的节点及其传递下游的 artifact/review 标 stale。
            原先保守地把所有 artifact 作废（§6.2 允许，但代价必须说明）：实测一次修订
-           清掉了 n1/n2/n3 的取数结果，重跑 3 个 Worker 取回同一批数据，
-           total_subagent_calls=12 因此见底，Reviewer 一次都没跑上。
+           清掉了 n1/n2/n3 的取数结果，重跑 3 个 Worker 取回同一批数据，主 Agent 白白多花
+           三轮取数、Reviewer 一次都没跑上。（开发裁定已取消子调用总额度，但"无谓重跑浪费
+           轮数与消耗"仍是本次优化精确失效的动因，故保留记录。）
         """
-        if self.latest_revision >= self.max_plan_revisions:
+        if self.max_plan_revisions and self.latest_revision >= self.max_plan_revisions:
             raise ValueError(f"计划修订已达上限 {self.max_plan_revisions}")
         prev = self.latest_plan()
         merged: list[dict] = [dict(n.model_dump()) for n in (prev.nodes if prev else [])]
@@ -206,8 +213,12 @@ class AnalysisState:
                 by_id[nid] = item
                 added.append(nid)
                 continue
+            # changed 判定：任一"定义字段"本次提交与既有值不同即视为改动。
+            # 列表字段（depends_on/input_refs）比较顺序无关，且用 != ——这里此前写成 ==，
+            # 会把"只改依赖边"的合法补丁误判成没改（改不动边、也检不出新环），并把"原样重列
+            # 带依赖的节点"误判成已改（无谓作废旧证据）。修正为 != 与标量分支口径一致。
             changed = any(
-                f in clean and (sorted(clean[f] or []) == sorted(cur.get(f) or [])
+                f in clean and (sorted(clean[f] or []) != sorted(cur.get(f) or [])
                                 if f in ("depends_on", "input_refs")
                                 else clean[f] != (cur.get(f) or ""))
                 for f in self.NODE_DEF_FIELDS)
@@ -227,7 +238,7 @@ class AnalysisState:
         ids = [m["node_id"] for m in merged]
         if len(ids) != len(set(ids)):
             raise ValueError("plan_invalid: node_id 重复")
-        if len(merged) > self.max_plan_nodes:
+        if self.max_plan_nodes and len(merged) > self.max_plan_nodes:
             raise ValueError(f"plan_invalid: 节点数 {len(merged)} 超上限 {self.max_plan_nodes}")
         idset = set(ids)
         for m in merged:

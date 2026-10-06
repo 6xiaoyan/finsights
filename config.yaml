@@ -54,11 +54,13 @@ initial_packet:
   metrics: [inventory, revenue, cogs, accounts_receivable, accounts_payable]
   quarters_back: 8          # 自问题期间（含）向前 N 个连续财季；期间未解析时取库内最近 N 期
 
-# multi_agent 模式（handoff_multi_agent_attribution_development.md §9；候选起点，不宣称足够）
+# multi_agent 模式（handoff_multi_agent_attribution_development.md「最新裁定」2026-10-06）：
+# 开发阶段只以【最大轮数】控制运行——每轮＝一次模型请求。资源停止上限（时间/token/子调用总数/
+# 任务图节点数/单节点尝试次数/计划修订次数/最终答案修订次数）已全部取消，仅完整记录消耗，不再据此提前停止。
+# 主循环轮数沿用 budget.max_steps；下面四个是各角色自身的最大轮数（候选起点，非验收标准）。
+# 正确性校验（依赖/版本/角色权限/数据性质/引用/最终审查）不受影响，仍会拒绝非法调用。
 multi_agent:
-  total_subagent_calls: 12
-  max_plan_nodes: 8
-  worker_max_steps: 6
-  max_node_attempts: 2
-  max_plan_revisions: 3
-  max_final_revisions: 2
+  main_max_steps: 20        # 展示用兜底；实际生效值 = budget.max_steps（与 single 共用）
+  planner_max_steps: 4      # Planner 子 Agent 每次调用的最大轮数
+  worker_max_steps: 6       # Worker 子 Agent 每次调用的最大轮数（含预留收尾轮）
+  reviewer_max_steps: 4     # Reviewer 子 Agent 每次调用的最大轮数
