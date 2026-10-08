@@ -1,0 +1,104 @@
+{
+ "run_id": "20261006-152315",
+ "created": "2026-10-06T15:23:24",
+ "agent": "v1",
+ "model": "agnes-3.0-flash",
+ "config": {
+  "llm": {
+   "base_url": "https://api.agnes-ai.cn/v1",
+   "model": "agnes-3.0-flash",
+   "temperature_agent": 0.2,
+   "temperature_judge": 0.0,
+   "enable_thinking": {
+    "agent": false,
+    "judge": false
+   },
+   "timeout_s": 120,
+   "max_retries": 3,
+   "max_output_tokens_main": "<redacted>",
+   "max_output_tokens_summary": "<redacted>",
+   "rate_limit_rpm": 18,
+   "pricing_usd_per_mtok": {
+    "input": 0.05,
+    "output": 0.15
+   }
+  },
+  "agent": {
+   "max_steps": 20,
+   "max_tokens_budget": "<redacted>",
+   "max_wall_s": 600,
+   "final_answer_max_retries": 2
+  },
+  "context": {
+   "window": 512000,
+   "reserve_output": 20000,
+   "l3_trigger_tokens": "<redacted>",
+   "compact_target_tokens": "<redacted>",
+   "compact_threshold": 128000,
+   "clear_at_least": 8000,
+   "stub_keep_last": 6,
+   "ledger_keep_recent_turns": 4,
+   "l3_ratio": 0.1300813,
+   "l5_enabled": false,
+   "l5_keep_last_turns": 1,
+   "skill_reinject_max_tokens": "<redacted>",
+   "reactive_max_retries": 3,
+   "compact_fail_limit": 3,
+   "active_protect_results": 6,
+   "active_protect_turns": 4,
+   "token_safety_margin": "<redacted>",
+   "result_max_rows": 50,
+   "result_max_tokens": "<redacted>",
+   "disclosure_dir": "data/disclosures"
+  },
+  "initial_packet": {
+   "metrics": [
+    "inventory",
+    "revenue",
+    "cogs",
+    "accounts_receivable",
+    "accounts_payable"
+   ],
+   "quarters_back": 8
+  },
+  "multi_agent": {
+   "total_subagent_calls": 12,
+   "max_plan_nodes": 8,
+   "worker_max_steps": 6,
+   "max_node_attempts": 2,
+   "max_plan_revisions": 3,
+   "max_final_revisions": 2
+  }
+ },
+ "commit": "fbfc5f0",
+ "dirty": true,
+ "db": "data\\finsights.duckdb",
+ "db_sha256_12": "860558522f16",
+ "data_version": "2633728-1790844911120430000-d728e5137cbb",
+ "disclosure_index": {
+  "path": "data\\disclosures\\index.json",
+  "sha256_12": "fa61484ced08"
+ },
+ "budget": {
+  "max_steps": 40,
+  "max_tokens": 500000,
+  "max_wall_s": 600.0
+ },
+ "tools_disabled": [
+  "get_filing_notes",
+  "search_disclosure"
+ ],
+ "agent_mode": "multi_agent",
+ "dictionary_version": "v1",
+ "dev_model_note": "开发执行模型与项目运行模型（client.model）是不同配置；详见交付说明",
+ "usage": {
+  "steps": 1,
+  "prompt_tokens": 1383,
+  "completion_tokens": 559,
+  "latency_s": 1791267804.25,
+  "sql_errors": 0,
+  "refuse_reason": "运行异常: AttributeError: 'dict' object has no attribute 'model_dump'"
+ },
+ "verified": false,
+ "status": "refuse"
+}

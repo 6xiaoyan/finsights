@@ -1,0 +1,1637 @@
+{
+ "results": [
+  {
+   "id": "r1",
+   "tool": "query_metric",
+   "args": {
+    "metrics": [
+     "inventory",
+     "revenue",
+     "cogs",
+     "accounts_receivable",
+     "accounts_payable"
+    ],
+    "companies": [
+     "Lenovo"
+    ],
+    "period_from": null,
+    "period_to": "FY2026Q1",
+    "last_n": 8,
+    "period_basis": "fiscal",
+    "group_by": [],
+    "filters": {}
+   },
+   "sql": "SELECT * FROM (\nSELECT ROW_NUMBER() OVER (PARTITION BY company ORDER BY fiscal_year DESC, fiscal_quarter DESC) AS _rn, *\nFROM (SELECT t.company, t.fiscal_year, t.fiscal_quarter, t.calendar_quarter, t.days,\n       t.inventory AS inventory,\n       t.revenue AS revenue,\n       t.cogs AS cogs,\n       t.accounts_receivable AS accounts_receivable,\n       t.accounts_payable AS accounts_payable\nFROM (SELECT p.company_id AS company, p.fiscal_year, p.fiscal_quarter, p.calendar_quarter, p.days,\n       MAX(CASE WHEN f.account_code = 'accounts_payable' THEN f.value END) AS accounts_payable,\n       MAX(CASE WHEN f.account_code = 'accounts_receivable' THEN f.value END) AS accounts_receivable,\n       MAX(CASE WHEN f.account_code = 'cogs' THEN f.value END) AS cogs,\n       MAX(CASE WHEN f.account_code = 'inventory' THEN f.value END) AS inventory,\n       MAX(CASE WHEN f.account_code = 'revenue' THEN f.value END) AS revenue\nFROM facts f\nJOIN periods p USING (company_id, fiscal_year, fiscal_quarter)\nWHERE f.version = 'original' AND p.company_id IN ('Lenovo') AND (p.fiscal_year < 2026 OR (p.fiscal_year = 2026 AND p.fiscal_quarter <= 1))\nGROUP BY 1, 2, 3, 4, 5) t\nORDER BY t.company, t.fiscal_year, t.fiscal_quarter)\n) WHERE _rn <= 8 ORDER BY company, fiscal_year, fiscal_quarter",
+   "unit": "",
+   "data_version": "2633728-1790844911120430000-d728e5137cbb",
+   "created_step": 0,
+   "digest": "Lenovo 最新 8742.64 (FY26Q1) 上期 7923.8 环比 10.33%; 区间 6169.64~9147.68",
+   "initial_packet": true,
+   "rows": [
+    {
+     "_rn": 8,
+     "company": "Lenovo",
+     "fiscal_year": 2024,
+     "fiscal_quarter": 2,
+     "calendar_quarter": "2023Q3",
+     "days": 92,
+     "inventory": 6169.642,
+     "revenue": 14409.786,
+     "cogs": 11888.026,
+     "accounts_receivable": 7809.892,
+     "accounts_payable": 10872.335
+    },
+    {
+     "_rn": 7,
+     "company": "Lenovo",
+     "fiscal_year": 2024,
+     "fiscal_quarter": 3,
+     "calendar_quarter": "2023Q4",
+     "days": 92,
+     "inventory": 6218.91,
+     "revenue": 15720.954,
+     "cogs": 13119.563,
+     "accounts_receivable": 8944.694,
+     "accounts_payable": 10258.486
+    },
+    {
+     "_rn": 6,
+     "company": "Lenovo",
+     "fiscal_year": 2024,
+     "fiscal_quarter": 4,
+     "calendar_quarter": "2024Q1",
+     "days": 91,
+     "inventory": 6702.677,
+     "revenue": 13833.117,
+     "cogs": 11404.99,
+     "accounts_receivable": 8147.695,
+     "accounts_payable": 10505.427
+    },
+    {
+     "_rn": 5,
+     "company": "Lenovo",
+     "fiscal_year": 2025,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2024Q2",
+     "days": 91,
+     "inventory": 7777.587,
+     "revenue": 15447.056,
+     "cogs": 12887.207,
+     "accounts_receivable": 8654.796,
+     "accounts_payable": 11924.646
+    },
+    {
+     "_rn": 4,
+     "company": "Lenovo",
+     "fiscal_year": 2025,
+     "fiscal_quarter": 2,
+     "calendar_quarter": "2024Q3",
+     "days": 92,
+     "inventory": 9118.816,
+     "revenue": 17850.094,
+     "cogs": 15054.344,
+     "accounts_receivable": 9476.319,
+     "accounts_payable": 14229.35
+    },
+    {
+     "_rn": 3,
+     "company": "Lenovo",
+     "fiscal_year": 2025,
+     "fiscal_quarter": 3,
+     "calendar_quarter": "2024Q4",
+     "days": 92,
+     "inventory": 9147.679,
+     "revenue": 18796.28,
+     "cogs": 15836.889,
+     "accounts_receivable": 9972.362,
+     "accounts_payable": 13883.842
+    },
+    {
+     "_rn": 2,
+     "company": "Lenovo",
+     "fiscal_year": 2025,
+     "fiscal_quarter": 4,
+     "calendar_quarter": "2025Q1",
+     "days": 90,
+     "inventory": 7923.804,
+     "revenue": 16983.538,
+     "cogs": 14200.918,
+     "accounts_receivable": 10506.61,
+     "accounts_payable": 11978.933
+    },
+    {
+     "_rn": 1,
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2025Q2",
+     "days": 91,
+     "inventory": 8742.635,
+     "revenue": 18829.869,
+     "cogs": 16055.392,
+     "accounts_receivable": 10796.573,
+     "accounts_payable": 14187.753
+    }
+   ]
+  },
+  {
+   "id": "r2",
+   "tool": "list_metrics",
+   "args": {},
+   "sql": null,
+   "unit": "",
+   "data_version": "2633728-1790844911120430000-d728e5137cbb",
+   "created_step": 3,
+   "digest": "结果无数值",
+   "initial_packet": false,
+   "rows": [
+    {
+     "name": "accounts_payable",
+     "label_zh": "应付账款",
+     "type": "base",
+     "unit": "usd_mn",
+     "dims": [
+      "company",
+      "period"
+     ]
+    },
+    {
+     "name": "accounts_receivable",
+     "label_zh": "应收账款",
+     "type": "base",
+     "unit": "usd_mn",
+     "dims": [
+      "company",
+      "period",
+      "region",
+      "product_line"
+     ]
+    },
+    {
+     "name": "accrued_liabilities",
+     "label_zh": "应计费用",
+     "type": "base",
+     "unit": "usd_mn",
+     "dims": [
+      "company",
+      "period"
+     ]
+    },
+    {
+     "name": "cash",
+     "label_zh": "现金及现金等价物",
+     "type": "base",
+     "unit": "usd_mn",
+     "dims": [
+      "company",
+      "period"
+     ]
+    },
+    {
+     "name": "ccc",
+     "label_zh": "现金转换周期",
+     "type": "derived",
+     "unit": "days",
+     "dims": [
+      "company",
+      "period"
+     ]
+    },
+    {
+     "name": "cogs",
+     "label_zh": "营业成本",
+     "type": "base",
+     "unit": "usd_mn",
+     "dims": [
+      "company",
+      "period"
+     ]
+    },
+    {
+     "name": "current_ratio",
+     "label_zh": "流动比率",
+     "type": "derived",
+     "unit": "ratio",
+     "dims": [
+      "company",
+      "period"
+     ]
+    },
+    {
+     "name": "debt_to_equity",
+     "label_zh": "负债权益比",
+     "type": "derived",
+     "unit": "ratio",
+     "dims": [
+      "company",
+      "period"
+     ]
+    },
+    {
+     "name": "deferred_revenue_current",
+     "label_zh": "合同负债(流动)",
+     "type": "base",
+     "unit": "usd_mn",
+     "dims": [
+      "company",
+      "period"
+     ]
+    },
+    {
+     "name": "deferred_revenue_noncurrent",
+     "label_zh": "合同负债(非流动)",
+     "type": "base",
+     "unit": "usd_mn",
+     "dims": [
+      "company",
+      "period"
+     ]
+    },
+    {
+     "name": "dio",
+     "label_zh": "存货周转天数",
+     "type": "derived",
+     "unit": "days",
+     "dims": [
+      "company",
+      "period"
+     ]
+    },
+    {
+     "name": "dpo",
+     "label_zh": "应付账款周转天数",
+     "type": "derived",
+     "unit": "days",
+     "dims": [
+      "company",
+      "period"
+     ]
+    },
+    {
+     "name": "dso",
+     "label_zh": "应收账款周转天数",
+     "type": "derived",
+     "unit": "days",
+     "dims": [
+      "company",
+      "period"
+     ]
+    },
+    {
+     "name": "financing_receivables",
+     "label_zh": "融资应收款(流动)",
+     "type": "base",
+     "unit": "usd_mn",
+     "dims": [
+      "company",
+      "period"
+     ]
+    },
+    {
+     "name": "goodwill",
+     "label_zh": "商誉",
+     "type": "base",
+     "unit": "usd_mn",
+     "dims": [
+      "company",
+      "period"
+     ]
+    },
+    {
+     "name": "gross_margin",
+     "label_zh": "毛利率",
+     "type": "derived",
+     "unit": "ratio",
+     "dims": [
+      "company",
+      "period"
+     ]
+    },
+    {
+     "name": "gross_profit",
+     "label_zh": "毛利",
+     "type": "base",
+     "unit": "usd_mn",
+     "dims": [
+      "company",
+      "period"
+     ]
+    },
+    {
+     "name": "intangibles",
+     "label_zh": "无形资产",
+     "type": "base",
+     "unit": "usd_mn",
+     "dims": [
+      "company",
+      "period"
+     ]
+    },
+    {
+     "name": "inventory",
+     "label_zh": "存货",
+     "type": "base",
+     "unit": "usd_mn",
+     "dims": [
+      "company",
+      "period",
+      "region",
+      "product_line"
+     ]
+    },
+    {
+     "name": "long_term_debt",
+     "label_zh": "长期借款",
+     "type": "base",
+     "unit": "usd_mn",
+     "dims": [
+      "company",
+      "period"
+     ]
+    },
+    {
+     "name": "net_income",
+     "label_zh": "净利润",
+     "type": "base",
+     "unit": "usd_mn",
+     "dims": [
+      "company",
+      "period"
+     ]
+    },
+    {
+     "name": "noncontrolling_interest",
+     "label_zh": "少数股东权益",
+     "type": "base",
+     "unit": "usd_mn",
+     "dims": [
+      "company",
+      "period"
+     ]
+    },
+    {
+     "name": "operating_income",
+     "label_zh": "经营利润",
+     "type": "base",
+     "unit": "usd_mn",
+     "dims": [
+      "company",
+      "period"
+     ]
+    },
+    {
+     "name": "other_current_assets",
+     "label_zh": "其他流动资产",
+     "type": "base",
+     "unit": "usd_mn",
+     "dims": [
+      "company",
+      "period"
+     ]
+    },
+    {
+     "name": "other_current_liabilities",
+     "label_zh": "其他流动负债",
+     "type": "base",
+     "unit": "usd_mn",
+     "dims": [
+      "company",
+      "period"
+     ]
+    },
+    {
+     "name": "other_noncurrent_assets",
+     "label_zh": "其他非流动资产",
+     "type": "base",
+     "unit": "usd_mn",
+     "dims": [
+      "company",
+      "period"
+     ]
+    },
+    {
+     "name": "other_noncurrent_liabilities",
+     "label_zh": "其他非流动负债",
+     "type": "base",
+     "unit": "usd_mn",
+     "dims": [
+      "company",
+      "period"
+     ]
+    },
+    {
+     "name": "ppe_net",
+     "label_zh": "固定资产净额",
+     "type": "base",
+     "unit": "usd_mn",
+     "dims": [
+      "company",
+      "period"
+     ]
+    },
+    {
+     "name": "revenue",
+     "label_zh": "营业收入",
+     "type": "base",
+     "unit": "usd_mn",
+     "dims": [
+      "company",
+      "period",
+      "region",
+      "product_line"
+     ]
+    },
+    {
+     "name": "short_term_debt",
+     "label_zh": "短期借款",
+     "type": "base",
+     "unit": "usd_mn",
+     "dims": [
+      "company",
+      "period"
+     ]
+    },
+    {
+     "name": "short_term_investments",
+     "label_zh": "短期投资",
+     "type": "base",
+     "unit": "usd_mn",
+     "dims": [
+      "company",
+      "period"
+     ]
+    },
+    {
+     "name": "total_assets",
+     "label_zh": "总资产",
+     "type": "base",
+     "unit": "usd_mn",
+     "dims": [
+      "company",
+      "period"
+     ]
+    },
+    {
+     "name": "total_current_assets",
+     "label_zh": "流动资产合计",
+     "type": "base",
+     "unit": "usd_mn",
+     "dims": [
+      "company",
+      "period"
+     ]
+    },
+    {
+     "name": "total_current_liabilities",
+     "label_zh": "流动负债合计",
+     "type": "base",
+     "unit": "usd_mn",
+     "dims": [
+      "company",
+      "period"
+     ]
+    },
+    {
+     "name": "total_equity",
+     "label_zh": "所有者权益合计",
+     "type": "base",
+     "unit": "usd_mn",
+     "dims": [
+      "company",
+      "period"
+     ]
+    },
+    {
+     "name": "total_liabilities",
+     "label_zh": "总负债",
+     "type": "base",
+     "unit": "usd_mn",
+     "dims": [
+      "company",
+      "period"
+     ]
+    },
+    {
+     "name": "total_liabilities_and_equity",
+     "label_zh": "负债和所有者权益总计",
+     "type": "base",
+     "unit": "usd_mn",
+     "dims": [
+      "company",
+      "period"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "r3",
+   "tool": "query_metric",
+   "args": {
+    "metrics": [
+     "revenue",
+     "cogs",
+     "gross_profit",
+     "operating_income",
+     "net_income"
+    ],
+    "companies": [
+     "Lenovo"
+    ],
+    "period_from": "FY24Q1",
+    "period_to": "FY26Q1",
+    "last_n": null,
+    "period_basis": "fiscal",
+    "group_by": [],
+    "filters": {}
+   },
+   "sql": "SELECT t.company, t.fiscal_year, t.fiscal_quarter, t.calendar_quarter, t.days,\n       t.revenue AS revenue,\n       t.cogs AS cogs,\n       t.gross_profit AS gross_profit,\n       t.operating_income AS operating_income,\n       t.net_income AS net_income\nFROM (SELECT p.company_id AS company, p.fiscal_year, p.fiscal_quarter, p.calendar_quarter, p.days,\n       MAX(CASE WHEN f.account_code = 'cogs' THEN f.value END) AS cogs,\n       MAX(CASE WHEN f.account_code = 'gross_profit' THEN f.value END) AS gross_profit,\n       MAX(CASE WHEN f.account_code = 'net_income' THEN f.value END) AS net_income,\n       MAX(CASE WHEN f.account_code = 'operating_income' THEN f.value END) AS operating_income,\n       MAX(CASE WHEN f.account_code = 'revenue' THEN f.value END) AS revenue\nFROM facts f\nJOIN periods p USING (company_id, fiscal_year, fiscal_quarter)\nWHERE f.version = 'original' AND p.company_id IN ('Lenovo') AND (p.fiscal_year > 2024 OR (p.fiscal_year = 2024 AND p.fiscal_quarter >= 1)) AND (p.fiscal_year < 2026 OR (p.fiscal_year = 2026 AND p.fiscal_quarter <= 1))\nGROUP BY 1, 2, 3, 4, 5) t\nORDER BY t.company, t.fiscal_year, t.fiscal_quarter",
+   "unit": "",
+   "data_version": "2633728-1790844911120430000-d728e5137cbb",
+   "created_step": 5,
+   "digest": "Lenovo 最新 18829.9 (FY26Q1) 上期 16983.5 环比 10.87%; 区间 12899.9~18829.9",
+   "initial_packet": false,
+   "rows": [
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2024,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2023Q2",
+     "days": 91,
+     "revenue": 12899.927,
+     "cogs": 10648.022,
+     "gross_profit": 2251.905,
+     "operating_income": 390.075,
+     "net_income": 183.414
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2024,
+     "fiscal_quarter": 2,
+     "calendar_quarter": "2023Q3",
+     "days": 92,
+     "revenue": 14409.786,
+     "cogs": 11888.026,
+     "gross_profit": 2521.76,
+     "operating_income": 514.0,
+     "net_income": 289.053
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2024,
+     "fiscal_quarter": 3,
+     "calendar_quarter": "2023Q4",
+     "days": 92,
+     "revenue": 15720.954,
+     "cogs": 13119.563,
+     "gross_profit": 2601.391,
+     "operating_income": 612.937,
+     "net_income": 376.813
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2024,
+     "fiscal_quarter": 4,
+     "calendar_quarter": "2024Q1",
+     "days": 91,
+     "revenue": 13833.117,
+     "cogs": 11404.99,
+     "gross_profit": 2428.127,
+     "operating_income": 488.772,
+     "net_income": 253.032
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2025,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2024Q2",
+     "days": 91,
+     "revenue": 15447.056,
+     "cogs": 12887.207,
+     "gross_profit": 2559.849,
+     "operating_income": 494.469,
+     "net_income": 253.495
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2025,
+     "fiscal_quarter": 2,
+     "calendar_quarter": "2024Q3",
+     "days": 92,
+     "revenue": 17850.094,
+     "cogs": 15054.344,
+     "gross_profit": 2795.75,
+     "operating_income": 650.599,
+     "net_income": 383.276
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2025,
+     "fiscal_quarter": 3,
+     "calendar_quarter": "2024Q4",
+     "days": 92,
+     "revenue": 18796.28,
+     "cogs": 15836.889,
+     "gross_profit": 2959.391,
+     "operating_income": 687.704,
+     "net_income": 700.763
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2025,
+     "fiscal_quarter": 4,
+     "calendar_quarter": "2025Q1",
+     "days": 90,
+     "revenue": 16983.538,
+     "cogs": 14200.918,
+     "gross_profit": 2782.62,
+     "operating_income": 331.381,
+     "net_income": 124.418
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2025Q2",
+     "days": 91,
+     "revenue": 18829.869,
+     "cogs": 16055.392,
+     "gross_profit": 2774.477,
+     "operating_income": 784.809,
+     "net_income": 537.55
+    }
+   ]
+  },
+  {
+   "id": "r4",
+   "tool": "variance",
+   "args": {
+    "metric": "operating_income",
+    "company": "Lenovo",
+    "period": "FY2026Q1",
+    "basis": "yoy"
+   },
+   "sql": null,
+   "unit": "usd_mn",
+   "data_version": "2633728-1790844911120430000-d728e5137cbb",
+   "created_step": 6,
+   "digest": "operating_income=784.809; value_prev=494.469; change_abs=290.34; change_pct=0.587175",
+   "initial_packet": false,
+   "rows": [
+    {
+     "basis": "yoy",
+     "company": "Lenovo",
+     "period_end": 1751241600000,
+     "operating_income": 784.809,
+     "value_prev": 494.469,
+     "change_abs": 290.34,
+     "change_pct": 0.5871753335
+    }
+   ]
+  },
+  {
+   "id": "r5",
+   "tool": "calc",
+   "args": {
+    "expression": "(2774.48 - 2559.85)",
+    "refs": []
+   },
+   "sql": null,
+   "unit": "",
+   "data_version": "2633728-1790844911120430000-d728e5137cbb",
+   "created_step": 7,
+   "digest": "value=214.63",
+   "initial_packet": false,
+   "rows": [
+    {
+     "value": 214.63
+    }
+   ]
+  },
+  {
+   "id": "r6",
+   "tool": "calc",
+   "args": {
+    "expression": "(2774.48 / 18829.9 - 2559.85 / 15447.1) * 100",
+    "refs": []
+   },
+   "sql": null,
+   "unit": "",
+   "data_version": "2633728-1790844911120430000-d728e5137cbb",
+   "created_step": 7,
+   "digest": "value=-1.83728",
+   "initial_packet": false,
+   "rows": [
+    {
+     "value": -1.8372806499
+    }
+   ]
+  },
+  {
+   "id": "r7",
+   "tool": "calc",
+   "args": {
+    "expression": "(18829.9 - 15447.1)",
+    "refs": []
+   },
+   "sql": null,
+   "unit": "",
+   "data_version": "2633728-1790844911120430000-d728e5137cbb",
+   "created_step": 7,
+   "digest": "value=3382.8",
+   "initial_packet": false,
+   "rows": [
+    {
+     "value": 3382.8
+    }
+   ]
+  },
+  {
+   "id": "r8",
+   "tool": "calc",
+   "args": {
+    "expression": "290.34 - 214.63",
+    "refs": []
+   },
+   "sql": null,
+   "unit": "",
+   "data_version": "2633728-1790844911120430000-d728e5137cbb",
+   "created_step": 7,
+   "digest": "value=75.71",
+   "initial_packet": false,
+   "rows": [
+    {
+     "value": 75.71
+    }
+   ]
+  },
+  {
+   "id": "r9",
+   "tool": "calc",
+   "args": {
+    "expression": "(784.809 - 494.469) / 18829.9 * 100",
+    "refs": []
+   },
+   "sql": null,
+   "unit": "",
+   "data_version": "2633728-1790844911120430000-d728e5137cbb",
+   "created_step": 7,
+   "digest": "value=1.54191",
+   "initial_packet": false,
+   "rows": [
+    {
+     "value": 1.54190941
+    }
+   ]
+  },
+  {
+   "id": "r10",
+   "tool": "calc",
+   "args": {
+    "expression": "(331.381 - 494.469) / 16983.5 * 100",
+    "refs": []
+   },
+   "sql": null,
+   "unit": "",
+   "data_version": "2633728-1790844911120430000-d728e5137cbb",
+   "created_step": 7,
+   "digest": "value=-0.960273",
+   "initial_packet": false,
+   "rows": [
+    {
+     "value": -0.9602732063
+    }
+   ]
+  },
+  {
+   "id": "r11",
+   "tool": "calc",
+   "args": {
+    "expression": "214.63 / 290.34",
+    "refs": []
+   },
+   "sql": null,
+   "unit": "",
+   "data_version": "2633728-1790844911120430000-d728e5137cbb",
+   "created_step": 9,
+   "digest": "value=0.739237",
+   "initial_packet": false,
+   "rows": [
+    {
+     "value": 0.7392367569
+    }
+   ]
+  },
+  {
+   "id": "r12",
+   "tool": "calc",
+   "args": {
+    "expression": "75.71 / 290.34",
+    "refs": []
+   },
+   "sql": null,
+   "unit": "",
+   "data_version": "2633728-1790844911120430000-d728e5137cbb",
+   "created_step": 10,
+   "digest": "value=0.260763",
+   "initial_packet": false,
+   "rows": [
+    {
+     "value": 0.2607632431
+    }
+   ]
+  },
+  {
+   "id": "r13",
+   "tool": "calc",
+   "args": {
+    "expression": "18829.9 / 15447.1 - 1",
+    "refs": []
+   },
+   "sql": null,
+   "unit": "",
+   "data_version": "2633728-1790844911120430000-d728e5137cbb",
+   "created_step": 11,
+   "digest": "value=0.218993",
+   "initial_packet": false,
+   "rows": [
+    {
+     "value": 0.2189925617
+    }
+   ]
+  },
+  {
+   "id": "r14",
+   "tool": "check_identities",
+   "args": {
+    "company": "Lenovo",
+    "periods": [
+     "FY24Q1",
+     "FY24Q2",
+     "FY24Q3",
+     "FY24Q4",
+     "FY25Q1",
+     "FY25Q2",
+     "FY25Q3",
+     "FY25Q4",
+     "FY26Q1"
+    ]
+   },
+   "sql": "SELECT t.company, t.fiscal_year, t.fiscal_quarter, t.calendar_quarter, t.days,\n       t.accounts_payable AS accounts_payable,\n       t.accounts_receivable AS accounts_receivable,\n       t.accrued_liabilities AS accrued_liabilities,\n       t.cash AS cash,\n       t.deferred_revenue_current AS deferred_revenue_current,\n       t.deferred_revenue_noncurrent AS deferred_revenue_noncurrent,\n       t.financing_receivables AS financing_receivables,\n       t.goodwill AS goodwill,\n       t.intangibles AS intangibles,\n       t.inventory AS inventory,\n       t.long_term_debt AS long_term_debt,\n       t.other_current_assets AS other_current_assets,\n       t.other_current_liabilities AS other_current_liabilities,\n       t.other_noncurrent_assets AS other_noncurrent_assets,\n       t.other_noncurrent_liabilities AS other_noncurrent_liabilities,\n       t.ppe_net AS ppe_net,\n       t.short_term_debt AS short_term_debt,\n       t.short_term_investments AS short_term_investments,\n       t.total_assets AS total_assets,\n       t.total_current_assets AS total_current_assets,\n       t.total_current_liabilities AS total_current_liabilities,\n       t.total_equity AS total_equity,\n       t.total_liabilities AS total_liabilities\nFROM (SELECT p.company_id AS company, p.fiscal_year, p.fiscal_quarter, p.calendar_quarter, p.days,\n       MAX(CASE WHEN f.account_code = 'accounts_payable' THEN f.value END) AS accounts_payable,\n       MAX(CASE WHEN f.account_code = 'accounts_receivable' THEN f.value END) AS accounts_receivable,\n       MAX(CASE WHEN f.account_code = 'accrued_liabilities' THEN f.value END) AS accrued_liabilities,\n       MAX(CASE WHEN f.account_code = 'cash' THEN f.value END) AS cash,\n       MAX(CASE WHEN f.account_code = 'deferred_revenue_current' THEN f.value END) AS deferred_revenue_current,\n       MAX(CASE WHEN f.account_code = 'deferred_revenue_noncurrent' THEN f.value END) AS deferred_revenue_noncurrent,\n       MAX(CASE WHEN f.account_code = 'financing_receivables' THEN f.value END) AS financing_receivables,\n       MAX(CASE WHEN f.account_code = 'goodwill' THEN f.value END) AS goodwill,\n       MAX(CASE WHEN f.account_code = 'intangibles' THEN f.value END) AS intangibles,\n       MAX(CASE WHEN f.account_code = 'inventory' THEN f.value END) AS inventory,\n       MAX(CASE WHEN f.account_code = 'long_term_debt' THEN f.value END) AS long_term_debt,\n       MAX(CASE WHEN f.account_code = 'other_current_assets' THEN f.value END) AS other_current_assets,\n       MAX(CASE WHEN f.account_code = 'other_current_liabilities' THEN f.value END) AS other_current_liabilities,\n       MAX(CASE WHEN f.account_code = 'other_noncurrent_assets' THEN f.value END) AS other_noncurrent_assets,\n       MAX(CASE WHEN f.account_code = 'other_noncurrent_liabilities' THEN f.value END) AS other_noncurrent_liabilities,\n       MAX(CASE WHEN f.account_code = 'ppe_net' THEN f.value END) AS ppe_net,\n       MAX(CASE WHEN f.account_code = 'short_term_debt' THEN f.value END) AS short_term_debt,\n       MAX(CASE WHEN f.account_code = 'short_term_investments' THEN f.value END) AS short_term_investments,\n       MAX(CASE WHEN f.account_code = 'total_assets' THEN f.value END) AS total_assets,\n       MAX(CASE WHEN f.account_code = 'total_current_assets' THEN f.value END) AS total_current_assets,\n       MAX(CASE WHEN f.account_code = 'total_current_liabilities' THEN f.value END) AS total_current_liabilities,\n       MAX(CASE WHEN f.account_code = 'total_equity' THEN f.value END) AS total_equity,\n       MAX(CASE WHEN f.account_code = 'total_liabilities' THEN f.value END) AS total_liabilities\nFROM facts f\nJOIN periods p USING (company_id, fiscal_year, fiscal_quarter)\nWHERE f.version = 'original' AND p.company_id IN ('Lenovo') AND (p.fiscal_year > 2024 OR (p.fiscal_year = 2024 AND p.fiscal_quarter >= 1)) AND (p.fiscal_year < 2026 OR (p.fiscal_year = 2026 AND p.fiscal_quarter <= 1))\nGROUP BY 1, 2, 3, 4, 5) t\nORDER BY t.company, t.fiscal_year, t.fiscal_quarter",
+   "unit": "",
+   "data_version": "2633728-1790844911120430000-d728e5137cbb",
+   "created_step": -1,
+   "digest": "Lenovo 最新 38882.3 (FY26Q1) 上期 31285.1 环比 24.28%; 区间 22274.5~46323.2",
+   "initial_packet": false,
+   "rows": [
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2024,
+     "fiscal_quarter": 1,
+     "identity": "A=L+E",
+     "ok": true,
+     "total": 37924.369,
+     "computed": 37924.369,
+     "diff": 0.0,
+     "missing": [],
+     "all_missing": null
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2024,
+     "fiscal_quarter": 1,
+     "identity": "total_assets 分项加总",
+     "ok": true,
+     "total": 37924.369,
+     "computed": 37924.369,
+     "diff": 0.0,
+     "missing": [
+      "goodwill"
+     ],
+     "all_missing": false
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2024,
+     "fiscal_quarter": 1,
+     "identity": "total_current_assets 分项加总",
+     "ok": true,
+     "total": 22274.516,
+     "computed": 22274.516,
+     "diff": 0.0,
+     "missing": [
+      "financing_receivables"
+     ],
+     "all_missing": false
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2024,
+     "fiscal_quarter": 1,
+     "identity": "total_current_liabilities 分项加总",
+     "ok": true,
+     "total": 25377.958,
+     "computed": 25377.958,
+     "diff": -0.0,
+     "missing": [],
+     "all_missing": false
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2024,
+     "fiscal_quarter": 1,
+     "identity": "total_liabilities 分项加总",
+     "ok": true,
+     "total": 32067.389,
+     "computed": 32067.389,
+     "diff": 0.0,
+     "missing": [],
+     "all_missing": false
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2024,
+     "fiscal_quarter": 2,
+     "identity": "A=L+E",
+     "ok": true,
+     "total": 39256.653,
+     "computed": 39256.653,
+     "diff": -0.0,
+     "missing": [],
+     "all_missing": null
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2024,
+     "fiscal_quarter": 2,
+     "identity": "total_assets 分项加总",
+     "ok": true,
+     "total": 39256.653,
+     "computed": 39256.653,
+     "diff": 0.0,
+     "missing": [
+      "goodwill"
+     ],
+     "all_missing": false
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2024,
+     "fiscal_quarter": 2,
+     "identity": "total_current_assets 分项加总",
+     "ok": true,
+     "total": 23409.178,
+     "computed": 23409.178,
+     "diff": 0.0,
+     "missing": [
+      "financing_receivables"
+     ],
+     "all_missing": false
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2024,
+     "fiscal_quarter": 2,
+     "identity": "total_current_liabilities 分项加总",
+     "ok": true,
+     "total": 27055.687,
+     "computed": 27055.687,
+     "diff": 0.0,
+     "missing": [],
+     "all_missing": false
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2024,
+     "fiscal_quarter": 2,
+     "identity": "total_liabilities 分项加总",
+     "ok": true,
+     "total": 33678.171,
+     "computed": 33678.171,
+     "diff": 0.0,
+     "missing": [],
+     "all_missing": false
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2024,
+     "fiscal_quarter": 3,
+     "identity": "A=L+E",
+     "ok": true,
+     "total": 39504.337,
+     "computed": 39504.337,
+     "diff": 0.0,
+     "missing": [],
+     "all_missing": null
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2024,
+     "fiscal_quarter": 3,
+     "identity": "total_assets 分项加总",
+     "ok": true,
+     "total": 39504.337,
+     "computed": 39504.337,
+     "diff": 0.0,
+     "missing": [
+      "goodwill"
+     ],
+     "all_missing": false
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2024,
+     "fiscal_quarter": 3,
+     "identity": "total_current_assets 分项加总",
+     "ok": true,
+     "total": 23227.832,
+     "computed": 23227.832,
+     "diff": 0.0,
+     "missing": [
+      "financing_receivables"
+     ],
+     "all_missing": false
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2024,
+     "fiscal_quarter": 3,
+     "identity": "total_current_liabilities 分项加总",
+     "ok": true,
+     "total": 26700.663,
+     "computed": 26700.663,
+     "diff": 0.0,
+     "missing": [],
+     "all_missing": false
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2024,
+     "fiscal_quarter": 3,
+     "identity": "total_liabilities 分项加总",
+     "ok": true,
+     "total": 33391.32,
+     "computed": 33391.32,
+     "diff": 0.0,
+     "missing": [],
+     "all_missing": false
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2024,
+     "fiscal_quarter": 4,
+     "identity": "A=L+E",
+     "ok": true,
+     "total": 38750.954,
+     "computed": 38750.954,
+     "diff": -0.0,
+     "missing": [],
+     "all_missing": null
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2024,
+     "fiscal_quarter": 4,
+     "identity": "total_assets 分项加总",
+     "ok": true,
+     "total": 38750.954,
+     "computed": 38750.954,
+     "diff": 0.0,
+     "missing": [
+      "goodwill"
+     ],
+     "all_missing": false
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2024,
+     "fiscal_quarter": 4,
+     "identity": "total_current_assets 分项加总",
+     "ok": true,
+     "total": 22687.183,
+     "computed": 22687.183,
+     "diff": 0.0,
+     "missing": [
+      "financing_receivables"
+     ],
+     "all_missing": false
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2024,
+     "fiscal_quarter": 4,
+     "identity": "total_current_liabilities 分项加总",
+     "ok": true,
+     "total": 26059.163,
+     "computed": 26059.163,
+     "diff": 0.0,
+     "missing": [],
+     "all_missing": false
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2024,
+     "fiscal_quarter": 4,
+     "identity": "total_liabilities 分项加总",
+     "ok": true,
+     "total": 32669.767,
+     "computed": 32669.767,
+     "diff": 0.0,
+     "missing": [],
+     "all_missing": false
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2025,
+     "fiscal_quarter": 1,
+     "identity": "A=L+E",
+     "ok": true,
+     "total": 40484.663,
+     "computed": 40484.663,
+     "diff": 0.0,
+     "missing": [],
+     "all_missing": null
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2025,
+     "fiscal_quarter": 1,
+     "identity": "total_assets 分项加总",
+     "ok": true,
+     "total": 40484.663,
+     "computed": 40484.663,
+     "diff": 0.0,
+     "missing": [
+      "goodwill"
+     ],
+     "all_missing": false
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2025,
+     "fiscal_quarter": 1,
+     "identity": "total_current_assets 分项加总",
+     "ok": true,
+     "total": 24557.323,
+     "computed": 24557.323,
+     "diff": 0.0,
+     "missing": [
+      "financing_receivables"
+     ],
+     "all_missing": false
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2025,
+     "fiscal_quarter": 1,
+     "identity": "total_current_liabilities 分项加总",
+     "ok": true,
+     "total": 28839.027,
+     "computed": 28839.027,
+     "diff": -0.0,
+     "missing": [],
+     "all_missing": false
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2025,
+     "fiscal_quarter": 1,
+     "identity": "total_liabilities 分项加总",
+     "ok": true,
+     "total": 34419.327,
+     "computed": 34419.327,
+     "diff": 0.0,
+     "missing": [],
+     "all_missing": false
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2025,
+     "fiscal_quarter": 2,
+     "identity": "A=L+E",
+     "ok": true,
+     "total": 44464.284,
+     "computed": 44464.284,
+     "diff": 0.0,
+     "missing": [],
+     "all_missing": null
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2025,
+     "fiscal_quarter": 2,
+     "identity": "total_assets 分项加总",
+     "ok": true,
+     "total": 44464.284,
+     "computed": 44464.284,
+     "diff": 0.0,
+     "missing": [
+      "goodwill"
+     ],
+     "all_missing": false
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2025,
+     "fiscal_quarter": 2,
+     "identity": "total_current_assets 分项加总",
+     "ok": true,
+     "total": 28206.451,
+     "computed": 28206.451,
+     "diff": 0.0,
+     "missing": [
+      "financing_receivables"
+     ],
+     "all_missing": false
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2025,
+     "fiscal_quarter": 2,
+     "identity": "total_current_liabilities 分项加总",
+     "ok": true,
+     "total": 32682.051,
+     "computed": 32682.051,
+     "diff": 0.0,
+     "missing": [],
+     "all_missing": false
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2025,
+     "fiscal_quarter": 2,
+     "identity": "total_liabilities 分项加总",
+     "ok": true,
+     "total": 38372.767,
+     "computed": 38372.767,
+     "diff": 0.0,
+     "missing": [],
+     "all_missing": false
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2025,
+     "fiscal_quarter": 3,
+     "identity": "A=L+E",
+     "ok": true,
+     "total": 44722.344,
+     "computed": 44722.344,
+     "diff": -0.0,
+     "missing": [],
+     "all_missing": null
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2025,
+     "fiscal_quarter": 3,
+     "identity": "total_assets 分项加总",
+     "ok": true,
+     "total": 44722.344,
+     "computed": 44722.344,
+     "diff": 0.0,
+     "missing": [
+      "goodwill"
+     ],
+     "all_missing": false
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2025,
+     "fiscal_quarter": 3,
+     "identity": "total_current_assets 分项加总",
+     "ok": true,
+     "total": 28574.509,
+     "computed": 28574.509,
+     "diff": 0.0,
+     "missing": [
+      "financing_receivables"
+     ],
+     "all_missing": false
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2025,
+     "fiscal_quarter": 3,
+     "identity": "total_current_liabilities 分项加总",
+     "ok": true,
+     "total": 32904.101,
+     "computed": 32904.101,
+     "diff": 0.0,
+     "missing": [],
+     "all_missing": false
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2025,
+     "fiscal_quarter": 3,
+     "identity": "total_liabilities 分项加总",
+     "ok": true,
+     "total": 38581.374,
+     "computed": 38581.374,
+     "diff": 0.0,
+     "missing": [],
+     "all_missing": false
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2025,
+     "fiscal_quarter": 4,
+     "identity": "A=L+E",
+     "ok": true,
+     "total": 44230.812,
+     "computed": 44230.812,
+     "diff": 0.0,
+     "missing": [],
+     "all_missing": null
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2025,
+     "fiscal_quarter": 4,
+     "identity": "total_assets 分项加总",
+     "ok": true,
+     "total": 44230.812,
+     "computed": 44230.812,
+     "diff": 0.0,
+     "missing": [
+      "goodwill"
+     ],
+     "all_missing": false
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2025,
+     "fiscal_quarter": 4,
+     "identity": "total_current_assets 分项加总",
+     "ok": true,
+     "total": 27904.083,
+     "computed": 27904.083,
+     "diff": -0.0,
+     "missing": [
+      "financing_receivables"
+     ],
+     "all_missing": false
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2025,
+     "fiscal_quarter": 4,
+     "identity": "total_current_liabilities 分项加总",
+     "ok": true,
+     "total": 29994.133,
+     "computed": 29994.133,
+     "diff": 0.0,
+     "missing": [],
+     "all_missing": false
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2025,
+     "fiscal_quarter": 4,
+     "identity": "total_liabilities 分项加总",
+     "ok": true,
+     "total": 37570.895,
+     "computed": 37570.895,
+     "diff": -0.0,
+     "missing": [],
+     "all_missing": false
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 1,
+     "identity": "A=L+E",
+     "ok": true,
+     "total": 46323.21,
+     "computed": 46323.21,
+     "diff": 0.0,
+     "missing": [],
+     "all_missing": null
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 1,
+     "identity": "total_assets 分项加总",
+     "ok": true,
+     "total": 46323.21,
+     "computed": 46323.21,
+     "diff": 0.0,
+     "missing": [
+      "goodwill"
+     ],
+     "all_missing": false
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 1,
+     "identity": "total_current_assets 分项加总",
+     "ok": true,
+     "total": 29760.938,
+     "computed": 29760.938,
+     "diff": -0.0,
+     "missing": [
+      "financing_receivables"
+     ],
+     "all_missing": false
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 1,
+     "identity": "total_current_liabilities 分项加总",
+     "ok": true,
+     "total": 31285.11,
+     "computed": 31285.11,
+     "diff": 0.0,
+     "missing": [],
+     "all_missing": false
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 1,
+     "identity": "total_liabilities 分项加总",
+     "ok": true,
+     "total": 38882.312,
+     "computed": 38882.312,
+     "diff": 0.0,
+     "missing": [],
+     "all_missing": false
+    }
+   ]
+  },
+  {
+   "id": "r15",
+   "tool": "calc",
+   "args": {
+    "expression": "2559.85 / 15447.1 * 100",
+    "refs": []
+   },
+   "sql": null,
+   "unit": "",
+   "data_version": "2633728-1790844911120430000-d728e5137cbb",
+   "created_step": 13,
+   "digest": "value=16.5717",
+   "initial_packet": false,
+   "rows": [
+    {
+     "value": 16.5717189634
+    }
+   ]
+  },
+  {
+   "id": "r16",
+   "tool": "calc",
+   "args": {
+    "expression": "2774.48 / 18829.9 * 100",
+    "refs": []
+   },
+   "sql": null,
+   "unit": "",
+   "data_version": "2633728-1790844911120430000-d728e5137cbb",
+   "created_step": 13,
+   "digest": "value=14.7344",
+   "initial_packet": false,
+   "rows": [
+    {
+     "value": 14.7344383135
+    }
+   ]
+  },
+  {
+   "id": "r17",
+   "tool": "calc",
+   "args": {
+    "expression": "(2774.48 / 18829.9 - 2559.85 / 15447.1) * 18829.9",
+    "refs": []
+   },
+   "sql": null,
+   "unit": "",
+   "data_version": "2633728-1790844911120430000-d728e5137cbb",
+   "created_step": 13,
+   "digest": "value=-345.958",
+   "initial_packet": false,
+   "rows": [
+    {
+     "value": -345.9581090949
+    }
+   ]
+  },
+  {
+   "id": "r18",
+   "tool": "calc",
+   "args": {
+    "expression": "494.469 / 15447.1 * 100",
+    "refs": []
+   },
+   "sql": null,
+   "unit": "",
+   "data_version": "2633728-1790844911120430000-d728e5137cbb",
+   "created_step": 13,
+   "digest": "value=3.20105",
+   "initial_packet": false,
+   "rows": [
+    {
+     "value": 3.2010474458
+    }
+   ]
+  },
+  {
+   "id": "r19",
+   "tool": "calc",
+   "args": {
+    "expression": "331.381 / 16983.5 * 100",
+    "refs": []
+   },
+   "sql": null,
+   "unit": "",
+   "data_version": "2633728-1790844911120430000-d728e5137cbb",
+   "created_step": 13,
+   "digest": "value=1.95119",
+   "initial_packet": false,
+   "rows": [
+    {
+     "value": 1.9511938058
+    }
+   ]
+  },
+  {
+   "id": "r20",
+   "tool": "calc",
+   "args": {
+    "expression": "2559.85 / 15447.1 * 3382.8",
+    "refs": []
+   },
+   "sql": null,
+   "unit": "",
+   "data_version": "2633728-1790844911120430000-d728e5137cbb",
+   "created_step": 13,
+   "digest": "value=560.588",
+   "initial_packet": false,
+   "rows": [
+    {
+     "value": 560.5881090949
+    }
+   ]
+  },
+  {
+   "id": "r21",
+   "tool": "calc",
+   "args": {
+    "expression": "abs((2774.48 / 18829.9 - 2559.85 / 15447.1) * 18829.9) / 560.64 * 100",
+    "refs": []
+   },
+   "sql": null,
+   "unit": "",
+   "data_version": "2633728-1790844911120430000-d728e5137cbb",
+   "created_step": 13,
+   "digest": "value=61.7077",
+   "initial_packet": false,
+   "rows": [
+    {
+     "value": 61.707710669
+    }
+   ]
+  },
+  {
+   "id": "r22",
+   "tool": "calc",
+   "args": {
+    "expression": "2774.48 / 18829.9 * 100 - 2559.85 / 15447.1 * 100",
+    "refs": []
+   },
+   "sql": null,
+   "unit": "",
+   "data_version": "2633728-1790844911120430000-d728e5137cbb",
+   "created_step": 16,
+   "digest": "value=-1.83728",
+   "initial_packet": false,
+   "rows": [
+    {
+     "value": -1.8372806499
+    }
+   ]
+  },
+  {
+   "id": "r23",
+   "tool": "calc",
+   "args": {
+    "expression": "784.809 / 18829.9 * 100",
+    "refs": []
+   },
+   "sql": null,
+   "unit": "",
+   "data_version": "2633728-1790844911120430000-d728e5137cbb",
+   "created_step": 17,
+   "digest": "value=4.16789",
+   "initial_packet": false,
+   "rows": [
+    {
+     "value": 4.1678872432
+    }
+   ]
+  }
+ ],
+ "any_truncated": false
+}

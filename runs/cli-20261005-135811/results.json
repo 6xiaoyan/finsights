@@ -1,0 +1,258 @@
+{
+ "results": [
+  {
+   "id": "r1",
+   "tool": "query_metric",
+   "args": {
+    "metrics": [
+     "inventory",
+     "revenue",
+     "cogs",
+     "accounts_receivable",
+     "accounts_payable"
+    ],
+    "companies": [
+     "HP"
+    ],
+    "period_from": null,
+    "period_to": "2024Q3",
+    "last_n": 8,
+    "period_basis": "fiscal",
+    "group_by": [],
+    "filters": {}
+   },
+   "sql": "SELECT * FROM (\nSELECT ROW_NUMBER() OVER (PARTITION BY company ORDER BY fiscal_year DESC, fiscal_quarter DESC) AS _rn, *\nFROM (SELECT t.company, t.fiscal_year, t.fiscal_quarter, t.calendar_quarter, t.days,\n       t.inventory AS inventory,\n       t.revenue AS revenue,\n       t.cogs AS cogs,\n       t.accounts_receivable AS accounts_receivable,\n       t.accounts_payable AS accounts_payable\nFROM (SELECT p.company_id AS company, p.fiscal_year, p.fiscal_quarter, p.calendar_quarter, p.days,\n       MAX(CASE WHEN f.account_code = 'accounts_payable' THEN f.value END) AS accounts_payable,\n       MAX(CASE WHEN f.account_code = 'accounts_receivable' THEN f.value END) AS accounts_receivable,\n       MAX(CASE WHEN f.account_code = 'cogs' THEN f.value END) AS cogs,\n       MAX(CASE WHEN f.account_code = 'inventory' THEN f.value END) AS inventory,\n       MAX(CASE WHEN f.account_code = 'revenue' THEN f.value END) AS revenue\nFROM facts f\nJOIN periods p USING (company_id, fiscal_year, fiscal_quarter)\nWHERE f.version = 'original' AND p.company_id IN ('HP') AND p.calendar_quarter <= '2024Q3'\nGROUP BY 1, 2, 3, 4, 5) t\nORDER BY t.company, t.fiscal_year, t.fiscal_quarter)\n) WHERE _rn <= 8 ORDER BY company, fiscal_year, fiscal_quarter",
+   "unit": "",
+   "data_version": "2633728-1790844911120430000-d728e5137cbb",
+   "created_step": 0,
+   "digest": "HP 最新 7790 (FY24Q3) 上期 7512 环比 3.70%; 区间 6862~7790",
+   "initial_packet": true,
+   "rows": [
+    {
+     "_rn": 8,
+     "company": "HP",
+     "fiscal_year": 2022,
+     "fiscal_quarter": 4,
+     "calendar_quarter": "2022Q4",
+     "days": 92,
+     "inventory": 7595.0,
+     "revenue": 14801.0,
+     "cogs": 12084.0,
+     "accounts_receivable": 4546.0,
+     "accounts_payable": 15284.0
+    },
+    {
+     "_rn": 7,
+     "company": "HP",
+     "fiscal_year": 2023,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2023Q1",
+     "days": 92,
+     "inventory": 7344.0,
+     "revenue": 13828.0,
+     "cogs": 11019.0,
+     "accounts_receivable": 4312.0,
+     "accounts_payable": 13512.0
+    },
+    {
+     "_rn": 6,
+     "company": "HP",
+     "fiscal_year": 2023,
+     "fiscal_quarter": 2,
+     "calendar_quarter": "2023Q2",
+     "days": 89,
+     "inventory": 7221.0,
+     "revenue": 12913.0,
+     "cogs": 9984.0,
+     "accounts_receivable": 4137.0,
+     "accounts_payable": 13317.0
+    },
+    {
+     "_rn": 5,
+     "company": "HP",
+     "fiscal_year": 2023,
+     "fiscal_quarter": 3,
+     "calendar_quarter": "2023Q3",
+     "days": 92,
+     "inventory": 7197.0,
+     "revenue": 13196.0,
+     "cogs": 10374.0,
+     "accounts_receivable": 4367.0,
+     "accounts_payable": 14123.0
+    },
+    {
+     "_rn": 4,
+     "company": "HP",
+     "fiscal_year": 2023,
+     "fiscal_quarter": 4,
+     "calendar_quarter": "2023Q4",
+     "days": 92,
+     "inventory": 6862.0,
+     "revenue": 13817.0,
+     "cogs": 10832.0,
+     "accounts_receivable": 4237.0,
+     "accounts_payable": 14046.0
+    },
+    {
+     "_rn": 3,
+     "company": "HP",
+     "fiscal_year": 2024,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2024Q1",
+     "days": 92,
+     "inventory": 6928.0,
+     "revenue": 13185.0,
+     "cogs": 10297.0,
+     "accounts_receivable": 3804.0,
+     "accounts_payable": 13255.0
+    },
+    {
+     "_rn": 2,
+     "company": "HP",
+     "fiscal_year": 2024,
+     "fiscal_quarter": 2,
+     "calendar_quarter": "2024Q2",
+     "days": 90,
+     "inventory": 7512.0,
+     "revenue": 12800.0,
+     "cogs": 9777.0,
+     "accounts_receivable": 4319.0,
+     "accounts_payable": 14362.0
+    },
+    {
+     "_rn": 1,
+     "company": "HP",
+     "fiscal_year": 2024,
+     "fiscal_quarter": 3,
+     "calendar_quarter": "2024Q3",
+     "days": 92,
+     "inventory": 7790.0,
+     "revenue": 13519.0,
+     "cogs": 10613.0,
+     "accounts_receivable": 4659.0,
+     "accounts_payable": 15447.0
+    }
+   ]
+  },
+  {
+   "id": "r2",
+   "tool": "query_metric",
+   "args": {
+    "metrics": [
+     "inventory"
+    ],
+    "companies": [
+     "HP"
+    ],
+    "period_from": "2024Q3",
+    "period_to": "2024Q3",
+    "last_n": null,
+    "period_basis": "calendar",
+    "group_by": [],
+    "filters": {}
+   },
+   "sql": "SELECT t.company, t.fiscal_year, t.fiscal_quarter, t.calendar_quarter, t.days,\n       t.inventory AS inventory\nFROM (SELECT p.company_id AS company, p.fiscal_year, p.fiscal_quarter, p.calendar_quarter, p.days,\n       MAX(CASE WHEN f.account_code = 'inventory' THEN f.value END) AS inventory\nFROM facts f\nJOIN periods p USING (company_id, fiscal_year, fiscal_quarter)\nWHERE f.version = 'original' AND p.company_id IN ('HP') AND p.calendar_quarter >= '2024Q3' AND p.calendar_quarter <= '2024Q3'\nGROUP BY 1, 2, 3, 4, 5) t\nORDER BY t.company, t.fiscal_year, t.fiscal_quarter",
+   "unit": "usd_mn",
+   "data_version": "2633728-1790844911120430000-d728e5137cbb",
+   "created_step": 0,
+   "digest": "inventory=7790",
+   "initial_packet": true,
+   "rows": [
+    {
+     "company": "HP",
+     "fiscal_year": 2024,
+     "fiscal_quarter": 3,
+     "calendar_quarter": "2024Q3",
+     "days": 92,
+     "inventory": 7790.0
+    }
+   ]
+  },
+  {
+   "id": "r3",
+   "tool": "check_identities",
+   "args": {
+    "company": "HP",
+    "periods": [
+     "FY24Q3"
+    ]
+   },
+   "sql": "SELECT t.company, t.fiscal_year, t.fiscal_quarter, t.calendar_quarter, t.days,\n       t.accounts_payable AS accounts_payable,\n       t.accounts_receivable AS accounts_receivable,\n       t.accrued_liabilities AS accrued_liabilities,\n       t.cash AS cash,\n       t.deferred_revenue_current AS deferred_revenue_current,\n       t.deferred_revenue_noncurrent AS deferred_revenue_noncurrent,\n       t.financing_receivables AS financing_receivables,\n       t.goodwill AS goodwill,\n       t.intangibles AS intangibles,\n       t.inventory AS inventory,\n       t.long_term_debt AS long_term_debt,\n       t.other_current_assets AS other_current_assets,\n       t.other_current_liabilities AS other_current_liabilities,\n       t.other_noncurrent_assets AS other_noncurrent_assets,\n       t.other_noncurrent_liabilities AS other_noncurrent_liabilities,\n       t.ppe_net AS ppe_net,\n       t.short_term_debt AS short_term_debt,\n       t.short_term_investments AS short_term_investments,\n       t.total_assets AS total_assets,\n       t.total_current_assets AS total_current_assets,\n       t.total_current_liabilities AS total_current_liabilities,\n       t.total_equity AS total_equity,\n       t.total_liabilities AS total_liabilities\nFROM (SELECT p.company_id AS company, p.fiscal_year, p.fiscal_quarter, p.calendar_quarter, p.days,\n       MAX(CASE WHEN f.account_code = 'accounts_payable' THEN f.value END) AS accounts_payable,\n       MAX(CASE WHEN f.account_code = 'accounts_receivable' THEN f.value END) AS accounts_receivable,\n       MAX(CASE WHEN f.account_code = 'accrued_liabilities' THEN f.value END) AS accrued_liabilities,\n       MAX(CASE WHEN f.account_code = 'cash' THEN f.value END) AS cash,\n       MAX(CASE WHEN f.account_code = 'deferred_revenue_current' THEN f.value END) AS deferred_revenue_current,\n       MAX(CASE WHEN f.account_code = 'deferred_revenue_noncurrent' THEN f.value END) AS deferred_revenue_noncurrent,\n       MAX(CASE WHEN f.account_code = 'financing_receivables' THEN f.value END) AS financing_receivables,\n       MAX(CASE WHEN f.account_code = 'goodwill' THEN f.value END) AS goodwill,\n       MAX(CASE WHEN f.account_code = 'intangibles' THEN f.value END) AS intangibles,\n       MAX(CASE WHEN f.account_code = 'inventory' THEN f.value END) AS inventory,\n       MAX(CASE WHEN f.account_code = 'long_term_debt' THEN f.value END) AS long_term_debt,\n       MAX(CASE WHEN f.account_code = 'other_current_assets' THEN f.value END) AS other_current_assets,\n       MAX(CASE WHEN f.account_code = 'other_current_liabilities' THEN f.value END) AS other_current_liabilities,\n       MAX(CASE WHEN f.account_code = 'other_noncurrent_assets' THEN f.value END) AS other_noncurrent_assets,\n       MAX(CASE WHEN f.account_code = 'other_noncurrent_liabilities' THEN f.value END) AS other_noncurrent_liabilities,\n       MAX(CASE WHEN f.account_code = 'ppe_net' THEN f.value END) AS ppe_net,\n       MAX(CASE WHEN f.account_code = 'short_term_debt' THEN f.value END) AS short_term_debt,\n       MAX(CASE WHEN f.account_code = 'short_term_investments' THEN f.value END) AS short_term_investments,\n       MAX(CASE WHEN f.account_code = 'total_assets' THEN f.value END) AS total_assets,\n       MAX(CASE WHEN f.account_code = 'total_current_assets' THEN f.value END) AS total_current_assets,\n       MAX(CASE WHEN f.account_code = 'total_current_liabilities' THEN f.value END) AS total_current_liabilities,\n       MAX(CASE WHEN f.account_code = 'total_equity' THEN f.value END) AS total_equity,\n       MAX(CASE WHEN f.account_code = 'total_liabilities' THEN f.value END) AS total_liabilities\nFROM facts f\nJOIN periods p USING (company_id, fiscal_year, fiscal_quarter)\nWHERE f.version = 'original' AND p.company_id IN ('HP') AND (p.fiscal_year > 2024 OR (p.fiscal_year = 2024 AND p.fiscal_quarter >= 3)) AND (p.fiscal_year < 2024 OR (p.fiscal_year = 2024 AND p.fiscal_quarter <= 3))\nGROUP BY 1, 2, 3, 4, 5) t\nORDER BY t.company, t.fiscal_year, t.fiscal_quarter",
+   "unit": "",
+   "data_version": "2633728-1790844911120430000-d728e5137cbb",
+   "created_step": -1,
+   "digest": "HP 最新 39451 (FY24Q3) 上期 27043 环比 45.88%; 区间 19315~39451",
+   "initial_packet": false,
+   "rows": [
+    {
+     "company": "HP",
+     "fiscal_year": 2024,
+     "fiscal_quarter": 3,
+     "identity": "A=L+E",
+     "ok": true,
+     "total": 38059.0,
+     "computed": 38059.0,
+     "diff": 0.0,
+     "missing": [],
+     "all_missing": null
+    },
+    {
+     "company": "HP",
+     "fiscal_year": 2024,
+     "fiscal_quarter": 3,
+     "identity": "total_assets 分项加总",
+     "ok": true,
+     "total": 38059.0,
+     "computed": 38059.0,
+     "diff": 0.0,
+     "missing": [
+      "intangibles"
+     ],
+     "all_missing": false
+    },
+    {
+     "company": "HP",
+     "fiscal_year": 2024,
+     "fiscal_quarter": 3,
+     "identity": "total_current_assets 分项加总",
+     "ok": true,
+     "total": 19315.0,
+     "computed": 19315.0,
+     "diff": 0.0,
+     "missing": [
+      "short_term_investments",
+      "financing_receivables"
+     ],
+     "all_missing": false
+    },
+    {
+     "company": "HP",
+     "fiscal_year": 2024,
+     "fiscal_quarter": 3,
+     "identity": "total_current_liabilities 分项加总",
+     "ok": true,
+     "total": 27043.0,
+     "computed": 27043.0,
+     "diff": 0.0,
+     "missing": [
+      "accrued_liabilities"
+     ],
+     "all_missing": false
+    },
+    {
+     "company": "HP",
+     "fiscal_year": 2024,
+     "fiscal_quarter": 3,
+     "identity": "total_liabilities 分项加总",
+     "ok": true,
+     "total": 39451.0,
+     "computed": 39451.0,
+     "diff": 0.0,
+     "missing": [],
+     "all_missing": false
+    }
+   ]
+  }
+ ],
+ "any_truncated": false
+}

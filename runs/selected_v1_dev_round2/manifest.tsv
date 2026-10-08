@@ -1,0 +1,8 @@
+case_id	exit	status	verified	package	wall
+S01	0	answered	True	runs\selected_v1_dev_round2\S01	238s
+S02	4	refuse	False	runs\selected_v1_dev_round2\S02	130s
+S03	4	refuse	False	runs\selected_v1_dev_round2\S03	61s
+S04	4	refuse	False	runs\selected_v1_dev_round2\S04	20s
+S05	4	refuse	False	runs\selected_v1_dev_round2\S05	75s
+S06	4	refuse	False	runs\selected_v1_dev_round2\S06	18s
+S07	4	refuse	False	runs\selected_v1_dev_round2\S07	38s

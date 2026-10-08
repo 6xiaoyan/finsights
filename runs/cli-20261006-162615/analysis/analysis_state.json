@@ -1,0 +1,19 @@
+{
+ "contract": {
+  "query": "联想 FY2027Q1 的库存增长是否反映周转恶化？请比较上年同期，量化变化，并区分现有数据能够支持与不能支持的解释。",
+  "company": "Lenovo",
+  "period": "FY2027Q1",
+  "comparison": "yoy",
+  "scope_notes": [],
+  "output_requirements": "结构化分析：事实、计算、解释、限制",
+  "as_of": null,
+  "data_version": "2633728-1790844911120430000-d728e5137cbb",
+  "clarification_status": "none"
+ },
+ "contract_version": "c1",
+ "plans": {},
+ "latest_revision": 0,
+ "artifacts": {},
+ "reviews": {},
+ "answer_candidate": null
+}

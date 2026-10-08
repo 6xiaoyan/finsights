@@ -1,0 +1,662 @@
+{
+ "contract": {
+  "query": "联想 FY2027Q1 的库存增长是否反映周转恶化？请比较上年同期，量化变化，并区分现有数据能够支持与不能支持的解释。",
+  "company": "Lenovo",
+  "period": "FY2027Q1",
+  "comparison": "yoy",
+  "scope_notes": [],
+  "output_requirements": "结构化分析：事实、计算、解释、限制",
+  "as_of": null,
+  "data_version": "2633728-1790844911120430000-d728e5137cbb",
+  "clarification_status": "none"
+ },
+ "contract_version": "c1",
+ "plans": {
+  "1": {
+   "plan_id": "plan1",
+   "revision": 1,
+   "contract_version": "c1",
+   "nodes": [
+    {
+     "node_id": "n1",
+     "goal": "获取联想 FY2027Q1 及 FY2026Q1 的存货期末余额（以及期初/上期末）数据，按合并报表口径。",
+     "depends_on": [],
+     "input_refs": [],
+     "completion_criteria": "提供 FY2027Q1 与 FY2026Q1 存货期末金额（亿元或报告币种），并标注数据来源期间与币种。",
+     "required_for_answer": true,
+     "execution_status": "completed",
+     "attempt": 1,
+     "latest_artifact_id": "art1",
+     "review_status": "not_reviewed"
+    },
+    {
+     "node_id": "n2",
+     "goal": "获取联想 FY2027Q1 及 FY2026Q1 的营业收入（或总收入）数据。",
+     "depends_on": [],
+     "input_refs": [],
+     "completion_criteria": "提供两个期间的营业收入金额与币种，口径一致。",
+     "required_for_answer": true,
+     "execution_status": "completed",
+     "attempt": 1,
+     "latest_artifact_id": "art2",
+     "review_status": "not_reviewed"
+    },
+    {
+     "node_id": "n3",
+     "goal": "获取联想 FY2027Q1 及 FY2026Q1 的销货成本（COGS）数据。",
+     "depends_on": [],
+     "input_refs": [],
+     "completion_criteria": "提供两个期间的销货成本金额与币种，与营业收入同源。",
+     "required_for_answer": true,
+     "execution_status": "completed",
+     "attempt": 1,
+     "latest_artifact_id": "art3",
+     "review_status": "not_reviewed"
+    },
+    {
+     "node_id": "n4",
+     "goal": "计算 FY2027Q1 与 FY2026Q1 的平均存货（期末+期初）/2，并计算存货周转天数 = 平均存货 / COGS × 季度天数（90 天或按披露口径）；同时计算存货同比变化率。",
+     "depends_on": [
+      "n1",
+      "n2",
+      "n3"
+     ],
+     "input_refs": [
+      "n1",
+      "n2",
+      "n3"
+     ],
+     "completion_criteria": "输出：存货期末同比增长率、平均存货同比变化率、两期周转天数及其差值、若可能周转次数；标注计算口径与假设。",
+     "required_for_answer": true,
+     "execution_status": "failed",
+     "attempt": 2,
+     "latest_artifact_id": "art5",
+     "review_status": "not_reviewed"
+    },
+    {
+     "node_id": "n5",
+     "goal": "基于 n4 结果，区分现有数据可支持的库存/周转恶化解释（如 COGS 增速放缓、存货占 COGS 比例上升）与不能支持或需补充数据的解释（如产品结构、渠道库存、减值政策、供应链备货），并给出限制说明。",
+     "depends_on": [
+      "n4"
+     ],
+     "input_refs": [
+      "n4"
+     ],
+     "completion_criteria": "输出结构化分析：事实、计算、解释、限制；明确列出支持与不支持的论据，并指出后续需补充的数据。",
+     "required_for_answer": true,
+     "execution_status": "pending",
+     "attempt": 0,
+     "latest_artifact_id": null,
+     "review_status": "not_reviewed"
+    }
+   ],
+   "revision_reason": "首轮规划：需依次完成数据获取（存货余额、营收、成本）与基准计算（同比、周转天数），最后形成支持与不支持的解释。",
+   "created_ts": "2026-10-06T17:03:15+09:00"
+  },
+  "2": {
+   "plan_id": "plan2",
+   "revision": 2,
+   "contract_version": "c1",
+   "nodes": [
+    {
+     "node_id": "n1",
+     "goal": "获取联想 FY2027Q1 及 FY2026Q1 的存货期末余额（以及期初/上期末）数据，按合并报表口径。",
+     "depends_on": [],
+     "input_refs": [],
+     "completion_criteria": "输出包含 FY2027Q1/FY2026Q1 的期末存货、期初存货数值，单位与币种标注清晰。",
+     "required_for_answer": true,
+     "execution_status": "completed",
+     "attempt": 1,
+     "latest_artifact_id": "art6",
+     "review_status": "not_reviewed"
+    },
+    {
+     "node_id": "n2",
+     "goal": "获取联想 FY2027Q1 及 FY2026Q1 的营业收入（或总收入）数据。",
+     "depends_on": [],
+     "input_refs": [],
+     "completion_criteria": "输出两期营业总收入数值，单位与币种标注清晰。",
+     "required_for_answer": true,
+     "execution_status": "completed",
+     "attempt": 1,
+     "latest_artifact_id": "art7",
+     "review_status": "not_reviewed"
+    },
+    {
+     "node_id": "n3",
+     "goal": "获取联想 FY2027Q1 及 FY2026Q1 的销货成本（COGS）数据。",
+     "depends_on": [],
+     "input_refs": [],
+     "completion_criteria": "输出两期 COGS 数值，单位与币种标注清晰。",
+     "required_for_answer": true,
+     "execution_status": "completed",
+     "attempt": 1,
+     "latest_artifact_id": "art8",
+     "review_status": "not_reviewed"
+    },
+    {
+     "node_id": "n4",
+     "goal": "基于 art1, art2, art3 获取的数值，执行以下计算：(1) 分别计算 FY2027Q1 和 FY2026Q1 的平均存货 = (期初存货 + 期末存货) / 2；(2) 分别计算存货周转天数 = 平均存货 / COGS × 90（季度天数）；(3) 计算两期存货期末余额同比变化率、平均存货同比变化率、周转天数同比增减天数。",
+     "depends_on": [
+      "n1",
+      "n2",
+      "n3"
+     ],
+     "input_refs": [
+      "art1",
+      "art2",
+      "art3"
+     ],
+     "completion_criteria": "输出包含：两期平均存货、两期周转天数、存货同比增速、周转天数同比变动值。所有数值保留两位小数，明确标注计算依据。",
+     "required_for_answer": true,
+     "execution_status": "pending",
+     "attempt": 0,
+     "latest_artifact_id": null,
+     "review_status": "not_reviewed"
+    },
+    {
+     "node_id": "n5",
+     "goal": "基于 n4 输出的量化结果，撰写结构化解释：(a) 事实层：列出存货增长与周转天数变化的具体数值；(b) 解释层：区分哪些解释（如备货策略、季节性因素、需求放缓）可由现有数据直接支持，哪些属于数据未覆盖的假设；(c) 限制层：说明单季度数据在判断趋势时的局限性。",
+     "depends_on": [
+      "n4"
+     ],
+     "input_refs": [
+      "art5"
+     ],
+     "completion_criteria": "输出包含事实、可支持解释、不可支持解释、数据限制四个子部分的完整分析文本，逻辑严谨，不臆测未提供数据的经营原因。",
+     "required_for_answer": true,
+     "execution_status": "pending",
+     "attempt": 0,
+     "latest_artifact_id": null,
+     "review_status": "not_reviewed"
+    }
+   ],
+   "revision_reason": "n4 节点因目标描述抽象导致执行失败。本次修订将 n4 细化为包含明确算术逻辑的计算节点，通过 input_refs 显式绑定已完成的 n1, n2, n3 产物（art1, art2, art3），给出具体计算公式，确保 Worker 可直接执行并输出结构化数值结果。",
+   "created_ts": "2026-10-06T17:09:32+09:00"
+  }
+ },
+ "latest_revision": 2,
+ "artifacts": {
+  "art1": {
+   "artifact_id": "art1",
+   "node_id": "n1",
+   "plan_revision": 1,
+   "attempt": 1,
+   "execution_status": "completed",
+   "facts": [
+    {
+     "rid": "r2",
+     "field": "inventory",
+     "value": 15741.9,
+     "unit": "usd_mn",
+     "company": "Lenovo",
+     "period": "FY2027Q1",
+     "data_nature": "real"
+    },
+    {
+     "rid": "r2",
+     "field": "inventory",
+     "value": 11720.9,
+     "unit": "usd_mn",
+     "company": "Lenovo",
+     "period": "FY2026Q4 (2026Q1)",
+     "data_nature": "real"
+    },
+    {
+     "rid": "r2",
+     "field": "inventory",
+     "value": 8742.64,
+     "unit": "usd_mn",
+     "company": "Lenovo",
+     "period": "FY2026Q1 (2025Q2)",
+     "data_nature": "real"
+    },
+    {
+     "rid": "r2",
+     "field": "inventory",
+     "value": 9076.55,
+     "unit": "usd_mn",
+     "company": "Lenovo",
+     "period": "FY2026Q3 (2025Q4)",
+     "data_nature": "real"
+    },
+    {
+     "rid": "r2",
+     "field": "inventory",
+     "value": 8617.38,
+     "unit": "usd_mn",
+     "company": "Lenovo",
+     "period": "FY2026Q2 (2025Q3)",
+     "data_nature": "real"
+    }
+   ],
+   "calculations": [],
+   "interpretations": [
+    "联想 FY2027Q1（自然季度 2026Q2，91 天）存货期末余额为 15,741.90 百万美元。",
+    "联想 FY2026Q1（自然季度 2025Q2，91 天）存货期末余额为 8,742.64 百万美元。",
+    "FY2027Q1 期末余额 15,741.90 百万美元即为 FY2026Q1 之后下一财季期初（FY2026Q2 期初）；FY2026Q1 期末 8,742.64 百万美元即 FY2026Q2 期初。"
+   ],
+   "hypotheses": [],
+   "limitations": [
+    "数据来自合并报表口径 facts 表（account_code='inventory'，version='original'）。",
+    "未单独提供 10 位小数精度；数值按工具返回取。"
+   ],
+   "missing_inputs": [],
+   "evidence_refs": [
+    "r2"
+   ],
+   "summary": "已取到联想存货期末余额：FY2027Q1 = 15,741.90 百万美元（自然季 2026Q2，91 天）；FY2026Q1 = 8,742.64 百万美元（自然季 2025Q2，91 天）。期初/上期末：FY2027Q1 期初即 FY2026Q4 期末 = 11,720.90 百万美元（自然季 2026Q1）；FY2026Q1 期初即 FY2025Q4 期末，本次范围未取回（如需请补充 FY2025Q4）。",
+   "stale": true,
+   "created_ts": "2026-10-06T17:03:56+09:00"
+  },
+  "art2": {
+   "artifact_id": "art2",
+   "node_id": "n2",
+   "plan_revision": 1,
+   "attempt": 1,
+   "execution_status": "completed",
+   "facts": [
+    {
+     "rid": "r3",
+     "field": "revenue",
+     "value": 18829.9,
+     "unit": "usd_mn",
+     "company": "Lenovo",
+     "period": "FY2026Q1",
+     "data_nature": "real"
+    },
+    {
+     "rid": "r3",
+     "field": "revenue",
+     "value": 26942.8,
+     "unit": "usd_mn",
+     "company": "Lenovo",
+     "period": "FY2027Q1",
+     "data_nature": "real"
+    }
+   ],
+   "calculations": [],
+   "interpretations": [
+    "联想 FY2027Q1 营业收入为 26,942.8 百万美元（约 269.4 亿美元），对应自然季度 2026Q2。",
+    "联想 FY2026Q1 营业收入为 18,829.9 百万美元（约 188.3 亿美元），对应自然季度 2025Q2。"
+   ],
+   "hypotheses": [],
+   "limitations": [],
+   "missing_inputs": [],
+   "evidence_refs": [
+    "r3"
+   ],
+   "summary": "已获取联想 FY2026Q1（18,829.9 百万美元）和 FY2027Q1（26,942.8 百万美元）的营业收入数据，口径一致（均为财年总收入，单位百万美元），数据来源为 semantic layer 取数结果 r3。",
+   "stale": true,
+   "created_ts": "2026-10-06T17:04:12+09:00"
+  },
+  "art3": {
+   "artifact_id": "art3",
+   "node_id": "n3",
+   "plan_revision": 1,
+   "attempt": 1,
+   "execution_status": "completed",
+   "facts": [
+    {
+     "rid": "r5",
+     "field": "cogs",
+     "value": 16055.4,
+     "unit": "usd_mn",
+     "company": "Lenovo",
+     "period": "FY2026Q1",
+     "data_nature": "real"
+    },
+    {
+     "rid": "r5",
+     "field": "cogs",
+     "value": 22490.8,
+     "unit": "usd_mn",
+     "company": "Lenovo",
+     "period": "FY2027Q1",
+     "data_nature": "real"
+    },
+    {
+     "rid": "r5",
+     "field": "revenue",
+     "value": 18829.9,
+     "unit": "usd_mn",
+     "company": "Lenovo",
+     "period": "FY2026Q1",
+     "data_nature": "real"
+    },
+    {
+     "rid": "r5",
+     "field": "revenue",
+     "value": 26942.8,
+     "unit": "usd_mn",
+     "company": "Lenovo",
+     "period": "FY2027Q1",
+     "data_nature": "real"
+    }
+   ],
+   "calculations": [],
+   "interpretations": [
+    "联想 FY2026Q1（自然季 2025Q2，91天）销货成本 16055.4 百万美元，营业收入 18829.9 百万美元。",
+    "联想 FY2027Q1（自然季 2026Q2，91天）销货成本 22490.8 百万美元，营业收入 26942.8 百万美元。",
+    "两个期间的 cogs 与 revenue 来自同一次 query_metric 调用（同一数据源、同期天数），满足'同源'要求。"
+   ],
+   "hypotheses": [],
+   "limitations": [
+    "本任务仅要求取数，未做派生计算；两期天数相同（均91天），但本节点未使用 working_capital 工具。"
+   ],
+   "missing_inputs": [],
+   "evidence_refs": [
+    "r5"
+   ],
+   "summary": "已获取联想 FY2026Q1 与 FY2027Q1 的销货成本及营业收入数据：FY2026Q1 COGS=16055.4 百万美元（收入 18829.9），FY2027Q1 COGS=22490.8 百万美元（收入 26942.8）。两期数据来自同一查询结果 r5，币种为 USD（mn），口径一致。",
+   "stale": true,
+   "created_ts": "2026-10-06T17:04:34+09:00"
+  },
+  "art4": {
+   "artifact_id": "art4",
+   "node_id": "n4",
+   "plan_revision": 1,
+   "attempt": 1,
+   "execution_status": "failed",
+   "facts": [],
+   "calculations": [],
+   "interpretations": [],
+   "hypotheses": [],
+   "limitations": [],
+   "missing_inputs": [],
+   "evidence_refs": [],
+   "summary": "worker 未输出合法结果",
+   "stale": true,
+   "created_ts": "2026-10-06T17:05:30+09:00"
+  },
+  "art5": {
+   "artifact_id": "art5",
+   "node_id": "n4",
+   "plan_revision": 1,
+   "attempt": 2,
+   "execution_status": "failed",
+   "facts": [],
+   "calculations": [],
+   "interpretations": [],
+   "hypotheses": [],
+   "limitations": [],
+   "missing_inputs": [],
+   "evidence_refs": [],
+   "summary": "worker 未输出合法结果",
+   "stale": true,
+   "created_ts": "2026-10-06T17:06:20+09:00"
+  },
+  "art6": {
+   "artifact_id": "art6",
+   "node_id": "n1",
+   "plan_revision": 2,
+   "attempt": 1,
+   "execution_status": "completed",
+   "facts": [
+    {
+     "rid": "r23",
+     "field": "inventory",
+     "value": 7923.8,
+     "unit": "usd_mn",
+     "company": "Lenovo",
+     "period": "FY2025Q4",
+     "data_nature": "real"
+    },
+    {
+     "rid": "r22",
+     "field": "inventory",
+     "value": 8742.64,
+     "unit": "usd_mn",
+     "company": "Lenovo",
+     "period": "FY2026Q1",
+     "data_nature": "real"
+    },
+    {
+     "rid": "r22",
+     "field": "inventory",
+     "value": 11720.9,
+     "unit": "usd_mn",
+     "company": "Lenovo",
+     "period": "FY2026Q4",
+     "data_nature": "real"
+    },
+    {
+     "rid": "r22",
+     "field": "inventory",
+     "value": 15741.9,
+     "unit": "usd_mn",
+     "company": "Lenovo",
+     "period": "FY2027Q1",
+     "data_nature": "real"
+    }
+   ],
+   "calculations": [
+    {
+     "input_rids": [
+      "r22"
+     ],
+     "expression": "r22.inventory[Lenovo,FY2027Q1] - r22.inventory[Lenovo,FY2026Q4]",
+     "output_rid": "r24",
+     "caliber": "FY2027Q1 环比增量 = 期末 - 上期期末（即期初），单位 usd_mn"
+    },
+    {
+     "input_rids": [
+      "r22"
+     ],
+     "expression": "r22.inventory[Lenovo,FY2027Q1] / r22.inventory[Lenovo,FY2026Q1] - 1",
+     "output_rid": "r25",
+     "caliber": "FY2027Q1 同比 = (当期期末 / 上年同期期末 - 1)，单位 百分比"
+    }
+   ],
+   "interpretations": [
+    "根据联想合并报表存货（期末余额）数据：FY2026Q1 期末存货为 8,742.64 百万美元，对应期初（FY2025Q4）存货为 7,923.80 百万美元。",
+    "FY2027Q1 期末存货为 15,741.90 百万美元，对应期初（FY2026Q4）存货为 11,720.90 百万美元，环比增加 4,021.00 百万美元。",
+    "FY2027Q1 期末存货相较 FY2026Q1 期末同比增长 79.98%。"
+   ],
+   "hypotheses": [
+    {
+     "statement": "联想 FY2027Q1 存货较 FY2026Q4 显著增加，需进一步核实是否存在季节性备货、采购节奏变化或合并范围调整。",
+     "relation": "missing_evidence",
+     "evidence_refs": [
+      "r22"
+     ]
+    }
+   ],
+   "limitations": [
+    "本次仅获取到存货科目余额数据，未提供存货构成明细（如原材料、在产品、产成品）及合并范围说明，无法判断变动原因。",
+    "数据来自语义层标准取数，未做人工核对，若数据库版本更新可能影响结果。"
+   ],
+   "missing_inputs": [
+    "存货分项目明细（原材料/在产品/产成品）",
+    "合并报表范围说明及是否有重大并表变化",
+    "存货计价与跌价准备相关说明"
+   ],
+   "evidence_refs": [
+    "r22",
+    "r23"
+   ],
+   "summary": "已获取联想 FY2026Q1 与 FY2027Q1 的期末及期初存货数据（合并报表口径）：FY2026Q1 期初 7,923.80、期末 8,742.64 百万美元；FY2027Q1 期初（即 FY2026Q4 期末）11,720.90、期末 15,741.90 百万美元。所有数值均标注真实 rid（r22/r23），并完成环比增量与同比增长两项派生计算。",
+   "stale": false,
+   "created_ts": "2026-10-06T17:10:23+09:00"
+  },
+  "art7": {
+   "artifact_id": "art7",
+   "node_id": "n2",
+   "plan_revision": 2,
+   "attempt": 1,
+   "execution_status": "completed",
+   "facts": [
+    {
+     "rid": "r3",
+     "field": "revenue",
+     "value": 18829.9,
+     "unit": "usd_mn",
+     "company": "Lenovo",
+     "period": "FY2026Q1",
+     "data_nature": "real"
+    },
+    {
+     "rid": "r3",
+     "field": "revenue",
+     "value": 26942.8,
+     "unit": "usd_mn",
+     "company": "Lenovo",
+     "period": "FY2027Q1",
+     "data_nature": "real"
+    }
+   ],
+   "calculations": [],
+   "interpretations": [
+    "Lenovo FY2026Q1 营业收入为 18,829.9 百万美元（自然季度对应 2025Q2，91 天）；FY2027Q1 营业收入为 26,942.8 百万美元（自然季度对应 2026Q2，91 天）。"
+   ],
+   "hypotheses": [],
+   "limitations": [],
+   "missing_inputs": [],
+   "evidence_refs": [
+    "r3"
+   ],
+   "summary": "已获取 Lenovo FY2026Q1 与 FY2027Q1 两期营业收入（revenue，单位 usd_mn）：FY2026Q1 = 18,829.9，FY2027Q1 = 26,942.8（来源 rid=r3）。",
+   "stale": false,
+   "created_ts": "2026-10-06T17:11:40+09:00"
+  },
+  "art8": {
+   "artifact_id": "art8",
+   "node_id": "n3",
+   "plan_revision": 2,
+   "attempt": 1,
+   "execution_status": "completed",
+   "facts": [
+    {
+     "rid": "r24",
+     "field": "cogs",
+     "value": 16055.4,
+     "unit": "usd_mn",
+     "company": "Lenovo",
+     "period": "FY2026Q1",
+     "data_nature": "real"
+    },
+    {
+     "rid": "r24",
+     "field": "cogs",
+     "value": 22490.8,
+     "unit": "usd_mn",
+     "company": "Lenovo",
+     "period": "FY2027Q1",
+     "data_nature": "real"
+    }
+   ],
+   "calculations": [],
+   "interpretations": [
+    "Lenovo 销货成本从 FY2026Q1 的 16,055.4 百万美元上升至 FY2027Q1 的 22,490.8 百万美元，同比期间相隔一个财年。两期对应的自然季度分别为 2025Q2（91天）和 2026Q2（91天），期间天数一致。"
+   ],
+   "hypotheses": [],
+   "limitations": [
+    "仅获取了 FY2026Q1 和 FY2027Q1 两期数据，中间 FY2026Q2–Q4 作为上下文列出但本节点任务只关注首尾两期。未进行同比/环比计算（任务未要求）。"
+   ],
+   "missing_inputs": [],
+   "evidence_refs": [
+    "r24"
+   ],
+   "summary": "已获取 Lenovo FY2026Q1 COGS=16,055.4 usd_mn 和 FY2027Q1 COGS=22,490.8 usd_mn，单位均为百万美元，数据来源为语义层 facts 表（r24）。",
+   "stale": false,
+   "created_ts": "2026-10-06T17:11:53+09:00"
+  }
+ },
+ "reviews": {},
+ "answer_candidate": {
+  "artifact_id": "answer-cand9",
+  "answer_md": "## 联想 FY2027Q1 库存增长与周转分析\n\n**数据来源**（合并报表，USD mn）：\n\n| 指标 | FY2026Q1 | FY2027Q1 |\n|---|---|---|\n| 存货期初 | 7,923.80 | 11,720.90 |\n| 存货期末 | 8,742.64 | 15,741.90 |\n| 营业收入 | 18,829.9 | 26,942.8 |\n| 销货成本（COGS） | 16,055.4 | 22,490.8 |\n\n### 一、量化变化\n\n**1. 存货同比增长**\n- 期末存货同比：（15,741.90 − 8,742.64）/ 8,742.64 = **+80.1%**\n\n**2. 平均存货**\n- FY2027Q1 平均存货 =（11,720.90 + 15,741.90）/ 2 = **13,731.40**\n- FY2026Q1 平均存货 =（7,923.80 + 8,742.64）/ 2 = **8,333.22**\n- 平均存货同比 =（13,731.40 − 8,333.22）/ 8,333.22 = **+64.8%**\n\n**3. 存货周转天数（季度，按 91 天计算）**\n- FY2027Q1 = 13,731.40 × 91 / 22,490.8 = **55.4 天**\n- FY2026Q1 = 8,333.22 × 91 / 16,055.4 = **47.2 天**\n- 周转天数同比变化 = **+8.2 天（恶化约 17.4%）**\n\n**4. 营收与 COGS 增速**\n- 营收同比增速 =（26,942.8 − 18,829.9）/ 18,829.9 = **+43.1%**\n- COGS 同比增速 =（22,490.8 − 16,055.4）/ 16,055.4 = **+39.9%**\n- 存货增速（期末 +80.1%）明显快于 COGS 增速（+39.9%）\n\n**5. 毛利率**\n- FY2026Q1 毛利率 =（18,829.9 − 16,055.4）/ 18,829.9 = **14.7%**\n- FY2027Q1 毛利率 =（26,942.8 − 22,490.8）/ 26,942.8 = **16.5%**\n- 毛利率同比提升约 1.8 个百分点\n\n### 二、现有数据能够支持的结论\n\n1. **库存绝对水平显著上升**：期末存货从 8,742.64 增至 15,741.90 百万美元，增幅 +80.1%，远超营收（+43.1%）和 COGS（+39.9%）增速，说明库存积累速度明显快于销售消耗速度。\n\n2. **周转天数恶化**：存货周转天数从 47.2 天升至 55.4 天，增加 8.2 天（恶化约 17.4%），直接反映周转效率下降。\n\n3. **存货与 COGS 增速剪刀差**：存货增速（+80.1%）约为 COGS 增速（+39.9%）的两倍，这是周转恶化的量化证据——单位 COGS 所对应的库存量在增加。\n\n4. **毛利率有所改善但不能完全解释库存积累**：毛利率从 14.7% 升至 16.5%，说明产品 mix 或定价能力有所提升，但毛利率改善与库存积累方向相反，不能解释为何存货增速远超销售增速。\n\n### 三、现有数据不能支持（需进一步验证）的解释\n\n以下假设在当前可获取的财务数据中**无法证实或证伪**，需依赖公司披露、管理层说明或行业数据：\n\n1. **供应链主动备货 / 季节性因素**：存货大幅增长是否源于 AI 服务器、新品（如 Legion 系列）提前备货或关税/关税政策不确定性导致的主动囤货，现有数据无法判断。\n\n2. **产品 mix 变化**：毛利率提升可能与产品组合向高毛利产品倾斜有关，但存货分项目明细（原材料 / 在产品 / 产成品）数据缺失，无法确认库存积压具体集中在哪个环节。\n\n3. **产能或供应商变化**：若联想新增产线或更换供应商导致原材料储备增加，现有数据无法反映。\n\n4. **存货跌价风险**：库存积压是否伴随跌价准备增加，需查看资产负债表附注中的存货跌价准备明细，当前数据中未获取该项。\n\n5. **合并范围变化**：若 FY2027Q1 存在重大并表范围调整（如收购或新增子公司），可能部分解释存货跃升，需核对合并范围说明。\n\n### 四、综合判断\n\n**现有数据明确支持：库存周转确已恶化**——周转天数从 47.2 天升至 55.4 天，存货增速（+80.1%）远超 COGS 增速（+39.9%），周转效率下降约 17.4%。\n\n**不能仅凭现有数据解释恶化原因**：是主动战略备货（如 AI 服务器订单预期）还是被动积压（需求不及预期），需要结合存货分项目明细、管理层电话会议纪要、行业需求数据等进一步判断。",
+  "claims": [
+   {
+    "text": "FY2026Q1 存货期末 8,742.64",
+    "value": 8742.64,
+    "unit": "usd_mn",
+    "ref": "art6"
+   },
+   {
+    "text": "FY2027Q1 存货期末 15,741.90",
+    "value": 15741.9,
+    "unit": "usd_mn",
+    "ref": "art6"
+   },
+   {
+    "text": "存货期末同比 +80.1%",
+    "value": 80.1,
+    "unit": "%",
+    "ref": "art6"
+   },
+   {
+    "text": "FY2027Q1 平均存货 13,731.40",
+    "value": 13731.4,
+    "unit": "usd_mn",
+    "ref": "art6"
+   },
+   {
+    "text": "FY2026Q1 平均存货 8,333.22",
+    "value": 8333.22,
+    "unit": "usd_mn",
+    "ref": "art6"
+   },
+   {
+    "text": "FY2027Q1 存货周转天数 55.4 天",
+    "value": 55.4,
+    "unit": "天",
+    "ref": "art8"
+   },
+   {
+    "text": "FY2026Q1 存货周转天数 47.2 天",
+    "value": 47.2,
+    "unit": "天",
+    "ref": "art8"
+   },
+   {
+    "text": "周转天数增加 8.2 天",
+    "value": 8.2,
+    "unit": "天",
+    "ref": "art8"
+   },
+   {
+    "text": "周转恶化约 17.4%",
+    "value": 17.4,
+    "unit": "%",
+    "ref": "art8"
+   },
+   {
+    "text": "营收同比 +43.1%",
+    "value": 43.1,
+    "unit": "%",
+    "ref": "art7"
+   },
+   {
+    "text": "COGS 同比 +39.9%",
+    "value": 39.9,
+    "unit": "%",
+    "ref": "art8"
+   },
+   {
+    "text": "FY2026Q1 毛利率 14.7%",
+    "value": 14.7,
+    "unit": "%",
+    "ref": "art7"
+   },
+   {
+    "text": "FY2027Q1 毛利率 16.5%",
+    "value": 16.5,
+    "unit": "%",
+    "ref": "art7"
+   },
+   {
+    "text": "毛利率提升 1.8 个百分点",
+    "value": 1.8,
+    "unit": "pct",
+    "ref": "art7"
+   }
+  ],
+  "source_artifact_ids": [
+   "art6",
+   "art7",
+   "art8"
+  ],
+  "created_ts": "2026-10-06T17:12:34+09:00"
+ }
+}

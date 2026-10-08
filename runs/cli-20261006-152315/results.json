@@ -1,0 +1,139 @@
+{
+ "results": [
+  {
+   "id": "r1",
+   "tool": "query_metric",
+   "args": {
+    "metrics": [
+     "inventory",
+     "revenue",
+     "cogs",
+     "accounts_receivable",
+     "accounts_payable"
+    ],
+    "companies": [
+     "Lenovo"
+    ],
+    "period_from": null,
+    "period_to": "FY2024Q3",
+    "last_n": 8,
+    "period_basis": "fiscal",
+    "group_by": [],
+    "filters": {}
+   },
+   "sql": "SELECT * FROM (\nSELECT ROW_NUMBER() OVER (PARTITION BY company ORDER BY fiscal_year DESC, fiscal_quarter DESC) AS _rn, *\nFROM (SELECT t.company, t.fiscal_year, t.fiscal_quarter, t.calendar_quarter, t.days,\n       t.inventory AS inventory,\n       t.revenue AS revenue,\n       t.cogs AS cogs,\n       t.accounts_receivable AS accounts_receivable,\n       t.accounts_payable AS accounts_payable\nFROM (SELECT p.company_id AS company, p.fiscal_year, p.fiscal_quarter, p.calendar_quarter, p.days,\n       MAX(CASE WHEN f.account_code = 'accounts_payable' THEN f.value END) AS accounts_payable,\n       MAX(CASE WHEN f.account_code = 'accounts_receivable' THEN f.value END) AS accounts_receivable,\n       MAX(CASE WHEN f.account_code = 'cogs' THEN f.value END) AS cogs,\n       MAX(CASE WHEN f.account_code = 'inventory' THEN f.value END) AS inventory,\n       MAX(CASE WHEN f.account_code = 'revenue' THEN f.value END) AS revenue\nFROM facts f\nJOIN periods p USING (company_id, fiscal_year, fiscal_quarter)\nWHERE f.version = 'original' AND p.company_id IN ('Lenovo') AND (p.fiscal_year < 2024 OR (p.fiscal_year = 2024 AND p.fiscal_quarter <= 3))\nGROUP BY 1, 2, 3, 4, 5) t\nORDER BY t.company, t.fiscal_year, t.fiscal_quarter)\n) WHERE _rn <= 8 ORDER BY company, fiscal_year, fiscal_quarter",
+   "unit": "",
+   "data_version": "2633728-1790844911120430000-d728e5137cbb",
+   "created_step": 0,
+   "digest": "Lenovo 最新 6218.91 (FY24Q3) 上期 6169.64 环比 0.80%; 区间 5907.2~8867.66",
+   "initial_packet": true,
+   "rows": [
+    {
+     "_rn": 8,
+     "company": "Lenovo",
+     "fiscal_year": 2022,
+     "fiscal_quarter": 4,
+     "calendar_quarter": "2022Q1",
+     "days": 90,
+     "inventory": 8300.658,
+     "revenue": 16693.758,
+     "cogs": 13829.497,
+     "accounts_receivable": 11289.547,
+     "accounts_payable": 13184.831
+    },
+    {
+     "_rn": 7,
+     "company": "Lenovo",
+     "fiscal_year": 2023,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2022Q2",
+     "days": 91,
+     "inventory": 8867.663,
+     "revenue": 16955.618,
+     "cogs": 14086.717,
+     "accounts_receivable": 11646.783,
+     "accounts_payable": 13609.606
+    },
+    {
+     "_rn": 6,
+     "company": "Lenovo",
+     "fiscal_year": 2023,
+     "fiscal_quarter": 2,
+     "calendar_quarter": "2022Q3",
+     "days": 92,
+     "inventory": 8417.891,
+     "revenue": 17089.537,
+     "cogs": 14212.963,
+     "accounts_receivable": 9786.759,
+     "accounts_payable": 12348.689
+    },
+    {
+     "_rn": 5,
+     "company": "Lenovo",
+     "fiscal_year": 2023,
+     "fiscal_quarter": 3,
+     "calendar_quarter": "2022Q4",
+     "days": 92,
+     "inventory": 7502.055,
+     "revenue": 15266.606,
+     "cogs": 12654.361,
+     "accounts_receivable": 9288.512,
+     "accounts_payable": 10837.3
+    },
+    {
+     "_rn": 4,
+     "company": "Lenovo",
+     "fiscal_year": 2023,
+     "fiscal_quarter": 4,
+     "calendar_quarter": "2023Q1",
+     "days": 90,
+     "inventory": 6371.858,
+     "revenue": 12635.093,
+     "cogs": 10491.721,
+     "accounts_receivable": 7940.378,
+     "accounts_payable": 9772.934
+    },
+    {
+     "_rn": 3,
+     "company": "Lenovo",
+     "fiscal_year": 2024,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2023Q2",
+     "days": 91,
+     "inventory": 5907.201,
+     "revenue": 12899.927,
+     "cogs": 10648.022,
+     "accounts_receivable": 7474.309,
+     "accounts_payable": 9284.233
+    },
+    {
+     "_rn": 2,
+     "company": "Lenovo",
+     "fiscal_year": 2024,
+     "fiscal_quarter": 2,
+     "calendar_quarter": "2023Q3",
+     "days": 92,
+     "inventory": 6169.642,
+     "revenue": 14409.786,
+     "cogs": 11888.026,
+     "accounts_receivable": 7809.892,
+     "accounts_payable": 10872.335
+    },
+    {
+     "_rn": 1,
+     "company": "Lenovo",
+     "fiscal_year": 2024,
+     "fiscal_quarter": 3,
+     "calendar_quarter": "2023Q4",
+     "days": 92,
+     "inventory": 6218.91,
+     "revenue": 15720.954,
+     "cogs": 13119.563,
+     "accounts_receivable": 8944.694,
+     "accounts_payable": 10258.486
+    }
+   ]
+  }
+ ],
+ "any_truncated": false
+}

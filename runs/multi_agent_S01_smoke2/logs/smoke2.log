@@ -1,0 +1,5 @@
+预算拒答：上方结论不可用（refuse）。
+多 Agent 运行未完成：时间预算耗尽。已完成部分见 analysis_state.json。
+
+—— 运行包已保存 ——
+status=refuse | 核验=未通过 | run_id=20261006-170258 | 输出=runs\multi_agent_S01_smoke2\cli-20261006-170258

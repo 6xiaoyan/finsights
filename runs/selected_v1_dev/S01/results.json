@@ -1,0 +1,4199 @@
+{
+ "results": [
+  {
+   "id": "r1",
+   "tool": "query_metric",
+   "args": {
+    "metrics": [
+     "inventory",
+     "revenue",
+     "cogs",
+     "accounts_receivable",
+     "accounts_payable"
+    ],
+    "companies": [
+     "Lenovo"
+    ],
+    "period_from": null,
+    "period_to": "FY2027Q1",
+    "last_n": 8,
+    "period_basis": "fiscal",
+    "group_by": [],
+    "filters": {}
+   },
+   "sql": "SELECT * FROM (\nSELECT ROW_NUMBER() OVER (PARTITION BY company ORDER BY fiscal_year DESC, fiscal_quarter DESC) AS _rn, *\nFROM (SELECT t.company, t.fiscal_year, t.fiscal_quarter, t.calendar_quarter, t.days,\n       t.inventory AS inventory,\n       t.revenue AS revenue,\n       t.cogs AS cogs,\n       t.accounts_receivable AS accounts_receivable,\n       t.accounts_payable AS accounts_payable\nFROM (SELECT p.company_id AS company, p.fiscal_year, p.fiscal_quarter, p.calendar_quarter, p.days,\n       MAX(CASE WHEN f.account_code = 'accounts_payable' THEN f.value END) AS accounts_payable,\n       MAX(CASE WHEN f.account_code = 'accounts_receivable' THEN f.value END) AS accounts_receivable,\n       MAX(CASE WHEN f.account_code = 'cogs' THEN f.value END) AS cogs,\n       MAX(CASE WHEN f.account_code = 'inventory' THEN f.value END) AS inventory,\n       MAX(CASE WHEN f.account_code = 'revenue' THEN f.value END) AS revenue\nFROM facts f\nJOIN periods p USING (company_id, fiscal_year, fiscal_quarter)\nWHERE f.version = 'original' AND p.company_id IN ('Lenovo') AND (p.fiscal_year < 2027 OR (p.fiscal_year = 2027 AND p.fiscal_quarter <= 1))\nGROUP BY 1, 2, 3, 4, 5) t\nORDER BY t.company, t.fiscal_year, t.fiscal_quarter)\n) WHERE _rn <= 8 ORDER BY company, fiscal_year, fiscal_quarter",
+   "unit": "",
+   "data_version": "2633728-1790844911120430000-d728e5137cbb",
+   "created_step": 0,
+   "digest": "Lenovo 最新 15741.9 (FY27Q1) 上期 11720.9 环比 34.31%; 区间 7923.8~15741.9",
+   "initial_packet": true,
+   "rows": [
+    {
+     "_rn": 8,
+     "company": "Lenovo",
+     "fiscal_year": 2025,
+     "fiscal_quarter": 2,
+     "calendar_quarter": "2024Q3",
+     "days": 92,
+     "inventory": 9118.816,
+     "revenue": 17850.094,
+     "cogs": 15054.344,
+     "accounts_receivable": 9476.319,
+     "accounts_payable": 14229.35
+    },
+    {
+     "_rn": 7,
+     "company": "Lenovo",
+     "fiscal_year": 2025,
+     "fiscal_quarter": 3,
+     "calendar_quarter": "2024Q4",
+     "days": 92,
+     "inventory": 9147.679,
+     "revenue": 18796.28,
+     "cogs": 15836.889,
+     "accounts_receivable": 9972.362,
+     "accounts_payable": 13883.842
+    },
+    {
+     "_rn": 6,
+     "company": "Lenovo",
+     "fiscal_year": 2025,
+     "fiscal_quarter": 4,
+     "calendar_quarter": "2025Q1",
+     "days": 90,
+     "inventory": 7923.804,
+     "revenue": 16983.538,
+     "cogs": 14200.918,
+     "accounts_receivable": 10506.61,
+     "accounts_payable": 11978.933
+    },
+    {
+     "_rn": 5,
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2025Q2",
+     "days": 91,
+     "inventory": 8742.635,
+     "revenue": 18829.869,
+     "cogs": 16055.392,
+     "accounts_receivable": 10796.573,
+     "accounts_payable": 14187.753
+    },
+    {
+     "_rn": 4,
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 2,
+     "calendar_quarter": "2025Q3",
+     "days": 92,
+     "inventory": 8617.381,
+     "revenue": 20452.022,
+     "cogs": 17305.391,
+     "accounts_receivable": 12615.198,
+     "accounts_payable": 16132.424
+    },
+    {
+     "_rn": 3,
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 3,
+     "calendar_quarter": "2025Q4",
+     "days": 92,
+     "inventory": 9076.551,
+     "revenue": 22204.334,
+     "cogs": 18855.318,
+     "accounts_receivable": 14070.144,
+     "accounts_payable": 16726.976
+    },
+    {
+     "_rn": 2,
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 4,
+     "calendar_quarter": "2026Q1",
+     "days": 90,
+     "inventory": 11720.885,
+     "revenue": 21588.33,
+     "cogs": 18049.032,
+     "accounts_receivable": 14502.738,
+     "accounts_payable": 19236.706
+    },
+    {
+     "_rn": 1,
+     "company": "Lenovo",
+     "fiscal_year": 2027,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2026Q2",
+     "days": 91,
+     "inventory": 15741.947,
+     "revenue": 26942.766,
+     "cogs": 22490.797,
+     "accounts_receivable": 19265.786,
+     "accounts_payable": 24397.551
+    }
+   ]
+  },
+  {
+   "id": "r2",
+   "tool": "list_metrics",
+   "args": {},
+   "sql": null,
+   "unit": "",
+   "data_version": "2633728-1790844911120430000-d728e5137cbb",
+   "created_step": 2,
+   "digest": "结果无数值",
+   "initial_packet": false,
+   "rows": [
+    {
+     "name": "accounts_payable",
+     "label_zh": "应付账款",
+     "type": "base",
+     "unit": "usd_mn",
+     "dims": [
+      "company",
+      "period"
+     ]
+    },
+    {
+     "name": "accounts_receivable",
+     "label_zh": "应收账款",
+     "type": "base",
+     "unit": "usd_mn",
+     "dims": [
+      "company",
+      "period",
+      "region",
+      "product_line"
+     ]
+    },
+    {
+     "name": "accrued_liabilities",
+     "label_zh": "应计费用",
+     "type": "base",
+     "unit": "usd_mn",
+     "dims": [
+      "company",
+      "period"
+     ]
+    },
+    {
+     "name": "cash",
+     "label_zh": "现金及现金等价物",
+     "type": "base",
+     "unit": "usd_mn",
+     "dims": [
+      "company",
+      "period"
+     ]
+    },
+    {
+     "name": "ccc",
+     "label_zh": "现金转换周期",
+     "type": "derived",
+     "unit": "days",
+     "dims": [
+      "company",
+      "period"
+     ]
+    },
+    {
+     "name": "cogs",
+     "label_zh": "营业成本",
+     "type": "base",
+     "unit": "usd_mn",
+     "dims": [
+      "company",
+      "period"
+     ]
+    },
+    {
+     "name": "current_ratio",
+     "label_zh": "流动比率",
+     "type": "derived",
+     "unit": "ratio",
+     "dims": [
+      "company",
+      "period"
+     ]
+    },
+    {
+     "name": "debt_to_equity",
+     "label_zh": "负债权益比",
+     "type": "derived",
+     "unit": "ratio",
+     "dims": [
+      "company",
+      "period"
+     ]
+    },
+    {
+     "name": "deferred_revenue_current",
+     "label_zh": "合同负债(流动)",
+     "type": "base",
+     "unit": "usd_mn",
+     "dims": [
+      "company",
+      "period"
+     ]
+    },
+    {
+     "name": "deferred_revenue_noncurrent",
+     "label_zh": "合同负债(非流动)",
+     "type": "base",
+     "unit": "usd_mn",
+     "dims": [
+      "company",
+      "period"
+     ]
+    },
+    {
+     "name": "dio",
+     "label_zh": "存货周转天数",
+     "type": "derived",
+     "unit": "days",
+     "dims": [
+      "company",
+      "period"
+     ]
+    },
+    {
+     "name": "dpo",
+     "label_zh": "应付账款周转天数",
+     "type": "derived",
+     "unit": "days",
+     "dims": [
+      "company",
+      "period"
+     ]
+    },
+    {
+     "name": "dso",
+     "label_zh": "应收账款周转天数",
+     "type": "derived",
+     "unit": "days",
+     "dims": [
+      "company",
+      "period"
+     ]
+    },
+    {
+     "name": "financing_receivables",
+     "label_zh": "融资应收款(流动)",
+     "type": "base",
+     "unit": "usd_mn",
+     "dims": [
+      "company",
+      "period"
+     ]
+    },
+    {
+     "name": "goodwill",
+     "label_zh": "商誉",
+     "type": "base",
+     "unit": "usd_mn",
+     "dims": [
+      "company",
+      "period"
+     ]
+    },
+    {
+     "name": "gross_margin",
+     "label_zh": "毛利率",
+     "type": "derived",
+     "unit": "ratio",
+     "dims": [
+      "company",
+      "period"
+     ]
+    },
+    {
+     "name": "gross_profit",
+     "label_zh": "毛利",
+     "type": "base",
+     "unit": "usd_mn",
+     "dims": [
+      "company",
+      "period"
+     ]
+    },
+    {
+     "name": "intangibles",
+     "label_zh": "无形资产",
+     "type": "base",
+     "unit": "usd_mn",
+     "dims": [
+      "company",
+      "period"
+     ]
+    },
+    {
+     "name": "inventory",
+     "label_zh": "存货",
+     "type": "base",
+     "unit": "usd_mn",
+     "dims": [
+      "company",
+      "period",
+      "region",
+      "product_line"
+     ]
+    },
+    {
+     "name": "long_term_debt",
+     "label_zh": "长期借款",
+     "type": "base",
+     "unit": "usd_mn",
+     "dims": [
+      "company",
+      "period"
+     ]
+    },
+    {
+     "name": "net_income",
+     "label_zh": "净利润",
+     "type": "base",
+     "unit": "usd_mn",
+     "dims": [
+      "company",
+      "period"
+     ]
+    },
+    {
+     "name": "noncontrolling_interest",
+     "label_zh": "少数股东权益",
+     "type": "base",
+     "unit": "usd_mn",
+     "dims": [
+      "company",
+      "period"
+     ]
+    },
+    {
+     "name": "operating_income",
+     "label_zh": "经营利润",
+     "type": "base",
+     "unit": "usd_mn",
+     "dims": [
+      "company",
+      "period"
+     ]
+    },
+    {
+     "name": "other_current_assets",
+     "label_zh": "其他流动资产",
+     "type": "base",
+     "unit": "usd_mn",
+     "dims": [
+      "company",
+      "period"
+     ]
+    },
+    {
+     "name": "other_current_liabilities",
+     "label_zh": "其他流动负债",
+     "type": "base",
+     "unit": "usd_mn",
+     "dims": [
+      "company",
+      "period"
+     ]
+    },
+    {
+     "name": "other_noncurrent_assets",
+     "label_zh": "其他非流动资产",
+     "type": "base",
+     "unit": "usd_mn",
+     "dims": [
+      "company",
+      "period"
+     ]
+    },
+    {
+     "name": "other_noncurrent_liabilities",
+     "label_zh": "其他非流动负债",
+     "type": "base",
+     "unit": "usd_mn",
+     "dims": [
+      "company",
+      "period"
+     ]
+    },
+    {
+     "name": "ppe_net",
+     "label_zh": "固定资产净额",
+     "type": "base",
+     "unit": "usd_mn",
+     "dims": [
+      "company",
+      "period"
+     ]
+    },
+    {
+     "name": "revenue",
+     "label_zh": "营业收入",
+     "type": "base",
+     "unit": "usd_mn",
+     "dims": [
+      "company",
+      "period",
+      "region",
+      "product_line"
+     ]
+    },
+    {
+     "name": "short_term_debt",
+     "label_zh": "短期借款",
+     "type": "base",
+     "unit": "usd_mn",
+     "dims": [
+      "company",
+      "period"
+     ]
+    },
+    {
+     "name": "short_term_investments",
+     "label_zh": "短期投资",
+     "type": "base",
+     "unit": "usd_mn",
+     "dims": [
+      "company",
+      "period"
+     ]
+    },
+    {
+     "name": "total_assets",
+     "label_zh": "总资产",
+     "type": "base",
+     "unit": "usd_mn",
+     "dims": [
+      "company",
+      "period"
+     ]
+    },
+    {
+     "name": "total_current_assets",
+     "label_zh": "流动资产合计",
+     "type": "base",
+     "unit": "usd_mn",
+     "dims": [
+      "company",
+      "period"
+     ]
+    },
+    {
+     "name": "total_current_liabilities",
+     "label_zh": "流动负债合计",
+     "type": "base",
+     "unit": "usd_mn",
+     "dims": [
+      "company",
+      "period"
+     ]
+    },
+    {
+     "name": "total_equity",
+     "label_zh": "所有者权益合计",
+     "type": "base",
+     "unit": "usd_mn",
+     "dims": [
+      "company",
+      "period"
+     ]
+    },
+    {
+     "name": "total_liabilities",
+     "label_zh": "总负债",
+     "type": "base",
+     "unit": "usd_mn",
+     "dims": [
+      "company",
+      "period"
+     ]
+    },
+    {
+     "name": "total_liabilities_and_equity",
+     "label_zh": "负债和所有者权益总计",
+     "type": "base",
+     "unit": "usd_mn",
+     "dims": [
+      "company",
+      "period"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "r3",
+   "tool": "query_metric",
+   "args": {
+    "metrics": [
+     "inventory",
+     "cogs",
+     "revenue",
+     "accounts_payable",
+     "cash"
+    ],
+    "companies": [
+     "Lenovo"
+    ],
+    "period_from": "FY2025Q2",
+    "period_to": "FY2027Q1",
+    "last_n": null,
+    "period_basis": "fiscal",
+    "group_by": [],
+    "filters": {}
+   },
+   "sql": "SELECT t.company, t.fiscal_year, t.fiscal_quarter, t.calendar_quarter, t.days,\n       t.inventory AS inventory,\n       t.cogs AS cogs,\n       t.revenue AS revenue,\n       t.accounts_payable AS accounts_payable,\n       t.cash AS cash\nFROM (SELECT p.company_id AS company, p.fiscal_year, p.fiscal_quarter, p.calendar_quarter, p.days,\n       MAX(CASE WHEN f.account_code = 'accounts_payable' THEN f.value END) AS accounts_payable,\n       MAX(CASE WHEN f.account_code = 'cash' THEN f.value END) AS cash,\n       MAX(CASE WHEN f.account_code = 'cogs' THEN f.value END) AS cogs,\n       MAX(CASE WHEN f.account_code = 'inventory' THEN f.value END) AS inventory,\n       MAX(CASE WHEN f.account_code = 'revenue' THEN f.value END) AS revenue\nFROM facts f\nJOIN periods p USING (company_id, fiscal_year, fiscal_quarter)\nWHERE f.version = 'original' AND p.company_id IN ('Lenovo') AND (p.fiscal_year > 2025 OR (p.fiscal_year = 2025 AND p.fiscal_quarter >= 2)) AND (p.fiscal_year < 2027 OR (p.fiscal_year = 2027 AND p.fiscal_quarter <= 1))\nGROUP BY 1, 2, 3, 4, 5) t\nORDER BY t.company, t.fiscal_year, t.fiscal_quarter",
+   "unit": "",
+   "data_version": "2633728-1790844911120430000-d728e5137cbb",
+   "created_step": 3,
+   "digest": "Lenovo 最新 15741.9 (FY27Q1) 上期 11720.9 环比 34.31%; 区间 7923.8~15741.9",
+   "initial_packet": false,
+   "rows": [
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2025,
+     "fiscal_quarter": 2,
+     "calendar_quarter": "2024Q3",
+     "days": 92,
+     "inventory": 9118.816,
+     "cogs": 15054.344,
+     "revenue": 17850.094,
+     "accounts_payable": 14229.35,
+     "cash": 4178.915
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2025,
+     "fiscal_quarter": 3,
+     "calendar_quarter": "2024Q4",
+     "days": 92,
+     "inventory": 9147.679,
+     "cogs": 15836.889,
+     "revenue": 18796.28,
+     "accounts_payable": 13883.842,
+     "cash": 3934.448
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2025,
+     "fiscal_quarter": 4,
+     "calendar_quarter": "2025Q1",
+     "days": 90,
+     "inventory": 7923.804,
+     "cogs": 14200.918,
+     "revenue": 16983.538,
+     "accounts_payable": 11978.933,
+     "cash": 4728.124
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2025Q2",
+     "days": 91,
+     "inventory": 8742.635,
+     "cogs": 16055.392,
+     "revenue": 18829.869,
+     "accounts_payable": 14187.753,
+     "cash": 4504.44
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 2,
+     "calendar_quarter": "2025Q3",
+     "days": 92,
+     "inventory": 8617.381,
+     "cogs": 17305.391,
+     "revenue": 20452.022,
+     "accounts_payable": 16132.424,
+     "cash": 5112.13
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 3,
+     "calendar_quarter": "2025Q4",
+     "days": 92,
+     "inventory": 9076.551,
+     "cogs": 18855.318,
+     "revenue": 22204.334,
+     "accounts_payable": 16726.976,
+     "cash": 5221.41
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 4,
+     "calendar_quarter": "2026Q1",
+     "days": 90,
+     "inventory": 11720.885,
+     "cogs": 18049.032,
+     "revenue": 21588.33,
+     "accounts_payable": 19236.706,
+     "cash": 4887.162
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2027,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2026Q2",
+     "days": 91,
+     "inventory": 15741.947,
+     "cogs": 22490.797,
+     "revenue": 26942.766,
+     "accounts_payable": 24397.551,
+     "cash": 5907.477
+    }
+   ]
+  },
+  {
+   "id": "r4",
+   "tool": "working_capital",
+   "args": {
+    "company": "Lenovo",
+    "periods": [
+     "FY25Q2",
+     "FY26Q1",
+     "FY26Q2",
+     "FY27Q1"
+    ]
+   },
+   "sql": "SELECT t.company, t.fiscal_year, t.fiscal_quarter, t.calendar_quarter, t.days,\n       t.accounts_receivable AS accounts_receivable,\n       t.inventory AS inventory,\n       t.accounts_payable AS accounts_payable,\n       t.revenue AS revenue,\n       t.cogs AS cogs\nFROM (SELECT p.company_id AS company, p.fiscal_year, p.fiscal_quarter, p.calendar_quarter, p.days,\n       MAX(CASE WHEN f.account_code = 'accounts_payable' THEN f.value END) AS accounts_payable,\n       MAX(CASE WHEN f.account_code = 'accounts_receivable' THEN f.value END) AS accounts_receivable,\n       MAX(CASE WHEN f.account_code = 'cogs' THEN f.value END) AS cogs,\n       MAX(CASE WHEN f.account_code = 'inventory' THEN f.value END) AS inventory,\n       MAX(CASE WHEN f.account_code = 'revenue' THEN f.value END) AS revenue\nFROM facts f\nJOIN periods p USING (company_id, fiscal_year, fiscal_quarter)\nWHERE f.version = 'original' AND p.company_id IN ('Lenovo') AND (p.fiscal_year > 2025 OR (p.fiscal_year = 2025 AND p.fiscal_quarter >= 1)) AND (p.fiscal_year < 2027 OR (p.fiscal_year = 2027 AND p.fiscal_quarter <= 1))\nGROUP BY 1, 2, 3, 4, 5) t\nORDER BY t.company, t.fiscal_year, t.fiscal_quarter",
+   "unit": "days",
+   "data_version": "2633728-1790844911120430000-d728e5137cbb",
+   "created_step": 3,
+   "digest": "Lenovo 最新 19265.8 (FY27Q1) 上期 14502.7 环比 32.84%; 区间 8654.8~19265.8",
+   "initial_packet": false,
+   "rows": [
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2025,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2024Q2",
+     "days": 91,
+     "accounts_receivable": 8654.796,
+     "inventory": 7777.587,
+     "accounts_payable": 11924.646,
+     "revenue": 15447.056,
+     "cogs": 12887.207,
+     "period_end": 1719705600000,
+     "accounts_receivable_prev": null,
+     "accounts_receivable_avg": 8654.796,
+     "inventory_prev": null,
+     "inventory_avg": 7777.587,
+     "accounts_payable_prev": null,
+     "accounts_payable_avg": 11924.646,
+     "dio": 54.9196126826,
+     "dso": 50.9861837751,
+     "dpo": 84.2031004856,
+     "ccc": 21.702695972
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2025,
+     "fiscal_quarter": 2,
+     "calendar_quarter": "2024Q3",
+     "days": 92,
+     "accounts_receivable": 9476.319,
+     "inventory": 9118.816,
+     "accounts_payable": 14229.35,
+     "revenue": 17850.094,
+     "cogs": 15054.344,
+     "period_end": 1727654400000,
+     "accounts_receivable_prev": 8654.796,
+     "accounts_receivable_avg": 9065.5575,
+     "inventory_prev": 7777.587,
+     "inventory_avg": 8448.2015,
+     "accounts_payable_prev": 11924.646,
+     "accounts_payable_avg": 13076.998,
+     "dio": 51.6285889309,
+     "dso": 46.7241959622,
+     "dpo": 79.9160571859,
+     "ccc": 18.4367277072
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2025,
+     "fiscal_quarter": 3,
+     "calendar_quarter": "2024Q4",
+     "days": 92,
+     "accounts_receivable": 9972.362,
+     "inventory": 9147.679,
+     "accounts_payable": 13883.842,
+     "revenue": 18796.28,
+     "cogs": 15836.889,
+     "period_end": 1735603200000,
+     "accounts_receivable_prev": 9476.319,
+     "accounts_receivable_avg": 9724.3405,
+     "inventory_prev": 9118.816,
+     "inventory_avg": 9133.2475,
+     "accounts_payable_prev": 14229.35,
+     "accounts_payable_avg": 14056.596,
+     "dio": 53.0570600072,
+     "dso": 47.5966162453,
+     "dpo": 81.6578831865,
+     "ccc": 18.995793066
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2025,
+     "fiscal_quarter": 4,
+     "calendar_quarter": "2025Q1",
+     "days": 90,
+     "accounts_receivable": 10506.61,
+     "inventory": 7923.804,
+     "accounts_payable": 11978.933,
+     "revenue": 16983.538,
+     "cogs": 14200.918,
+     "period_end": 1743379200000,
+     "accounts_receivable_prev": 9972.362,
+     "accounts_receivable_avg": 10239.486,
+     "inventory_prev": 9147.679,
+     "inventory_avg": 8535.7415,
+     "accounts_payable_prev": 13883.842,
+     "accounts_payable_avg": 12931.3875,
+     "dio": 54.0962728607,
+     "dso": 54.2615878976,
+     "dpo": 81.9542000735,
+     "ccc": 26.4036606848
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2025Q2",
+     "days": 91,
+     "accounts_receivable": 10796.573,
+     "inventory": 8742.635,
+     "accounts_payable": 14187.753,
+     "revenue": 18829.869,
+     "cogs": 16055.392,
+     "period_end": 1751241600000,
+     "accounts_receivable_prev": 10506.61,
+     "accounts_receivable_avg": 10651.5915,
+     "inventory_prev": 7923.804,
+     "inventory_avg": 8333.2195,
+     "accounts_payable_prev": 11978.933,
+     "accounts_payable_avg": 13083.343,
+     "dio": 47.2316698652,
+     "dso": 51.4764508718,
+     "dpo": 74.1547894315,
+     "ccc": 24.5533313054
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 2,
+     "calendar_quarter": "2025Q3",
+     "days": 92,
+     "accounts_receivable": 12615.198,
+     "inventory": 8617.381,
+     "accounts_payable": 16132.424,
+     "revenue": 20452.022,
+     "cogs": 17305.391,
+     "period_end": 1759190400000,
+     "accounts_receivable_prev": 10796.573,
+     "accounts_receivable_avg": 11705.8855,
+     "inventory_prev": 8742.635,
+     "inventory_avg": 8680.008,
+     "accounts_payable_prev": 14187.753,
+     "accounts_payable_avg": 15160.0885,
+     "dio": 46.1452004176,
+     "dso": 52.6569679027,
+     "dpo": 80.5950089195,
+     "ccc": 18.2071594009
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 3,
+     "calendar_quarter": "2025Q4",
+     "days": 92,
+     "accounts_receivable": 14070.144,
+     "inventory": 9076.551,
+     "accounts_payable": 16726.976,
+     "revenue": 22204.334,
+     "cogs": 18855.318,
+     "period_end": 1767139200000,
+     "accounts_receivable_prev": 12615.198,
+     "accounts_receivable_avg": 13342.671,
+     "inventory_prev": 8617.381,
+     "inventory_avg": 8846.966,
+     "accounts_payable_prev": 16132.424,
+     "accounts_payable_avg": 16429.7,
+     "dio": 43.1666478391,
+     "dso": 55.2831592247,
+     "dpo": 80.1647789764,
+     "ccc": 18.2850280874
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 4,
+     "calendar_quarter": "2026Q1",
+     "days": 90,
+     "accounts_receivable": 14502.738,
+     "inventory": 11720.885,
+     "accounts_payable": 19236.706,
+     "revenue": 21588.33,
+     "cogs": 18049.032,
+     "period_end": 1774915200000,
+     "accounts_receivable_prev": 14070.144,
+     "accounts_receivable_avg": 14286.441,
+     "inventory_prev": 9076.551,
+     "inventory_avg": 10398.718,
+     "accounts_payable_prev": 16726.976,
+     "accounts_payable_avg": 17981.841,
+     "dio": 51.8523442144,
+     "dso": 59.5590159128,
+     "dpo": 89.6649576553,
+     "ccc": 21.7464024718
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2027,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2026Q2",
+     "days": 91,
+     "accounts_receivable": 19265.786,
+     "inventory": 15741.947,
+     "accounts_payable": 24397.551,
+     "revenue": 26942.766,
+     "cogs": 22490.797,
+     "period_end": 1782777600000,
+     "accounts_receivable_prev": 14502.738,
+     "accounts_receivable_avg": 16884.262,
+     "inventory_prev": 11720.885,
+     "inventory_avg": 13731.416,
+     "accounts_payable_prev": 19236.706,
+     "accounts_payable_avg": 21817.1285,
+     "dio": 55.5586738878,
+     "dso": 57.0271011521,
+     "dpo": 88.2742702938,
+     "ccc": 24.3115047462
+    }
+   ]
+  },
+  {
+   "id": "r5",
+   "tool": "variance",
+   "args": {
+    "metric": "inventory",
+    "company": "Lenovo",
+    "period": "FY2027Q1",
+    "basis": "both"
+   },
+   "sql": null,
+   "unit": "usd_mn",
+   "data_version": "2633728-1790844911120430000-d728e5137cbb",
+   "created_step": 3,
+   "digest": "最新 15741.9; 首值 15741.9",
+   "initial_packet": false,
+   "rows": [
+    {
+     "basis": "qoq",
+     "company": "Lenovo",
+     "period_end": 1782777600000,
+     "inventory": 15741.947,
+     "value_prev": 11720.885,
+     "change_abs": 4021.062,
+     "change_pct": 0.3430681216,
+     "part": null,
+     "contribution": null,
+     "share_of_change": null
+    },
+    {
+     "basis": "qoq_contribution",
+     "company": "Lenovo",
+     "period_end": 1782777600000,
+     "inventory": null,
+     "value_prev": null,
+     "change_abs": null,
+     "change_pct": null,
+     "part": "APAC|Infra",
+     "contribution": 492.772,
+     "share_of_change": 0.122547725
+    },
+    {
+     "basis": "qoq_contribution",
+     "company": "Lenovo",
+     "period_end": 1782777600000,
+     "inventory": null,
+     "value_prev": null,
+     "change_abs": null,
+     "change_pct": null,
+     "part": "APAC|Other",
+     "contribution": 624.594,
+     "share_of_change": 0.1553306067
+    },
+    {
+     "basis": "qoq_contribution",
+     "company": "Lenovo",
+     "period_end": 1782777600000,
+     "inventory": null,
+     "value_prev": null,
+     "change_abs": null,
+     "change_pct": null,
+     "part": "APAC|PC",
+     "contribution": 308.482,
+     "share_of_change": 0.076716549
+    },
+    {
+     "basis": "qoq_contribution",
+     "company": "Lenovo",
+     "period_end": 1782777600000,
+     "inventory": null,
+     "value_prev": null,
+     "change_abs": null,
+     "change_pct": null,
+     "part": "Americas|Infra",
+     "contribution": 264.998,
+     "share_of_change": 0.0659024904
+    },
+    {
+     "basis": "qoq_contribution",
+     "company": "Lenovo",
+     "period_end": 1782777600000,
+     "inventory": null,
+     "value_prev": null,
+     "change_abs": null,
+     "change_pct": null,
+     "part": "Americas|Other",
+     "contribution": 505.381,
+     "share_of_change": 0.1256834637
+    },
+    {
+     "basis": "qoq_contribution",
+     "company": "Lenovo",
+     "period_end": 1782777600000,
+     "inventory": null,
+     "value_prev": null,
+     "change_abs": null,
+     "change_pct": null,
+     "part": "Americas|PC",
+     "contribution": 371.245,
+     "share_of_change": 0.0923251121
+    },
+    {
+     "basis": "qoq_contribution",
+     "company": "Lenovo",
+     "period_end": 1782777600000,
+     "inventory": null,
+     "value_prev": null,
+     "change_abs": null,
+     "change_pct": null,
+     "part": "EMEA|Infra",
+     "contribution": 442.158,
+     "share_of_change": 0.109960503
+    },
+    {
+     "basis": "qoq_contribution",
+     "company": "Lenovo",
+     "period_end": 1782777600000,
+     "inventory": null,
+     "value_prev": null,
+     "change_abs": null,
+     "change_pct": null,
+     "part": "EMEA|Other",
+     "contribution": 658.835,
+     "share_of_change": 0.1638460188
+    },
+    {
+     "basis": "qoq_contribution",
+     "company": "Lenovo",
+     "period_end": 1782777600000,
+     "inventory": null,
+     "value_prev": null,
+     "change_abs": null,
+     "change_pct": null,
+     "part": "EMEA|PC",
+     "contribution": 352.597,
+     "share_of_change": 0.0876875313
+    },
+    {
+     "basis": "yoy",
+     "company": "Lenovo",
+     "period_end": 1782777600000,
+     "inventory": 15741.947,
+     "value_prev": 8742.635,
+     "change_abs": 6999.312,
+     "change_pct": 0.8005952439,
+     "part": null,
+     "contribution": null,
+     "share_of_change": null
+    }
+   ]
+  },
+  {
+   "id": "r6",
+   "tool": "seasonal_check",
+   "args": {
+    "metric": "inventory",
+    "company": "Lenovo",
+    "period": "FY2027Q1"
+   },
+   "sql": null,
+   "unit": "",
+   "data_version": "2633728-1790844911120430000-d728e5137cbb",
+   "created_step": 4,
+   "digest": "n=4; mean=0.0647734; std=0.0860216; p5=-0.0517386; p25=0.0330005; p50=0.0858233",
+   "initial_packet": false,
+   "rows": [
+    {
+     "n": 4,
+     "mean": 0.0647733743,
+     "std": 0.086021621,
+     "p5": -0.0517385507,
+     "p25": 0.0330005017,
+     "p50": 0.0858232795,
+     "p75": 0.1175961522,
+     "p95": 0.1518154321,
+     "current_change": 0.3430681216,
+     "z_score": 3.2351720861,
+     "percentile": 1.0,
+     "company": "Lenovo",
+     "period": "FY2027Q1",
+     "metric": "inventory"
+    }
+   ]
+  },
+  {
+   "id": "r7",
+   "tool": "query_metric",
+   "args": {
+    "metrics": [
+     "inventory"
+    ],
+    "companies": [
+     "Lenovo"
+    ],
+    "period_from": "FY2026Q1",
+    "period_to": "FY2027Q1",
+    "last_n": null,
+    "period_basis": "fiscal",
+    "group_by": [
+     "region"
+    ],
+    "filters": {}
+   },
+   "sql": "SELECT p.company_id AS company, p.fiscal_year, p.fiscal_quarter, p.calendar_quarter, p.days,\n       d.region, d.product_line, d.account_code AS metric, d.value\nFROM facts_detail d\nJOIN periods p USING (company_id, fiscal_year, fiscal_quarter)\nJOIN facts f ON f.company_id = p.company_id AND f.fiscal_year = p.fiscal_year\n            AND f.fiscal_quarter = p.fiscal_quarter AND f.account_code = d.account_code\nWHERE f.version = 'original' AND p.company_id IN ('Lenovo') AND (p.fiscal_year > 2026 OR (p.fiscal_year = 2026 AND p.fiscal_quarter >= 1)) AND (p.fiscal_year < 2027 OR (p.fiscal_year = 2027 AND p.fiscal_quarter <= 1))\nORDER BY p.company_id, p.period_end, d.region, d.product_line, d.account_code",
+   "unit": "usd_mn",
+   "data_version": "2633728-1790844911120430000-d728e5137cbb",
+   "created_step": 5,
+   "digest": "Lenovo 最新 2375.86 (FY27Q1) 上期 1236.08 环比 92.21%; 区间 534.721~4534.41",
+   "initial_packet": false,
+   "rows": [
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2025Q2",
+     "days": 91,
+     "region": "APAC",
+     "product_line": "Infra",
+     "metric": "accounts_receivable",
+     "value": 923.328
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2025Q2",
+     "days": 91,
+     "region": "APAC",
+     "product_line": "Infra",
+     "metric": "inventory",
+     "value": 1615.673
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2025Q2",
+     "days": 91,
+     "region": "APAC",
+     "product_line": "Infra",
+     "metric": "revenue",
+     "value": 3449.155
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2025Q2",
+     "days": 91,
+     "region": "APAC",
+     "product_line": "Other",
+     "metric": "accounts_receivable",
+     "value": 1322.991
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2025Q2",
+     "days": 91,
+     "region": "APAC",
+     "product_line": "Other",
+     "metric": "inventory",
+     "value": 742.044
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2025Q2",
+     "days": 91,
+     "region": "APAC",
+     "product_line": "Other",
+     "metric": "revenue",
+     "value": 2642.89
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2025Q2",
+     "days": 91,
+     "region": "APAC",
+     "product_line": "PC",
+     "metric": "accounts_receivable",
+     "value": 1477.312
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2025Q2",
+     "days": 91,
+     "region": "APAC",
+     "product_line": "PC",
+     "metric": "inventory",
+     "value": 597.939
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2025Q2",
+     "days": 91,
+     "region": "APAC",
+     "product_line": "PC",
+     "metric": "revenue",
+     "value": 2234.938
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2025Q2",
+     "days": 91,
+     "region": "Americas",
+     "product_line": "Infra",
+     "metric": "accounts_receivable",
+     "value": 1637.102
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2025Q2",
+     "days": 91,
+     "region": "Americas",
+     "product_line": "Infra",
+     "metric": "inventory",
+     "value": 1154.293
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2025Q2",
+     "days": 91,
+     "region": "Americas",
+     "product_line": "Infra",
+     "metric": "revenue",
+     "value": 1514.182
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2025Q2",
+     "days": 91,
+     "region": "Americas",
+     "product_line": "Other",
+     "metric": "accounts_receivable",
+     "value": 1483.935
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2025Q2",
+     "days": 91,
+     "region": "Americas",
+     "product_line": "Other",
+     "metric": "inventory",
+     "value": 1402.285
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2025Q2",
+     "days": 91,
+     "region": "Americas",
+     "product_line": "Other",
+     "metric": "revenue",
+     "value": 3055.027
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2025Q2",
+     "days": 91,
+     "region": "Americas",
+     "product_line": "PC",
+     "metric": "accounts_receivable",
+     "value": 672.64
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2025Q2",
+     "days": 91,
+     "region": "Americas",
+     "product_line": "PC",
+     "metric": "inventory",
+     "value": 1032.069
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2025Q2",
+     "days": 91,
+     "region": "Americas",
+     "product_line": "PC",
+     "metric": "revenue",
+     "value": 1679.755
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2025Q2",
+     "days": 91,
+     "region": "EMEA",
+     "product_line": "Infra",
+     "metric": "accounts_receivable",
+     "value": 962.453
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2025Q2",
+     "days": 91,
+     "region": "EMEA",
+     "product_line": "Infra",
+     "metric": "inventory",
+     "value": 781.507
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2025Q2",
+     "days": 91,
+     "region": "EMEA",
+     "product_line": "Infra",
+     "metric": "revenue",
+     "value": 1122.472
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2025Q2",
+     "days": 91,
+     "region": "EMEA",
+     "product_line": "Other",
+     "metric": "accounts_receivable",
+     "value": 1281.763
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2025Q2",
+     "days": 91,
+     "region": "EMEA",
+     "product_line": "Other",
+     "metric": "inventory",
+     "value": 882.104
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2025Q2",
+     "days": 91,
+     "region": "EMEA",
+     "product_line": "Other",
+     "metric": "revenue",
+     "value": 1332.439
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2025Q2",
+     "days": 91,
+     "region": "EMEA",
+     "product_line": "PC",
+     "metric": "accounts_receivable",
+     "value": 1035.049
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2025Q2",
+     "days": 91,
+     "region": "EMEA",
+     "product_line": "PC",
+     "metric": "inventory",
+     "value": 534.721
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2025Q2",
+     "days": 91,
+     "region": "EMEA",
+     "product_line": "PC",
+     "metric": "revenue",
+     "value": 1799.011
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 2,
+     "calendar_quarter": "2025Q3",
+     "days": 92,
+     "region": "APAC",
+     "product_line": "Infra",
+     "metric": "accounts_receivable",
+     "value": 1018.045
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 2,
+     "calendar_quarter": "2025Q3",
+     "days": 92,
+     "region": "APAC",
+     "product_line": "Infra",
+     "metric": "inventory",
+     "value": 1477.175
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 2,
+     "calendar_quarter": "2025Q3",
+     "days": 92,
+     "region": "APAC",
+     "product_line": "Infra",
+     "metric": "revenue",
+     "value": 3646.33
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 2,
+     "calendar_quarter": "2025Q3",
+     "days": 92,
+     "region": "APAC",
+     "product_line": "Other",
+     "metric": "accounts_receivable",
+     "value": 1507.595
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 2,
+     "calendar_quarter": "2025Q3",
+     "days": 92,
+     "region": "APAC",
+     "product_line": "Other",
+     "metric": "inventory",
+     "value": 861.95
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 2,
+     "calendar_quarter": "2025Q3",
+     "days": 92,
+     "region": "APAC",
+     "product_line": "Other",
+     "metric": "revenue",
+     "value": 2887.772
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 2,
+     "calendar_quarter": "2025Q3",
+     "days": 92,
+     "region": "APAC",
+     "product_line": "PC",
+     "metric": "accounts_receivable",
+     "value": 1682.996
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 2,
+     "calendar_quarter": "2025Q3",
+     "days": 92,
+     "region": "APAC",
+     "product_line": "PC",
+     "metric": "inventory",
+     "value": 604.794
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 2,
+     "calendar_quarter": "2025Q3",
+     "days": 92,
+     "region": "APAC",
+     "product_line": "PC",
+     "metric": "revenue",
+     "value": 2331.749
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 2,
+     "calendar_quarter": "2025Q3",
+     "days": 92,
+     "region": "Americas",
+     "product_line": "Infra",
+     "metric": "accounts_receivable",
+     "value": 1799.136
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 2,
+     "calendar_quarter": "2025Q3",
+     "days": 92,
+     "region": "Americas",
+     "product_line": "Infra",
+     "metric": "inventory",
+     "value": 1015.233
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 2,
+     "calendar_quarter": "2025Q3",
+     "days": 92,
+     "region": "Americas",
+     "product_line": "Infra",
+     "metric": "revenue",
+     "value": 1687.118
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 2,
+     "calendar_quarter": "2025Q3",
+     "days": 92,
+     "region": "Americas",
+     "product_line": "Other",
+     "metric": "accounts_receivable",
+     "value": 1797.526
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 2,
+     "calendar_quarter": "2025Q3",
+     "days": 92,
+     "region": "Americas",
+     "product_line": "Other",
+     "metric": "inventory",
+     "value": 1317.879
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 2,
+     "calendar_quarter": "2025Q3",
+     "days": 92,
+     "region": "Americas",
+     "product_line": "Other",
+     "metric": "revenue",
+     "value": 2978.257
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 2,
+     "calendar_quarter": "2025Q3",
+     "days": 92,
+     "region": "Americas",
+     "product_line": "PC",
+     "metric": "accounts_receivable",
+     "value": 879.932
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 2,
+     "calendar_quarter": "2025Q3",
+     "days": 92,
+     "region": "Americas",
+     "product_line": "PC",
+     "metric": "inventory",
+     "value": 969.619
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 2,
+     "calendar_quarter": "2025Q3",
+     "days": 92,
+     "region": "Americas",
+     "product_line": "PC",
+     "metric": "revenue",
+     "value": 1913.989
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 2,
+     "calendar_quarter": "2025Q3",
+     "days": 92,
+     "region": "EMEA",
+     "product_line": "Infra",
+     "metric": "accounts_receivable",
+     "value": 1117.436
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 2,
+     "calendar_quarter": "2025Q3",
+     "days": 92,
+     "region": "EMEA",
+     "product_line": "Infra",
+     "metric": "inventory",
+     "value": 808.424
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 2,
+     "calendar_quarter": "2025Q3",
+     "days": 92,
+     "region": "EMEA",
+     "product_line": "Infra",
+     "metric": "revenue",
+     "value": 1304.774
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 2,
+     "calendar_quarter": "2025Q3",
+     "days": 92,
+     "region": "EMEA",
+     "product_line": "Other",
+     "metric": "accounts_receivable",
+     "value": 1529.658
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 2,
+     "calendar_quarter": "2025Q3",
+     "days": 92,
+     "region": "EMEA",
+     "product_line": "Other",
+     "metric": "inventory",
+     "value": 986.1
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 2,
+     "calendar_quarter": "2025Q3",
+     "days": 92,
+     "region": "EMEA",
+     "product_line": "Other",
+     "metric": "revenue",
+     "value": 1797.485
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 2,
+     "calendar_quarter": "2025Q3",
+     "days": 92,
+     "region": "EMEA",
+     "product_line": "PC",
+     "metric": "accounts_receivable",
+     "value": 1282.874
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 2,
+     "calendar_quarter": "2025Q3",
+     "days": 92,
+     "region": "EMEA",
+     "product_line": "PC",
+     "metric": "inventory",
+     "value": 576.207
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 2,
+     "calendar_quarter": "2025Q3",
+     "days": 92,
+     "region": "EMEA",
+     "product_line": "PC",
+     "metric": "revenue",
+     "value": 1904.548
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 3,
+     "calendar_quarter": "2025Q4",
+     "days": 92,
+     "region": "APAC",
+     "product_line": "Infra",
+     "metric": "accounts_receivable",
+     "value": 1079.842
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 3,
+     "calendar_quarter": "2025Q4",
+     "days": 92,
+     "region": "APAC",
+     "product_line": "Infra",
+     "metric": "inventory",
+     "value": 1456.258
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 3,
+     "calendar_quarter": "2025Q4",
+     "days": 92,
+     "region": "APAC",
+     "product_line": "Infra",
+     "metric": "revenue",
+     "value": 3869.753
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 3,
+     "calendar_quarter": "2025Q4",
+     "days": 92,
+     "region": "APAC",
+     "product_line": "Other",
+     "metric": "accounts_receivable",
+     "value": 1646.491
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 3,
+     "calendar_quarter": "2025Q4",
+     "days": 92,
+     "region": "APAC",
+     "product_line": "Other",
+     "metric": "inventory",
+     "value": 1020.626
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 3,
+     "calendar_quarter": "2025Q4",
+     "days": 92,
+     "region": "APAC",
+     "product_line": "Other",
+     "metric": "revenue",
+     "value": 3150.509
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 3,
+     "calendar_quarter": "2025Q4",
+     "days": 92,
+     "region": "APAC",
+     "product_line": "PC",
+     "metric": "accounts_receivable",
+     "value": 1837.628
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 3,
+     "calendar_quarter": "2025Q4",
+     "days": 92,
+     "region": "APAC",
+     "product_line": "PC",
+     "metric": "inventory",
+     "value": 650.339
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 3,
+     "calendar_quarter": "2025Q4",
+     "days": 92,
+     "region": "APAC",
+     "product_line": "PC",
+     "metric": "revenue",
+     "value": 2446.312
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 3,
+     "calendar_quarter": "2025Q4",
+     "days": 92,
+     "region": "Americas",
+     "product_line": "Infra",
+     "metric": "accounts_receivable",
+     "value": 1902.623
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 3,
+     "calendar_quarter": "2025Q4",
+     "days": 92,
+     "region": "Americas",
+     "product_line": "Infra",
+     "metric": "inventory",
+     "value": 963.506
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 3,
+     "calendar_quarter": "2025Q4",
+     "days": 92,
+     "region": "Americas",
+     "product_line": "Infra",
+     "metric": "revenue",
+     "value": 1869.499
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 3,
+     "calendar_quarter": "2025Q4",
+     "days": 92,
+     "region": "Americas",
+     "product_line": "Other",
+     "metric": "accounts_receivable",
+     "value": 2063.034
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 3,
+     "calendar_quarter": "2025Q4",
+     "days": 92,
+     "region": "Americas",
+     "product_line": "Other",
+     "metric": "inventory",
+     "value": 1332.551
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 3,
+     "calendar_quarter": "2025Q4",
+     "days": 92,
+     "region": "Americas",
+     "product_line": "Other",
+     "metric": "revenue",
+     "value": 2930.785
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 3,
+     "calendar_quarter": "2025Q4",
+     "days": 92,
+     "region": "Americas",
+     "product_line": "PC",
+     "metric": "accounts_receivable",
+     "value": 1067.377
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 3,
+     "calendar_quarter": "2025Q4",
+     "days": 92,
+     "region": "Americas",
+     "product_line": "PC",
+     "metric": "inventory",
+     "value": 980.117
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 3,
+     "calendar_quarter": "2025Q4",
+     "days": 92,
+     "region": "Americas",
+     "product_line": "PC",
+     "metric": "revenue",
+     "value": 2157.679
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 3,
+     "calendar_quarter": "2025Q4",
+     "days": 92,
+     "region": "EMEA",
+     "product_line": "Infra",
+     "metric": "accounts_receivable",
+     "value": 1239.786
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 3,
+     "calendar_quarter": "2025Q4",
+     "days": 92,
+     "region": "EMEA",
+     "product_line": "Infra",
+     "metric": "inventory",
+     "value": 884.418
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 3,
+     "calendar_quarter": "2025Q4",
+     "days": 92,
+     "region": "EMEA",
+     "product_line": "Infra",
+     "metric": "revenue",
+     "value": 1492.775
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 3,
+     "calendar_quarter": "2025Q4",
+     "days": 92,
+     "region": "EMEA",
+     "product_line": "Other",
+     "metric": "accounts_receivable",
+     "value": 1735.333
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 3,
+     "calendar_quarter": "2025Q4",
+     "days": 92,
+     "region": "EMEA",
+     "product_line": "Other",
+     "metric": "inventory",
+     "value": 1139.38
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 3,
+     "calendar_quarter": "2025Q4",
+     "days": 92,
+     "region": "EMEA",
+     "product_line": "Other",
+     "metric": "revenue",
+     "value": 2263.312
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 3,
+     "calendar_quarter": "2025Q4",
+     "days": 92,
+     "region": "EMEA",
+     "product_line": "PC",
+     "metric": "accounts_receivable",
+     "value": 1498.03
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 3,
+     "calendar_quarter": "2025Q4",
+     "days": 92,
+     "region": "EMEA",
+     "product_line": "PC",
+     "metric": "inventory",
+     "value": 649.356
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 3,
+     "calendar_quarter": "2025Q4",
+     "days": 92,
+     "region": "EMEA",
+     "product_line": "PC",
+     "metric": "revenue",
+     "value": 2023.71
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 4,
+     "calendar_quarter": "2026Q1",
+     "days": 90,
+     "region": "APAC",
+     "product_line": "Infra",
+     "metric": "accounts_receivable",
+     "value": 1066.034
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 4,
+     "calendar_quarter": "2026Q1",
+     "days": 90,
+     "region": "APAC",
+     "product_line": "Infra",
+     "metric": "inventory",
+     "value": 1775.025
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 4,
+     "calendar_quarter": "2026Q1",
+     "days": 90,
+     "region": "APAC",
+     "product_line": "Infra",
+     "metric": "revenue",
+     "value": 3691.447
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 4,
+     "calendar_quarter": "2026Q1",
+     "days": 90,
+     "region": "APAC",
+     "product_line": "Other",
+     "metric": "accounts_receivable",
+     "value": 1667.547
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 4,
+     "calendar_quarter": "2026Q1",
+     "days": 90,
+     "region": "APAC",
+     "product_line": "Other",
+     "metric": "inventory",
+     "value": 1437.357
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 4,
+     "calendar_quarter": "2026Q1",
+     "days": 90,
+     "region": "APAC",
+     "product_line": "Other",
+     "metric": "revenue",
+     "value": 3075.317
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 4,
+     "calendar_quarter": "2026Q1",
+     "days": 90,
+     "region": "APAC",
+     "product_line": "PC",
+     "metric": "accounts_receivable",
+     "value": 1860.763
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 4,
+     "calendar_quarter": "2026Q1",
+     "days": 90,
+     "region": "APAC",
+     "product_line": "PC",
+     "metric": "inventory",
+     "value": 853.911
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 4,
+     "calendar_quarter": "2026Q1",
+     "days": 90,
+     "region": "APAC",
+     "product_line": "PC",
+     "metric": "revenue",
+     "value": 2310.504
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 4,
+     "calendar_quarter": "2026Q1",
+     "days": 90,
+     "region": "Americas",
+     "product_line": "Infra",
+     "metric": "accounts_receivable",
+     "value": 1873.208
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 4,
+     "calendar_quarter": "2026Q1",
+     "days": 90,
+     "region": "Americas",
+     "product_line": "Infra",
+     "metric": "inventory",
+     "value": 1132.155
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 4,
+     "calendar_quarter": "2026Q1",
+     "days": 90,
+     "region": "Americas",
+     "product_line": "Infra",
+     "metric": "revenue",
+     "value": 1847.794
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 4,
+     "calendar_quarter": "2026Q1",
+     "days": 90,
+     "region": "Americas",
+     "product_line": "Other",
+     "metric": "accounts_receivable",
+     "value": 2175.649
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 4,
+     "calendar_quarter": "2026Q1",
+     "days": 90,
+     "region": "Americas",
+     "product_line": "Other",
+     "metric": "inventory",
+     "value": 1661.952
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 4,
+     "calendar_quarter": "2026Q1",
+     "days": 90,
+     "region": "Americas",
+     "product_line": "Other",
+     "metric": "revenue",
+     "value": 2608.192
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 4,
+     "calendar_quarter": "2026Q1",
+     "days": 90,
+     "region": "Americas",
+     "product_line": "PC",
+     "metric": "accounts_receivable",
+     "value": 1172.849
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 4,
+     "calendar_quarter": "2026Q1",
+     "days": 90,
+     "region": "Americas",
+     "product_line": "PC",
+     "metric": "inventory",
+     "value": 1222.069
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 4,
+     "calendar_quarter": "2026Q1",
+     "days": 90,
+     "region": "Americas",
+     "product_line": "PC",
+     "metric": "revenue",
+     "value": 2161.362
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 4,
+     "calendar_quarter": "2026Q1",
+     "days": 90,
+     "region": "EMEA",
+     "product_line": "Infra",
+     "metric": "accounts_receivable",
+     "value": 1272.387
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 4,
+     "calendar_quarter": "2026Q1",
+     "days": 90,
+     "region": "EMEA",
+     "product_line": "Infra",
+     "metric": "inventory",
+     "value": 1176.939
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 4,
+     "calendar_quarter": "2026Q1",
+     "days": 90,
+     "region": "EMEA",
+     "product_line": "Infra",
+     "metric": "revenue",
+     "value": 1512.12
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 4,
+     "calendar_quarter": "2026Q1",
+     "days": 90,
+     "region": "EMEA",
+     "product_line": "Other",
+     "metric": "accounts_receivable",
+     "value": 1813.415
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 4,
+     "calendar_quarter": "2026Q1",
+     "days": 90,
+     "region": "EMEA",
+     "product_line": "Other",
+     "metric": "inventory",
+     "value": 1577.992
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 4,
+     "calendar_quarter": "2026Q1",
+     "days": 90,
+     "region": "EMEA",
+     "product_line": "Other",
+     "metric": "revenue",
+     "value": 2449.121
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 4,
+     "calendar_quarter": "2026Q1",
+     "days": 90,
+     "region": "EMEA",
+     "product_line": "PC",
+     "metric": "accounts_receivable",
+     "value": 1600.886
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 4,
+     "calendar_quarter": "2026Q1",
+     "days": 90,
+     "region": "EMEA",
+     "product_line": "PC",
+     "metric": "inventory",
+     "value": 883.485
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 4,
+     "calendar_quarter": "2026Q1",
+     "days": 90,
+     "region": "EMEA",
+     "product_line": "PC",
+     "metric": "revenue",
+     "value": 1932.473
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2027,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2026Q2",
+     "days": 91,
+     "region": "APAC",
+     "product_line": "Infra",
+     "metric": "accounts_receivable",
+     "value": 1364.938
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2027,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2026Q2",
+     "days": 91,
+     "region": "APAC",
+     "product_line": "Infra",
+     "metric": "inventory",
+     "value": 2267.797
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2027,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2026Q2",
+     "days": 91,
+     "region": "APAC",
+     "product_line": "Infra",
+     "metric": "revenue",
+     "value": 4534.409
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2027,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2026Q2",
+     "days": 91,
+     "region": "APAC",
+     "product_line": "Other",
+     "metric": "accounts_receivable",
+     "value": 2183.006
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2027,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2026Q2",
+     "days": 91,
+     "region": "APAC",
+     "product_line": "Other",
+     "metric": "inventory",
+     "value": 2061.951
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2027,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2026Q2",
+     "days": 91,
+     "region": "APAC",
+     "product_line": "Other",
+     "metric": "revenue",
+     "value": 3850.568
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2027,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2026Q2",
+     "days": 91,
+     "region": "APAC",
+     "product_line": "PC",
+     "metric": "accounts_receivable",
+     "value": 2435.539
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2027,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2026Q2",
+     "days": 91,
+     "region": "APAC",
+     "product_line": "PC",
+     "metric": "inventory",
+     "value": 1162.393
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2027,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2026Q2",
+     "days": 91,
+     "region": "APAC",
+     "product_line": "PC",
+     "metric": "revenue",
+     "value": 2814.036
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2027,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2026Q2",
+     "days": 91,
+     "region": "Americas",
+     "product_line": "Infra",
+     "metric": "accounts_receivable",
+     "value": 2392.651
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2027,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2026Q2",
+     "days": 91,
+     "region": "Americas",
+     "product_line": "Infra",
+     "metric": "inventory",
+     "value": 1397.153
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2027,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2026Q2",
+     "days": 91,
+     "region": "Americas",
+     "product_line": "Infra",
+     "metric": "revenue",
+     "value": 2336.957
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2027,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2026Q2",
+     "days": 91,
+     "region": "Americas",
+     "product_line": "Other",
+     "metric": "accounts_receivable",
+     "value": 2943.763
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2027,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2026Q2",
+     "days": 91,
+     "region": "Americas",
+     "product_line": "Other",
+     "metric": "inventory",
+     "value": 2167.333
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2027,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2026Q2",
+     "days": 91,
+     "region": "Americas",
+     "product_line": "Other",
+     "metric": "revenue",
+     "value": 3008.161
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2027,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2026Q2",
+     "days": 91,
+     "region": "Americas",
+     "product_line": "PC",
+     "metric": "accounts_receivable",
+     "value": 1637.184
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2027,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2026Q2",
+     "days": 91,
+     "region": "Americas",
+     "product_line": "PC",
+     "metric": "inventory",
+     "value": 1593.314
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2027,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2026Q2",
+     "days": 91,
+     "region": "Americas",
+     "product_line": "PC",
+     "metric": "revenue",
+     "value": 2762.46
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2027,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2026Q2",
+     "days": 91,
+     "region": "EMEA",
+     "product_line": "Infra",
+     "metric": "accounts_receivable",
+     "value": 1684.259
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2027,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2026Q2",
+     "days": 91,
+     "region": "EMEA",
+     "product_line": "Infra",
+     "metric": "inventory",
+     "value": 1619.097
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2027,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2026Q2",
+     "days": 91,
+     "region": "EMEA",
+     "product_line": "Infra",
+     "metric": "revenue",
+     "value": 1949.341
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2027,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2026Q2",
+     "days": 91,
+     "region": "EMEA",
+     "product_line": "Other",
+     "metric": "accounts_receivable",
+     "value": 2435.92
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2027,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2026Q2",
+     "days": 91,
+     "region": "EMEA",
+     "product_line": "Other",
+     "metric": "inventory",
+     "value": 2236.827
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2027,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2026Q2",
+     "days": 91,
+     "region": "EMEA",
+     "product_line": "Other",
+     "metric": "revenue",
+     "value": 3310.974
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2027,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2026Q2",
+     "days": 91,
+     "region": "EMEA",
+     "product_line": "PC",
+     "metric": "accounts_receivable",
+     "value": 2188.526
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2027,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2026Q2",
+     "days": 91,
+     "region": "EMEA",
+     "product_line": "PC",
+     "metric": "inventory",
+     "value": 1236.082
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2027,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2026Q2",
+     "days": 91,
+     "region": "EMEA",
+     "product_line": "PC",
+     "metric": "revenue",
+     "value": 2375.86
+    }
+   ]
+  },
+  {
+   "id": "r8",
+   "tool": "peer_compare",
+   "args": {
+    "metric": "inventory",
+    "calendar_quarter": "2026Q2"
+   },
+   "sql": null,
+   "unit": "usd_mn",
+   "data_version": "2633728-1790844911120430000-d728e5137cbb",
+   "created_step": 5,
+   "digest": "最新 9203; 首值 15052",
+   "initial_packet": false,
+   "rows": [
+    {
+     "company": "Dell",
+     "value": 15052.0,
+     "value_prev": 10437.0,
+     "change_pct": 0.4421768707,
+     "rank": 1
+    },
+    {
+     "company": "Lenovo",
+     "value": 15741.947,
+     "value_prev": 11720.885,
+     "change_pct": 0.3430681216,
+     "rank": 2
+    },
+    {
+     "company": "HP",
+     "value": 9203.0,
+     "value_prev": 8737.0,
+     "change_pct": 0.0533363855,
+     "rank": 3
+    }
+   ]
+  },
+  {
+   "id": "r9",
+   "tool": "query_metric",
+   "args": {
+    "metrics": [
+     "inventory"
+    ],
+    "companies": [
+     "Lenovo"
+    ],
+    "period_from": "FY2027Q1",
+    "period_to": "FY2027Q1",
+    "last_n": null,
+    "period_basis": "fiscal",
+    "group_by": [
+     "product_line"
+    ],
+    "filters": {}
+   },
+   "sql": "SELECT p.company_id AS company, p.fiscal_year, p.fiscal_quarter, p.calendar_quarter, p.days,\n       d.region, d.product_line, d.account_code AS metric, d.value\nFROM facts_detail d\nJOIN periods p USING (company_id, fiscal_year, fiscal_quarter)\nJOIN facts f ON f.company_id = p.company_id AND f.fiscal_year = p.fiscal_year\n            AND f.fiscal_quarter = p.fiscal_quarter AND f.account_code = d.account_code\nWHERE f.version = 'original' AND p.company_id IN ('Lenovo') AND (p.fiscal_year > 2027 OR (p.fiscal_year = 2027 AND p.fiscal_quarter >= 1)) AND (p.fiscal_year < 2027 OR (p.fiscal_year = 2027 AND p.fiscal_quarter <= 1))\nORDER BY p.company_id, p.period_end, d.region, d.product_line, d.account_code",
+   "unit": "usd_mn",
+   "data_version": "2633728-1790844911120430000-d728e5137cbb",
+   "created_step": 6,
+   "digest": "Lenovo 最新 2375.86 (FY27Q1) 上期 1236.08 环比 92.21%; 区间 1162.39~4534.41",
+   "initial_packet": false,
+   "rows": [
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2027,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2026Q2",
+     "days": 91,
+     "region": "APAC",
+     "product_line": "Infra",
+     "metric": "accounts_receivable",
+     "value": 1364.938
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2027,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2026Q2",
+     "days": 91,
+     "region": "APAC",
+     "product_line": "Infra",
+     "metric": "inventory",
+     "value": 2267.797
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2027,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2026Q2",
+     "days": 91,
+     "region": "APAC",
+     "product_line": "Infra",
+     "metric": "revenue",
+     "value": 4534.409
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2027,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2026Q2",
+     "days": 91,
+     "region": "APAC",
+     "product_line": "Other",
+     "metric": "accounts_receivable",
+     "value": 2183.006
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2027,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2026Q2",
+     "days": 91,
+     "region": "APAC",
+     "product_line": "Other",
+     "metric": "inventory",
+     "value": 2061.951
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2027,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2026Q2",
+     "days": 91,
+     "region": "APAC",
+     "product_line": "Other",
+     "metric": "revenue",
+     "value": 3850.568
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2027,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2026Q2",
+     "days": 91,
+     "region": "APAC",
+     "product_line": "PC",
+     "metric": "accounts_receivable",
+     "value": 2435.539
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2027,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2026Q2",
+     "days": 91,
+     "region": "APAC",
+     "product_line": "PC",
+     "metric": "inventory",
+     "value": 1162.393
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2027,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2026Q2",
+     "days": 91,
+     "region": "APAC",
+     "product_line": "PC",
+     "metric": "revenue",
+     "value": 2814.036
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2027,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2026Q2",
+     "days": 91,
+     "region": "Americas",
+     "product_line": "Infra",
+     "metric": "accounts_receivable",
+     "value": 2392.651
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2027,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2026Q2",
+     "days": 91,
+     "region": "Americas",
+     "product_line": "Infra",
+     "metric": "inventory",
+     "value": 1397.153
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2027,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2026Q2",
+     "days": 91,
+     "region": "Americas",
+     "product_line": "Infra",
+     "metric": "revenue",
+     "value": 2336.957
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2027,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2026Q2",
+     "days": 91,
+     "region": "Americas",
+     "product_line": "Other",
+     "metric": "accounts_receivable",
+     "value": 2943.763
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2027,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2026Q2",
+     "days": 91,
+     "region": "Americas",
+     "product_line": "Other",
+     "metric": "inventory",
+     "value": 2167.333
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2027,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2026Q2",
+     "days": 91,
+     "region": "Americas",
+     "product_line": "Other",
+     "metric": "revenue",
+     "value": 3008.161
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2027,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2026Q2",
+     "days": 91,
+     "region": "Americas",
+     "product_line": "PC",
+     "metric": "accounts_receivable",
+     "value": 1637.184
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2027,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2026Q2",
+     "days": 91,
+     "region": "Americas",
+     "product_line": "PC",
+     "metric": "inventory",
+     "value": 1593.314
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2027,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2026Q2",
+     "days": 91,
+     "region": "Americas",
+     "product_line": "PC",
+     "metric": "revenue",
+     "value": 2762.46
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2027,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2026Q2",
+     "days": 91,
+     "region": "EMEA",
+     "product_line": "Infra",
+     "metric": "accounts_receivable",
+     "value": 1684.259
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2027,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2026Q2",
+     "days": 91,
+     "region": "EMEA",
+     "product_line": "Infra",
+     "metric": "inventory",
+     "value": 1619.097
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2027,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2026Q2",
+     "days": 91,
+     "region": "EMEA",
+     "product_line": "Infra",
+     "metric": "revenue",
+     "value": 1949.341
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2027,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2026Q2",
+     "days": 91,
+     "region": "EMEA",
+     "product_line": "Other",
+     "metric": "accounts_receivable",
+     "value": 2435.92
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2027,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2026Q2",
+     "days": 91,
+     "region": "EMEA",
+     "product_line": "Other",
+     "metric": "inventory",
+     "value": 2236.827
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2027,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2026Q2",
+     "days": 91,
+     "region": "EMEA",
+     "product_line": "Other",
+     "metric": "revenue",
+     "value": 3310.974
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2027,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2026Q2",
+     "days": 91,
+     "region": "EMEA",
+     "product_line": "PC",
+     "metric": "accounts_receivable",
+     "value": 2188.526
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2027,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2026Q2",
+     "days": 91,
+     "region": "EMEA",
+     "product_line": "PC",
+     "metric": "inventory",
+     "value": 1236.082
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2027,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2026Q2",
+     "days": 91,
+     "region": "EMEA",
+     "product_line": "PC",
+     "metric": "revenue",
+     "value": 2375.86
+    }
+   ]
+  },
+  {
+   "id": "r10",
+   "tool": "query_metric",
+   "args": {
+    "metrics": [
+     "inventory"
+    ],
+    "companies": [
+     "Lenovo"
+    ],
+    "period_from": "FY2026Q1",
+    "period_to": "FY2026Q1",
+    "last_n": null,
+    "period_basis": "fiscal",
+    "group_by": [
+     "product_line"
+    ],
+    "filters": {}
+   },
+   "sql": "SELECT p.company_id AS company, p.fiscal_year, p.fiscal_quarter, p.calendar_quarter, p.days,\n       d.region, d.product_line, d.account_code AS metric, d.value\nFROM facts_detail d\nJOIN periods p USING (company_id, fiscal_year, fiscal_quarter)\nJOIN facts f ON f.company_id = p.company_id AND f.fiscal_year = p.fiscal_year\n            AND f.fiscal_quarter = p.fiscal_quarter AND f.account_code = d.account_code\nWHERE f.version = 'original' AND p.company_id IN ('Lenovo') AND (p.fiscal_year > 2026 OR (p.fiscal_year = 2026 AND p.fiscal_quarter >= 1)) AND (p.fiscal_year < 2026 OR (p.fiscal_year = 2026 AND p.fiscal_quarter <= 1))\nORDER BY p.company_id, p.period_end, d.region, d.product_line, d.account_code",
+   "unit": "usd_mn",
+   "data_version": "2633728-1790844911120430000-d728e5137cbb",
+   "created_step": 6,
+   "digest": "Lenovo 最新 1799.01 (FY26Q1) 上期 534.721 环比 236.44%; 区间 534.721~3449.16",
+   "initial_packet": false,
+   "rows": [
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2025Q2",
+     "days": 91,
+     "region": "APAC",
+     "product_line": "Infra",
+     "metric": "accounts_receivable",
+     "value": 923.328
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2025Q2",
+     "days": 91,
+     "region": "APAC",
+     "product_line": "Infra",
+     "metric": "inventory",
+     "value": 1615.673
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2025Q2",
+     "days": 91,
+     "region": "APAC",
+     "product_line": "Infra",
+     "metric": "revenue",
+     "value": 3449.155
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2025Q2",
+     "days": 91,
+     "region": "APAC",
+     "product_line": "Other",
+     "metric": "accounts_receivable",
+     "value": 1322.991
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2025Q2",
+     "days": 91,
+     "region": "APAC",
+     "product_line": "Other",
+     "metric": "inventory",
+     "value": 742.044
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2025Q2",
+     "days": 91,
+     "region": "APAC",
+     "product_line": "Other",
+     "metric": "revenue",
+     "value": 2642.89
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2025Q2",
+     "days": 91,
+     "region": "APAC",
+     "product_line": "PC",
+     "metric": "accounts_receivable",
+     "value": 1477.312
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2025Q2",
+     "days": 91,
+     "region": "APAC",
+     "product_line": "PC",
+     "metric": "inventory",
+     "value": 597.939
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2025Q2",
+     "days": 91,
+     "region": "APAC",
+     "product_line": "PC",
+     "metric": "revenue",
+     "value": 2234.938
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2025Q2",
+     "days": 91,
+     "region": "Americas",
+     "product_line": "Infra",
+     "metric": "accounts_receivable",
+     "value": 1637.102
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2025Q2",
+     "days": 91,
+     "region": "Americas",
+     "product_line": "Infra",
+     "metric": "inventory",
+     "value": 1154.293
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2025Q2",
+     "days": 91,
+     "region": "Americas",
+     "product_line": "Infra",
+     "metric": "revenue",
+     "value": 1514.182
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2025Q2",
+     "days": 91,
+     "region": "Americas",
+     "product_line": "Other",
+     "metric": "accounts_receivable",
+     "value": 1483.935
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2025Q2",
+     "days": 91,
+     "region": "Americas",
+     "product_line": "Other",
+     "metric": "inventory",
+     "value": 1402.285
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2025Q2",
+     "days": 91,
+     "region": "Americas",
+     "product_line": "Other",
+     "metric": "revenue",
+     "value": 3055.027
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2025Q2",
+     "days": 91,
+     "region": "Americas",
+     "product_line": "PC",
+     "metric": "accounts_receivable",
+     "value": 672.64
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2025Q2",
+     "days": 91,
+     "region": "Americas",
+     "product_line": "PC",
+     "metric": "inventory",
+     "value": 1032.069
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2025Q2",
+     "days": 91,
+     "region": "Americas",
+     "product_line": "PC",
+     "metric": "revenue",
+     "value": 1679.755
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2025Q2",
+     "days": 91,
+     "region": "EMEA",
+     "product_line": "Infra",
+     "metric": "accounts_receivable",
+     "value": 962.453
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2025Q2",
+     "days": 91,
+     "region": "EMEA",
+     "product_line": "Infra",
+     "metric": "inventory",
+     "value": 781.507
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2025Q2",
+     "days": 91,
+     "region": "EMEA",
+     "product_line": "Infra",
+     "metric": "revenue",
+     "value": 1122.472
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2025Q2",
+     "days": 91,
+     "region": "EMEA",
+     "product_line": "Other",
+     "metric": "accounts_receivable",
+     "value": 1281.763
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2025Q2",
+     "days": 91,
+     "region": "EMEA",
+     "product_line": "Other",
+     "metric": "inventory",
+     "value": 882.104
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2025Q2",
+     "days": 91,
+     "region": "EMEA",
+     "product_line": "Other",
+     "metric": "revenue",
+     "value": 1332.439
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2025Q2",
+     "days": 91,
+     "region": "EMEA",
+     "product_line": "PC",
+     "metric": "accounts_receivable",
+     "value": 1035.049
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2025Q2",
+     "days": 91,
+     "region": "EMEA",
+     "product_line": "PC",
+     "metric": "inventory",
+     "value": 534.721
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2025Q2",
+     "days": 91,
+     "region": "EMEA",
+     "product_line": "PC",
+     "metric": "revenue",
+     "value": 1799.011
+    }
+   ]
+  },
+  {
+   "id": "r11",
+   "tool": "calc",
+   "args": {
+    "expression": "(2267.8/1615.67 - 1) * 100",
+    "refs": []
+   },
+   "sql": null,
+   "unit": "",
+   "data_version": "2633728-1790844911120430000-d728e5137cbb",
+   "created_step": 7,
+   "digest": "value=40.3628",
+   "initial_packet": false,
+   "rows": [
+    {
+     "value": 40.3628216158
+    }
+   ]
+  },
+  {
+   "id": "r12",
+   "tool": "calc",
+   "args": {
+    "expression": "55.5587 - 47.2317",
+    "refs": []
+   },
+   "sql": null,
+   "unit": "",
+   "data_version": "2633728-1790844911120430000-d728e5137cbb",
+   "created_step": 7,
+   "digest": "value=8.327",
+   "initial_packet": false,
+   "rows": [
+    {
+     "value": 8.327
+    }
+   ]
+  },
+  {
+   "id": "r13",
+   "tool": "calc",
+   "args": {
+    "expression": "(1162.39/597.939 - 1) * 100",
+    "refs": []
+   },
+   "sql": null,
+   "unit": "",
+   "data_version": "2633728-1790844911120430000-d728e5137cbb",
+   "created_step": 7,
+   "digest": "value=94.3994",
+   "initial_packet": false,
+   "rows": [
+    {
+     "value": 94.3994287043
+    }
+   ]
+  },
+  {
+   "id": "r14",
+   "tool": "calc",
+   "args": {
+    "expression": "(2061.95/742.044 - 1) * 100",
+    "refs": []
+   },
+   "sql": null,
+   "unit": "",
+   "data_version": "2633728-1790844911120430000-d728e5137cbb",
+   "created_step": 7,
+   "digest": "value=177.874",
+   "initial_packet": false,
+   "rows": [
+    {
+     "value": 177.8743578548
+    }
+   ]
+  },
+  {
+   "id": "r15",
+   "tool": "calc",
+   "args": {
+    "expression": "(26942.8/18829.9 - 1) * 100",
+    "refs": []
+   },
+   "sql": null,
+   "unit": "",
+   "data_version": "2633728-1790844911120430000-d728e5137cbb",
+   "created_step": 7,
+   "digest": "value=43.0852",
+   "initial_packet": false,
+   "rows": [
+    {
+     "value": 43.0851996028
+    }
+   ]
+  },
+  {
+   "id": "r16",
+   "tool": "calc",
+   "args": {
+    "expression": "(24397.6/14187.8 - 1) * 100",
+    "refs": []
+   },
+   "sql": null,
+   "unit": "",
+   "data_version": "2633728-1790844911120430000-d728e5137cbb",
+   "created_step": 7,
+   "digest": "value=71.9618",
+   "initial_packet": false,
+   "rows": [
+    {
+     "value": 71.9618263579
+    }
+   ]
+  },
+  {
+   "id": "r17",
+   "tool": "calc",
+   "args": {
+    "expression": "(5907.48/4504.44 - 1) * 100",
+    "refs": []
+   },
+   "sql": null,
+   "unit": "",
+   "data_version": "2633728-1790844911120430000-d728e5137cbb",
+   "created_step": 7,
+   "digest": "value=31.1479",
+   "initial_packet": false,
+   "rows": [
+    {
+     "value": 31.1479340384
+    }
+   ]
+  },
+  {
+   "id": "r18",
+   "tool": "calc",
+   "args": {
+    "expression": "4534.41/3449.16 - 1",
+    "refs": []
+   },
+   "sql": null,
+   "unit": "",
+   "data_version": "2633728-1790844911120430000-d728e5137cbb",
+   "created_step": 7,
+   "digest": "value=0.314642",
+   "initial_packet": false,
+   "rows": [
+    {
+     "value": 0.3146418258
+    }
+   ]
+  },
+  {
+   "id": "r19",
+   "tool": "calc",
+   "args": {
+    "expression": "(22490.8/16055.4 - 1) * 100",
+    "refs": []
+   },
+   "sql": null,
+   "unit": "",
+   "data_version": "2633728-1790844911120430000-d728e5137cbb",
+   "created_step": 7,
+   "digest": "value=40.0825",
+   "initial_packet": false,
+   "rows": [
+    {
+     "value": 40.0824644668
+    }
+   ]
+  },
+  {
+   "id": "r20",
+   "tool": "query_metric",
+   "args": {
+    "metrics": [
+     "inventory"
+    ],
+    "companies": [
+     "Lenovo"
+    ],
+    "period_from": "FY2025Q1",
+    "period_to": "FY2026Q1",
+    "last_n": null,
+    "period_basis": "fiscal",
+    "group_by": [],
+    "filters": {}
+   },
+   "sql": "SELECT t.company, t.fiscal_year, t.fiscal_quarter, t.calendar_quarter, t.days,\n       t.inventory AS inventory\nFROM (SELECT p.company_id AS company, p.fiscal_year, p.fiscal_quarter, p.calendar_quarter, p.days,\n       MAX(CASE WHEN f.account_code = 'inventory' THEN f.value END) AS inventory\nFROM facts f\nJOIN periods p USING (company_id, fiscal_year, fiscal_quarter)\nWHERE f.version = 'original' AND p.company_id IN ('Lenovo') AND (p.fiscal_year > 2025 OR (p.fiscal_year = 2025 AND p.fiscal_quarter >= 1)) AND (p.fiscal_year < 2026 OR (p.fiscal_year = 2026 AND p.fiscal_quarter <= 1))\nGROUP BY 1, 2, 3, 4, 5) t\nORDER BY t.company, t.fiscal_year, t.fiscal_quarter",
+   "unit": "usd_mn",
+   "data_version": "2633728-1790844911120430000-d728e5137cbb",
+   "created_step": 8,
+   "digest": "Lenovo 最新 8742.64 (FY26Q1) 上期 7923.8 环比 10.33%; 区间 7777.59~9147.68",
+   "initial_packet": false,
+   "rows": [
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2025,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2024Q2",
+     "days": 91,
+     "inventory": 7777.587
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2025,
+     "fiscal_quarter": 2,
+     "calendar_quarter": "2024Q3",
+     "days": 92,
+     "inventory": 9118.816
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2025,
+     "fiscal_quarter": 3,
+     "calendar_quarter": "2024Q4",
+     "days": 92,
+     "inventory": 9147.679
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2025,
+     "fiscal_quarter": 4,
+     "calendar_quarter": "2025Q1",
+     "days": 90,
+     "inventory": 7923.804
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 1,
+     "calendar_quarter": "2025Q2",
+     "days": 91,
+     "inventory": 8742.635
+    }
+   ]
+  },
+  {
+   "id": "r21",
+   "tool": "check_identities",
+   "args": {
+    "company": "Lenovo",
+    "periods": [
+     "FY25Q1",
+     "FY25Q2",
+     "FY25Q3",
+     "FY25Q4",
+     "FY26Q1",
+     "FY26Q2",
+     "FY26Q3",
+     "FY26Q4",
+     "FY27Q1"
+    ]
+   },
+   "sql": "SELECT t.company, t.fiscal_year, t.fiscal_quarter, t.calendar_quarter, t.days,\n       t.accounts_payable AS accounts_payable,\n       t.accounts_receivable AS accounts_receivable,\n       t.accrued_liabilities AS accrued_liabilities,\n       t.cash AS cash,\n       t.deferred_revenue_current AS deferred_revenue_current,\n       t.deferred_revenue_noncurrent AS deferred_revenue_noncurrent,\n       t.financing_receivables AS financing_receivables,\n       t.goodwill AS goodwill,\n       t.intangibles AS intangibles,\n       t.inventory AS inventory,\n       t.long_term_debt AS long_term_debt,\n       t.other_current_assets AS other_current_assets,\n       t.other_current_liabilities AS other_current_liabilities,\n       t.other_noncurrent_assets AS other_noncurrent_assets,\n       t.other_noncurrent_liabilities AS other_noncurrent_liabilities,\n       t.ppe_net AS ppe_net,\n       t.short_term_debt AS short_term_debt,\n       t.short_term_investments AS short_term_investments,\n       t.total_assets AS total_assets,\n       t.total_current_assets AS total_current_assets,\n       t.total_current_liabilities AS total_current_liabilities,\n       t.total_equity AS total_equity,\n       t.total_liabilities AS total_liabilities\nFROM (SELECT p.company_id AS company, p.fiscal_year, p.fiscal_quarter, p.calendar_quarter, p.days,\n       MAX(CASE WHEN f.account_code = 'accounts_payable' THEN f.value END) AS accounts_payable,\n       MAX(CASE WHEN f.account_code = 'accounts_receivable' THEN f.value END) AS accounts_receivable,\n       MAX(CASE WHEN f.account_code = 'accrued_liabilities' THEN f.value END) AS accrued_liabilities,\n       MAX(CASE WHEN f.account_code = 'cash' THEN f.value END) AS cash,\n       MAX(CASE WHEN f.account_code = 'deferred_revenue_current' THEN f.value END) AS deferred_revenue_current,\n       MAX(CASE WHEN f.account_code = 'deferred_revenue_noncurrent' THEN f.value END) AS deferred_revenue_noncurrent,\n       MAX(CASE WHEN f.account_code = 'financing_receivables' THEN f.value END) AS financing_receivables,\n       MAX(CASE WHEN f.account_code = 'goodwill' THEN f.value END) AS goodwill,\n       MAX(CASE WHEN f.account_code = 'intangibles' THEN f.value END) AS intangibles,\n       MAX(CASE WHEN f.account_code = 'inventory' THEN f.value END) AS inventory,\n       MAX(CASE WHEN f.account_code = 'long_term_debt' THEN f.value END) AS long_term_debt,\n       MAX(CASE WHEN f.account_code = 'other_current_assets' THEN f.value END) AS other_current_assets,\n       MAX(CASE WHEN f.account_code = 'other_current_liabilities' THEN f.value END) AS other_current_liabilities,\n       MAX(CASE WHEN f.account_code = 'other_noncurrent_assets' THEN f.value END) AS other_noncurrent_assets,\n       MAX(CASE WHEN f.account_code = 'other_noncurrent_liabilities' THEN f.value END) AS other_noncurrent_liabilities,\n       MAX(CASE WHEN f.account_code = 'ppe_net' THEN f.value END) AS ppe_net,\n       MAX(CASE WHEN f.account_code = 'short_term_debt' THEN f.value END) AS short_term_debt,\n       MAX(CASE WHEN f.account_code = 'short_term_investments' THEN f.value END) AS short_term_investments,\n       MAX(CASE WHEN f.account_code = 'total_assets' THEN f.value END) AS total_assets,\n       MAX(CASE WHEN f.account_code = 'total_current_assets' THEN f.value END) AS total_current_assets,\n       MAX(CASE WHEN f.account_code = 'total_current_liabilities' THEN f.value END) AS total_current_liabilities,\n       MAX(CASE WHEN f.account_code = 'total_equity' THEN f.value END) AS total_equity,\n       MAX(CASE WHEN f.account_code = 'total_liabilities' THEN f.value END) AS total_liabilities\nFROM facts f\nJOIN periods p USING (company_id, fiscal_year, fiscal_quarter)\nWHERE f.version = 'original' AND p.company_id IN ('Lenovo') AND (p.fiscal_year > 2025 OR (p.fiscal_year = 2025 AND p.fiscal_quarter >= 1)) AND (p.fiscal_year < 2027 OR (p.fiscal_year = 2027 AND p.fiscal_quarter <= 1))\nGROUP BY 1, 2, 3, 4, 5) t\nORDER BY t.company, t.fiscal_year, t.fiscal_quarter",
+   "unit": "",
+   "data_version": "2633728-1790844911120430000-d728e5137cbb",
+   "created_step": -1,
+   "digest": "Lenovo 最新 61944.4 (FY27Q1) 上期 51795.8 环比 19.59%; 区间 24557.3~70112.1",
+   "initial_packet": false,
+   "rows": [
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2025,
+     "fiscal_quarter": 1,
+     "identity": "A=L+E",
+     "ok": true,
+     "total": 40484.663,
+     "computed": 40484.663,
+     "diff": 0.0,
+     "missing": [],
+     "all_missing": null
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2025,
+     "fiscal_quarter": 1,
+     "identity": "total_assets 分项加总",
+     "ok": true,
+     "total": 40484.663,
+     "computed": 40484.663,
+     "diff": 0.0,
+     "missing": [
+      "goodwill"
+     ],
+     "all_missing": false
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2025,
+     "fiscal_quarter": 1,
+     "identity": "total_current_assets 分项加总",
+     "ok": true,
+     "total": 24557.323,
+     "computed": 24557.323,
+     "diff": 0.0,
+     "missing": [
+      "financing_receivables"
+     ],
+     "all_missing": false
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2025,
+     "fiscal_quarter": 1,
+     "identity": "total_current_liabilities 分项加总",
+     "ok": true,
+     "total": 28839.027,
+     "computed": 28839.027,
+     "diff": -0.0,
+     "missing": [],
+     "all_missing": false
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2025,
+     "fiscal_quarter": 1,
+     "identity": "total_liabilities 分项加总",
+     "ok": true,
+     "total": 34419.327,
+     "computed": 34419.327,
+     "diff": 0.0,
+     "missing": [],
+     "all_missing": false
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2025,
+     "fiscal_quarter": 2,
+     "identity": "A=L+E",
+     "ok": true,
+     "total": 44464.284,
+     "computed": 44464.284,
+     "diff": 0.0,
+     "missing": [],
+     "all_missing": null
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2025,
+     "fiscal_quarter": 2,
+     "identity": "total_assets 分项加总",
+     "ok": true,
+     "total": 44464.284,
+     "computed": 44464.284,
+     "diff": 0.0,
+     "missing": [
+      "goodwill"
+     ],
+     "all_missing": false
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2025,
+     "fiscal_quarter": 2,
+     "identity": "total_current_assets 分项加总",
+     "ok": true,
+     "total": 28206.451,
+     "computed": 28206.451,
+     "diff": 0.0,
+     "missing": [
+      "financing_receivables"
+     ],
+     "all_missing": false
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2025,
+     "fiscal_quarter": 2,
+     "identity": "total_current_liabilities 分项加总",
+     "ok": true,
+     "total": 32682.051,
+     "computed": 32682.051,
+     "diff": 0.0,
+     "missing": [],
+     "all_missing": false
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2025,
+     "fiscal_quarter": 2,
+     "identity": "total_liabilities 分项加总",
+     "ok": true,
+     "total": 38372.767,
+     "computed": 38372.767,
+     "diff": 0.0,
+     "missing": [],
+     "all_missing": false
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2025,
+     "fiscal_quarter": 3,
+     "identity": "A=L+E",
+     "ok": true,
+     "total": 44722.344,
+     "computed": 44722.344,
+     "diff": -0.0,
+     "missing": [],
+     "all_missing": null
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2025,
+     "fiscal_quarter": 3,
+     "identity": "total_assets 分项加总",
+     "ok": true,
+     "total": 44722.344,
+     "computed": 44722.344,
+     "diff": 0.0,
+     "missing": [
+      "goodwill"
+     ],
+     "all_missing": false
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2025,
+     "fiscal_quarter": 3,
+     "identity": "total_current_assets 分项加总",
+     "ok": true,
+     "total": 28574.509,
+     "computed": 28574.509,
+     "diff": 0.0,
+     "missing": [
+      "financing_receivables"
+     ],
+     "all_missing": false
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2025,
+     "fiscal_quarter": 3,
+     "identity": "total_current_liabilities 分项加总",
+     "ok": true,
+     "total": 32904.101,
+     "computed": 32904.101,
+     "diff": 0.0,
+     "missing": [],
+     "all_missing": false
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2025,
+     "fiscal_quarter": 3,
+     "identity": "total_liabilities 分项加总",
+     "ok": true,
+     "total": 38581.374,
+     "computed": 38581.374,
+     "diff": 0.0,
+     "missing": [],
+     "all_missing": false
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2025,
+     "fiscal_quarter": 4,
+     "identity": "A=L+E",
+     "ok": true,
+     "total": 44230.812,
+     "computed": 44230.812,
+     "diff": 0.0,
+     "missing": [],
+     "all_missing": null
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2025,
+     "fiscal_quarter": 4,
+     "identity": "total_assets 分项加总",
+     "ok": true,
+     "total": 44230.812,
+     "computed": 44230.812,
+     "diff": 0.0,
+     "missing": [
+      "goodwill"
+     ],
+     "all_missing": false
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2025,
+     "fiscal_quarter": 4,
+     "identity": "total_current_assets 分项加总",
+     "ok": true,
+     "total": 27904.083,
+     "computed": 27904.083,
+     "diff": -0.0,
+     "missing": [
+      "financing_receivables"
+     ],
+     "all_missing": false
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2025,
+     "fiscal_quarter": 4,
+     "identity": "total_current_liabilities 分项加总",
+     "ok": true,
+     "total": 29994.133,
+     "computed": 29994.133,
+     "diff": 0.0,
+     "missing": [],
+     "all_missing": false
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2025,
+     "fiscal_quarter": 4,
+     "identity": "total_liabilities 分项加总",
+     "ok": true,
+     "total": 37570.895,
+     "computed": 37570.895,
+     "diff": -0.0,
+     "missing": [],
+     "all_missing": false
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 1,
+     "identity": "A=L+E",
+     "ok": true,
+     "total": 46323.21,
+     "computed": 46323.21,
+     "diff": 0.0,
+     "missing": [],
+     "all_missing": null
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 1,
+     "identity": "total_assets 分项加总",
+     "ok": true,
+     "total": 46323.21,
+     "computed": 46323.21,
+     "diff": 0.0,
+     "missing": [
+      "goodwill"
+     ],
+     "all_missing": false
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 1,
+     "identity": "total_current_assets 分项加总",
+     "ok": true,
+     "total": 29760.938,
+     "computed": 29760.938,
+     "diff": -0.0,
+     "missing": [
+      "financing_receivables"
+     ],
+     "all_missing": false
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 1,
+     "identity": "total_current_liabilities 分项加总",
+     "ok": true,
+     "total": 31285.11,
+     "computed": 31285.11,
+     "diff": 0.0,
+     "missing": [],
+     "all_missing": false
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 1,
+     "identity": "total_liabilities 分项加总",
+     "ok": true,
+     "total": 38882.312,
+     "computed": 38882.312,
+     "diff": 0.0,
+     "missing": [],
+     "all_missing": false
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 2,
+     "identity": "A=L+E",
+     "ok": true,
+     "total": 49831.165,
+     "computed": 49831.165,
+     "diff": -0.0,
+     "missing": [],
+     "all_missing": null
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 2,
+     "identity": "total_assets 分项加总",
+     "ok": true,
+     "total": 49831.165,
+     "computed": 49831.165,
+     "diff": 0.0,
+     "missing": [
+      "goodwill"
+     ],
+     "all_missing": false
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 2,
+     "identity": "total_current_assets 分项加总",
+     "ok": true,
+     "total": 33216.67,
+     "computed": 33216.67,
+     "diff": 0.0,
+     "missing": [
+      "financing_receivables"
+     ],
+     "all_missing": false
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 2,
+     "identity": "total_current_liabilities 分项加总",
+     "ok": true,
+     "total": 34515.964,
+     "computed": 34515.964,
+     "diff": 0.0,
+     "missing": [],
+     "all_missing": false
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 2,
+     "identity": "total_liabilities 分项加总",
+     "ok": true,
+     "total": 42342.285,
+     "computed": 42342.285,
+     "diff": 0.0,
+     "missing": [],
+     "all_missing": false
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 3,
+     "identity": "A=L+E",
+     "ok": true,
+     "total": 52632.383,
+     "computed": 52632.383,
+     "diff": 0.0,
+     "missing": [],
+     "all_missing": null
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 3,
+     "identity": "total_assets 分项加总",
+     "ok": true,
+     "total": 52632.383,
+     "computed": 52632.383,
+     "diff": 0.0,
+     "missing": [
+      "goodwill"
+     ],
+     "all_missing": false
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 3,
+     "identity": "total_current_assets 分项加总",
+     "ok": true,
+     "total": 35437.844,
+     "computed": 35437.844,
+     "diff": 0.0,
+     "missing": [
+      "financing_receivables"
+     ],
+     "all_missing": false
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 3,
+     "identity": "total_current_liabilities 分项加总",
+     "ok": true,
+     "total": 36890.42,
+     "computed": 36890.42,
+     "diff": 0.0,
+     "missing": [],
+     "all_missing": false
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 3,
+     "identity": "total_liabilities 分项加总",
+     "ok": true,
+     "total": 44786.306,
+     "computed": 44786.306,
+     "diff": 0.0,
+     "missing": [],
+     "all_missing": false
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 4,
+     "identity": "A=L+E",
+     "ok": true,
+     "total": 57129.094,
+     "computed": 57129.094,
+     "diff": -0.0,
+     "missing": [],
+     "all_missing": null
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 4,
+     "identity": "total_assets 分项加总",
+     "ok": true,
+     "total": 57129.094,
+     "computed": 57129.094,
+     "diff": -0.0,
+     "missing": [
+      "goodwill"
+     ],
+     "all_missing": false
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 4,
+     "identity": "total_current_assets 分项加总",
+     "ok": true,
+     "total": 39202.296,
+     "computed": 39202.296,
+     "diff": 0.0,
+     "missing": [
+      "financing_receivables"
+     ],
+     "all_missing": false
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 4,
+     "identity": "total_current_liabilities 分项加总",
+     "ok": true,
+     "total": 41357.576,
+     "computed": 41357.576,
+     "diff": 0.0,
+     "missing": [],
+     "all_missing": false
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2026,
+     "fiscal_quarter": 4,
+     "identity": "total_liabilities 分项加总",
+     "ok": true,
+     "total": 48685.481,
+     "computed": 48685.481,
+     "diff": 0.0,
+     "missing": [],
+     "all_missing": false
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2027,
+     "fiscal_quarter": 1,
+     "identity": "A=L+E",
+     "ok": true,
+     "total": 70112.116,
+     "computed": 70112.116,
+     "diff": -0.0,
+     "missing": [],
+     "all_missing": null
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2027,
+     "fiscal_quarter": 1,
+     "identity": "total_assets 分项加总",
+     "ok": true,
+     "total": 70112.116,
+     "computed": 70112.116,
+     "diff": -0.0,
+     "missing": [
+      "goodwill"
+     ],
+     "all_missing": false
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2027,
+     "fiscal_quarter": 1,
+     "identity": "total_current_assets 分项加总",
+     "ok": true,
+     "total": 50655.213,
+     "computed": 50655.213,
+     "diff": 0.0,
+     "missing": [
+      "financing_receivables"
+     ],
+     "all_missing": false
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2027,
+     "fiscal_quarter": 1,
+     "identity": "total_current_liabilities 分项加总",
+     "ok": true,
+     "total": 51795.782,
+     "computed": 51795.782,
+     "diff": 0.0,
+     "missing": [],
+     "all_missing": false
+    },
+    {
+     "company": "Lenovo",
+     "fiscal_year": 2027,
+     "fiscal_quarter": 1,
+     "identity": "total_liabilities 分项加总",
+     "ok": true,
+     "total": 61944.406,
+     "computed": 61944.406,
+     "diff": 0.0,
+     "missing": [],
+     "all_missing": false
+    }
+   ]
+  },
+  {
+   "id": "r22",
+   "tool": "calc",
+   "args": {
+    "expression": "(24397.6/21817.1 - 88.2743/74.1548) * 100",
+    "refs": []
+   },
+   "sql": null,
+   "unit": "",
+   "data_version": "2633728-1790844911120430000-d728e5137cbb",
+   "created_step": 10,
+   "digest": "value=-7.2127",
+   "initial_packet": false,
+   "rows": [
+    {
+     "value": -7.2126964495
+    }
+   ]
+  },
+  {
+   "id": "r23",
+   "tool": "calc",
+   "args": {
+    "expression": "88.2743 - 74.1548",
+    "refs": []
+   },
+   "sql": null,
+   "unit": "",
+   "data_version": "2633728-1790844911120430000-d728e5137cbb",
+   "created_step": 11,
+   "digest": "value=14.1195",
+   "initial_packet": false,
+   "rows": [
+    {
+     "value": 14.1195
+    }
+   ]
+  },
+  {
+   "id": "r24",
+   "tool": "calc",
+   "args": {
+    "expression": "24.5533 - 24.3115",
+    "refs": []
+   },
+   "sql": null,
+   "unit": "",
+   "data_version": "2633728-1790844911120430000-d728e5137cbb",
+   "created_step": 12,
+   "digest": "value=0.2418",
+   "initial_packet": false,
+   "rows": [
+    {
+     "value": 0.2418
+    }
+   ]
+  },
+  {
+   "id": "r25",
+   "tool": "calc",
+   "args": {
+    "expression": "34.30681215624929 - 44.2177",
+    "refs": []
+   },
+   "sql": null,
+   "unit": "",
+   "data_version": "2633728-1790844911120430000-d728e5137cbb",
+   "created_step": 13,
+   "digest": "value=-9.91089",
+   "initial_packet": false,
+   "rows": [
+    {
+     "value": -9.9108878438
+    }
+   ]
+  },
+  {
+   "id": "r26",
+   "tool": "calc",
+   "args": {
+    "expression": "abs(44.22 - 34.31)",
+    "refs": []
+   },
+   "sql": null,
+   "unit": "",
+   "data_version": "2633728-1790844911120430000-d728e5137cbb",
+   "created_step": 15,
+   "digest": "value=9.91",
+   "initial_packet": false,
+   "rows": [
+    {
+     "value": 9.91
+    }
+   ]
+  }
+ ],
+ "any_truncated": false
+}

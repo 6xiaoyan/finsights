@@ -1,0 +1,94 @@
+{
+ "contract": {
+  "query": "联想 FY2024Q3 存货同比增长的原因是什么？请分析。",
+  "company": null,
+  "period": null,
+  "comparison": "unknown",
+  "scope_notes": [],
+  "output_requirements": "结构化分析：事实、计算、解释、限制",
+  "as_of": null,
+  "data_version": "2633728-1790844911120430000-d728e5137cbb",
+  "clarification_status": "none"
+ },
+ "contract_version": "c1",
+ "plans": {
+  "1": {
+   "plan_id": "plan1",
+   "revision": 1,
+   "contract_version": "c1",
+   "nodes": [
+    {
+     "node_id": "n1",
+     "goal": "获取联想集团FY2024Q3及FY2023Q3的存货总额、营收、成本及存货周转天数等核心财务数据",
+     "depends_on": [],
+     "input_refs": [
+      "TaskContract"
+     ],
+     "completion_criteria": "准确列出两期存货绝对值、同比增长率、营收同比变动率，并计算存货周转天数及其同比变化",
+     "required_for_answer": true,
+     "execution_status": "pending",
+     "attempt": 0,
+     "latest_artifact_id": null,
+     "review_status": "not_reviewed"
+    },
+    {
+     "node_id": "n2",
+     "goal": "获取并分类联想集团FY2024Q3存货构成明细（如原材料、在产品、产成品）及主要业务线（如PC、手机、基础设施）的存货变动情况",
+     "depends_on": [
+      "n1"
+     ],
+     "input_refs": [
+      "n1"
+     ],
+     "completion_criteria": "明确存货增长主要来源于哪些细分类别或产品线，识别存货积压或备货集中区域",
+     "required_for_answer": true,
+     "execution_status": "pending",
+     "attempt": 0,
+     "latest_artifact_id": null,
+     "review_status": "not_reviewed"
+    },
+    {
+     "node_id": "n3",
+     "goal": "分析影响存货变动的非财务驱动因素，包括供应链策略调整（如芯片备货、原材料涨价预期）、产品生命周期变化、季节性需求及管理层财报电话会议中的相关表述",
+     "depends_on": [
+      "n1",
+      "n2"
+     ],
+     "input_refs": [
+      "n2"
+     ],
+     "completion_criteria": "结合公开信息与财报附注，提炼出导致存货增长的具体业务原因（如战略备货、销量放缓导致库存堆积等），并区分主动备货与被动积压",
+     "required_for_answer": true,
+     "execution_status": "pending",
+     "attempt": 0,
+     "latest_artifact_id": null,
+     "review_status": "not_reviewed"
+    },
+    {
+     "node_id": "n4",
+     "goal": "综合事实数据与驱动因素，撰写结构化分析结论，并指出数据局限性或假设前提",
+     "depends_on": [
+      "n3"
+     ],
+     "input_refs": [
+      "n1",
+      "n2",
+      "n3"
+     ],
+     "completion_criteria": "输出包含'事实、计算、解释、限制'四个部分的最终分析报告，逻辑自洽且数据支撑充分",
+     "required_for_answer": true,
+     "execution_status": "pending",
+     "attempt": 0,
+     "latest_artifact_id": null,
+     "review_status": "not_reviewed"
+    }
+   ],
+   "revision_reason": "初始化任务图：针对联想集团FY2024Q3存货同比增长原因进行分析，需拆解为数据获取、事实计算、驱动因素拆解及综合解释四个阶段，确保覆盖'事实、计算、解释、限制'的输出要求。",
+   "created_ts": "2026-10-06T15:30:04+09:00"
+  }
+ },
+ "latest_revision": 1,
+ "artifacts": {},
+ "reviews": {},
+ "answer_candidate": null
+}

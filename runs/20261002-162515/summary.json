@@ -1,0 +1,39 @@
+{
+ "run_id": "20261002-162515",
+ "agent": "v1",
+ "commit": "e2c2170",
+ "created": "2026-10-02T16:29:30",
+ "pricing_usd_per_mtok": {
+  "input": 0.05,
+  "output": 0.15
+ },
+ "trials": 1,
+ "records": [
+  {
+   "qid": "l3_001",
+   "category": "L3",
+   "trial": 1,
+   "correct": true,
+   "status": "answered",
+   "steps": 13,
+   "tool_calls": 13,
+   "sql_errors": 0,
+   "prompt_tokens": 134352,
+   "completion_tokens": 9058,
+   "cost_usd": 0.008076,
+   "latency_s": 255.0,
+   "detail": "label=company_specific gold=company_specific account_hit=True",
+   "answer_md": "## 联想FY20Q2存货明显上升归因\n\n存货当季从 3573.04 百万美元升至 5081.97 百万美元，环比 +42.23%，同比 +18.71%（对应 +801.04 百万美元）。\n\n**历年同季比较**：z-score 为 7.08057，历史分位 100%，远超正常区间，属明显异常波动。\n\n**同行同季比较**（同一自然季度）：惠普存货环比 +5.97%，戴尔 −6.70%；方向与幅度均与联想差异极大，不构成行业普遍现象，联想为个别异常。\n\n**对手科目核对**：同期应付账款由 8062.38 升至 10376.20 百万美元，现金由 2717.41 升至 3310.94 百万美元，收入由 12512.20 升至 13522.00 百万美元。存货、应付、现金、收入同向上升，未见\"存货↑+现金↓\"这类经营性资金流出特征，钱主要沉淀在存货与上游占款中。\n\n**附注**：未检索到该季披露注记，排除口径重分类的可能。\n\n**内部结构**：EMEA 区三条产品线贡献额分别为 EMEA|Infra 482.44（占比 31.97%）、EMEA|Other 458.72（占比 30.40",
+   "metrics": {
+    "top1_hit": true,
+    "misattributed": false,
+    "false_positive": false,
+    "evidence": {
+     "seasonal_check": true,
+     "peer_compare": true
+    },
+    "is_negative": false
+   }
+  }
+ ]
+}

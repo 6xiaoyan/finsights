@@ -1,0 +1,10 @@
+D:\finsights\agent\cli.py:106: Pandas4Warning: The default 'epoch' date format is deprecated and will be removed in a future version, please use 'iso' date format instead.
+  rec["rows"] = json.loads(df.to_json(orient="records"))
+D:\finsights\agent\cli.py:106: Pandas4Warning: The default 'epoch' date format is deprecated and will be removed in a future version, please use 'iso' date format instead.
+  rec["rows"] = json.loads(df.to_json(orient="records"))
+预算拒答：上方结论不可用（refuse）。
+运行预算已经用尽，无法完成有依据的回答，现拒答。
+拒答是为了避免给出没有出处的数字；请缩小问题范围或允许更多步数。
+
+—— 运行包已保存 ——
+status=refuse | 核验=未通过 | run_id=20261005-224834 | 输出=runs\selected_v1_dev\cli-20261005-224834

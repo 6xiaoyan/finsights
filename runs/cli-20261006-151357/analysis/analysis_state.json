@@ -1,0 +1,19 @@
+{
+ "contract": {
+  "query": "联想 FY2024Q3 存货同比增长的原因是什么？请分析。",
+  "company": null,
+  "period": null,
+  "comparison": "unknown",
+  "scope_notes": [],
+  "output_requirements": "结构化分析：事实、计算、解释、限制",
+  "as_of": null,
+  "data_version": "2633728-1790844911120430000-d728e5137cbb",
+  "clarification_status": "none"
+ },
+ "contract_version": "c1",
+ "plans": {},
+ "latest_revision": 0,
+ "artifacts": {},
+ "reviews": {},
+ "answer_candidate": null
+}

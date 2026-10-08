@@ -1,0 +1,43 @@
+{
+  "run_id": "20261006-135711",
+  "question": "联想 FY2026Q1 的经营利润改善质量如何？请比较上年同期，分析可量化的增长来源，并指出需要哪些额外数据判断改善的持续性。",
+  "as_of": null,
+  "db": "data\\finsights.duckdb",
+  "available_range": {
+    "Dell": {
+      "from": "2017-02-03",
+      "to": "2026-07-31"
+    },
+    "HP": {
+      "from": "2017-01-31",
+      "to": "2026-07-31"
+    },
+    "Lenovo": {
+      "from": "2017-06-30",
+      "to": "2026-06-30"
+    }
+  },
+  "parsed_scope": {
+    "company": "Lenovo",
+    "period": "FY2026Q1",
+    "raw": {
+      "company_in_query": true,
+      "period_in_query": true
+    }
+  },
+  "initial_packet_rule": {
+    "metrics": [
+      "inventory",
+      "revenue",
+      "cogs",
+      "accounts_receivable",
+      "accounts_payable"
+    ],
+    "quarters_back": 8
+  },
+  "tools_disabled": [
+    "get_filing_notes",
+    "search_disclosure"
+  ],
+  "note": "未提供 --as-of：使用当前库，非历史回测"
+}
