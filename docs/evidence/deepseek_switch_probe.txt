@@ -1,0 +1,32 @@
+{
+  "base_url": "https://api.deepseek.com",
+  "model": "deepseek-flash",
+  "api_key_env": "DEEPSEEK_API_KEY",
+  "thinking_param": "deepseek",
+  "enable_thinking": {
+    "agent": false,
+    "judge": false,
+    "summary": false
+  },
+  "rate_limit_rpm": 0.0,
+  "note": "key 未记录；仅记录变量名与结果",
+  "ping": {
+    "ok": true,
+    "content": "通",
+    "latency_s": 0.81,
+    "usage": {
+      "prompt_tokens": 9,
+      "completion_tokens": 1,
+      "total_tokens": 10,
+      "est_prompt_tokens": 12
+    },
+    "reasoning_in_message": false
+  },
+  "tool_call": {
+    "ok": true,
+    "latency_s": 0.77,
+    "name": "get_weather",
+    "arguments": "{\"city\": \"北京\"}"
+  },
+  "retry_events": []
+}

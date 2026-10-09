@@ -26,10 +26,11 @@ from pathlib import Path
 
 from agent.llm import LLMClient
 from agent.loop import make_run_ctx, run as loop_run
+from agent.ratelimit import DEFAULT_RATE_LIMIT_RPM, RateLimiter
 from agent.tools import data as tool_data
 from agent.tools.base import DESCRIPTIONS
 from agent.v1 import Paced
-from eval.runner import RateLimiter, _git_commit
+from eval.runner import _git_commit
 
 DB_PATH = Path("data/finsights.duckdb")
 # 第一阶段（PRD 3.2）：披露正文/附注检索不对被测路径暴露——落实到工具暴露层，非仅 prompt
@@ -56,6 +57,13 @@ def _file_hash(p: Path) -> str:
         for chunk in iter(lambda: f.read(1 << 20), b""):
             h.update(chunk)
     return h.hexdigest()[:12]
+
+
+def _effective_rpm(ctx) -> float | None:
+    """本次运行实际生效的 RPM：从真实客户端的共享限速器读，而不是 config 名义值。"""
+    llm = getattr(ctx, "llm", None)
+    limiter = getattr(llm, "limiter", None)
+    return getattr(limiter, "max_rpm", None)
 
 
 def _export_package(out_dir: Path, question: str, as_of, db_path: Path, client,
@@ -124,7 +132,10 @@ def _export_package(out_dir: Path, question: str, as_of, db_path: Path, client,
         "disclosure_index": {"path": str(idx),
                              "sha256_12": _file_hash(idx) if idx.exists() else None},
         "budget": {"max_steps": ctx.budget.max_steps, "max_tokens": ctx.budget.max_tokens,
-                   "max_wall_s": ctx.budget.max_wall_s},
+                   "max_wall_s": ctx.budget.max_wall_s,
+                   # 实际生效的 RPM（含 --max-rpm 覆盖）：此前运行包不落盘，导致事后无法
+                   # 判断某次运行到底按多少 RPM 跑出来的（multi_agent 交付 §7 第 8 项）
+                   "rate_limit_rpm": _effective_rpm(ctx)},
         "tools_disabled": DISABLED_TOOLS,
         "agent_mode": getattr(ctx, "agent_mode", "single_agent"),
         "dictionary_version": _dict_version(),
@@ -161,6 +172,14 @@ def _export_package(out_dir: Path, question: str, as_of, db_path: Path, client,
             "task_coverage_status": info.get("task_coverage_status"),
             "human_review_status": info.get("human_review_status"),
             "nodes_incomplete": info.get("nodes_incomplete"),
+            # PRD §4/§9：暂停/阻塞节点与上下文续接消耗单独落盘——旧运行包无法区分
+            # "阶段用完可续接"与"真阻塞"，也无法判断 Worker 是否在原地重复取数。
+            "nodes_paused": info.get("nodes_paused"),
+            "nodes_blocked": info.get("nodes_blocked"),
+            "continuations_total": info.get("continuations_total"),
+            "continuations_used": info.get("continuations_used"),
+            "continuations_invalid": info.get("continuations_invalid"),
+            "unresolved_must_fix": len(info.get("unresolved_findings") or []),
             "stop_reason": info.get("stop_reason"),
         }
     (out_dir / "run_meta.json").write_text(json.dumps(meta, ensure_ascii=False, indent=1),
@@ -323,8 +342,10 @@ def main(argv: list[str] | None = None) -> int:
 
     with open(args.config, encoding="utf-8") as f:
         import yaml
-        default_rpm = float((yaml.safe_load(f).get("llm") or {}).get("rate_limit_rpm", 18))
+        # 缺省取 config.yaml 的 llm.rate_limit_rpm（保守 8），再缺省取模块常量；不留 18 这类隐式回退
+        default_rpm = float((yaml.safe_load(f).get("llm") or {}).get("rate_limit_rpm", DEFAULT_RATE_LIMIT_RPM))
     limiter = RateLimiter(args.max_rpm or default_rpm)
+    effective_rpm = limiter.max_rpm
 
     client = LLMClient(config_path=args.config)
     run_id = datetime.now().strftime("%Y%m%d-%H%M%S")

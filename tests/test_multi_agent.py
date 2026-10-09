@@ -12,7 +12,7 @@ import pytest
 
 from agent.analysis_state import AnalysisState, TaskContract, content_hash
 from agent.multi import _artifact_version, _multi_final_problems
-from agent.subagents import PlanProposal
+from agent.subagents import PlanProposal, ROLE_TOOLS
 
 
 class MockLLM:
@@ -177,10 +177,12 @@ class _RetryMockLLM:
         self.script = list(script)
         self.nudged = False
         self.last_call_events: list[dict] = []
+        self.calls: list[dict] = []      # 记录每次 chat 的入参，供续接/审查类断言检查
 
     def chat(self, messages, tools=None, **kw):
         self.last_call_events = [{"type": "llm_retry", "attempt": 1,
                                   "wait_s": 1, "error": "429 mock"}]
+        self.calls.append({"messages": list(messages), "tools": tools})
         if not self.script:
             raise AssertionError("mock 脚本耗尽：主循环做了预期之外的事")
         return self.script.pop(0)
@@ -314,7 +316,8 @@ def test_old_resource_thresholds_no_longer_block(tmp_path):
 # ---------------- 16. 主 Agent 必须真的"看得见"三类子工具（live 冒烟暴露的根因）
 
 MULTI_MAIN_TOOLS = {"plan_analysis", "execute_analysis", "review_analysis",
-                    "draft_answer", "recall", "final_answer"}
+                    "draft_answer", "resume_analysis", "read_analysis_object",
+                    "recall", "final_answer"}
 
 
 def test_multi_main_agent_sees_all_subtools():
@@ -705,8 +708,12 @@ def test_w1_worker_step_exhaustion_gets_finalize_turn(tmp_path):
     assert llm.script == []                                    # 收尾轮就是最后一次请求，无隐藏追加
 
 
-def test_w1_partial_result_saved_as_blocked_artifact(tmp_path):
-    """W1（程序侧口径，§6.3）：收尾轮产物记 blocked——证据可用，但不等于节点已完成。"""
+def test_w1_old_protocol_missing_inputs_conservatively_blocked(tmp_path):
+    """旧协议只有 missing_inputs：无法证明它可选，按必需缺口处理 → blocked（保持既有行为）。
+
+    PRD §3 要求区分 required/optional；旧 payload 没有该字段时不能替 Worker 假定"可选"，
+    否则会凭空放行下游。这是保守兜底，不是新判据。
+    """
     from agent.loop import make_run_ctx
     from agent.multi import _tool_execute
     from agent.tools import data as tool_data
@@ -727,11 +734,434 @@ def test_w1_partial_result_saved_as_blocked_artifact(tmp_path):
     assert art.execution_status == "blocked"
     assert [f["rid"] for f in art.facts] == [rid]              # 程序核验过的证据保留
     assert art.missing_inputs == ["分部明细"]
-    assert any("收尾轮" in x for x in art.limitations)
-    assert "部分完成（blocked）" in txt and art.artifact_id in txt
-    assert f"recall(result_id={art.artifact_id})" in txt       # 给主 Agent 出路，不是死路
+    assert art.required_missing_inputs == ["分部明细"]
+    assert art.artifact_id in txt
     assert art.artifact_id in st.valid_artifact_ids()          # blocked 证据仍可引用
     assert st.latest_plan().nodes[0].execution_status == "blocked"   # 节点不算 completed
+
+
+# ---------------- PRD §3/§4：完成判定（阶段用完 ≠ blocked；必需/可选缺口分开）----------------
+
+def _execute_with_payload(tmp_path, payload, *, worker_max_steps=3, criteria="给出同比"):
+    """走真实 _tool_execute 入口跑一个 Worker 阶段，返回 (state, artifact, 返回文本)。"""
+    from agent.loop import make_run_ctx
+    from agent.multi import _tool_execute
+    from agent.tools import data as tool_data
+    st = _state(tmp_path)
+    st.save_plan([{"node_id": "n1", "goal": "算存货同比", "completion_criteria": criteria}], "初版")
+    ctx = make_run_ctx("data/finsights.duckdb", None, trace_path=tmp_path / "t.jsonl")
+    rid = tool_data.execute("list_metrics", {}, ctx.tool_ctx, step=0).rid
+    base = {"facts": [{"rid": rid, "field": "inventory", "value": 13731.4,
+                       "unit": "usd_mn", "company": "Lenovo",
+                       "period": "FY2027Q1", "data_nature": "reported"}],
+            "calculations": [], "limitations": [], "summary": "已得存货"}
+    base.update(payload)
+    llm = _RetryMockLLM([_asst([_call("w1", "list_metrics", {})]),
+                         _asst([_call("w2", "list_metrics", {})]), _sub(base)])
+    ctx.llm = llm
+    txt = _tool_execute(st, {"node_id": "n1"}, llm, "你是 Worker", ctx, 1,
+                        _ma(worker_max_steps=worker_max_steps))
+    return st, list(st.artifacts.values())[0], txt
+
+
+def test_w1_finalize_round_delivery_is_completed_not_blocked(tmp_path):
+    """PRD §2 第1行/§4.2 的核心修正：交付发生在预留轮（finalized）**不再**判 blocked。
+
+    这是 runs/ds_multi_S01 里 n1/n6 被判 blocked → 连锁 6 次计划修订的根因。
+    交付合法且无必需缺口 → completed，下游立即可启动。
+    """
+    st, art, txt = _execute_with_payload(
+        tmp_path, {"required_missing_inputs": [], "optional_missing_inputs": []})
+    assert art.execution_status == "completed", "预留轮交付不应被当成不合格"
+    assert art.continuation_id is None
+    assert st.latest_plan().nodes[0].execution_status == "completed"
+    assert "完成" in txt and "review_analysis" in txt      # 给出审查建议
+
+
+def test_w1_optional_gap_only_does_not_block(tmp_path):
+    """PRD §3：missing 非空不是 blocked 的充分条件——只有可选明细缺失时节点可完成。"""
+    st, art, _ = _execute_with_payload(
+        tmp_path, {"required_missing_inputs": [], "optional_missing_inputs": ["分部明细"]})
+    assert art.execution_status == "completed"
+    assert art.optional_missing_inputs == ["分部明细"]
+    assert art.required_missing_inputs == []
+    assert any("可选补充数据缺失" in x for x in art.limitations)  # 限制被保留而非丢失
+    assert st.latest_plan().nodes[0].execution_status == "completed"
+
+
+def test_w1_required_gap_blocks_and_names_the_gap(tmp_path):
+    """必需输入缺失 → blocked，并明确写出缺什么（不是笼统的"收尾轮未登记缺口"）。"""
+    st, art, txt = _execute_with_payload(
+        tmp_path, {"required_missing_inputs": ["FY2026Q1 期初存货"], "optional_missing_inputs": []})
+    assert art.execution_status == "blocked"
+    assert art.required_missing_inputs == ["FY2026Q1 期初存货"]
+    assert "FY2026Q1 期初存货" in txt
+    assert st.latest_plan().nodes[0].execution_status == "blocked"
+
+
+def test_w1_unsatisfied_criteria_pauses_with_next_actions(tmp_path):
+    """完成标准未满足且有下一步 → paused（可续接），并保存 continuation_id。"""
+    st, art, txt = _execute_with_payload(
+        tmp_path, {"required_missing_inputs": [],
+                   "completion_report": [{"criterion": "给出同比", "satisfied": False}],
+                   "next_actions": ["补取 FY2026Q1 期初余额"]},
+        criteria="给出同比")
+    assert art.execution_status == "paused"
+    assert art.continuation_id, "paused 必须给出可续接的句柄"
+    assert art.next_actions == ["补取 FY2026Q1 期初余额"]
+    assert "resume_analysis" in txt
+    assert st.latest_plan().nodes[0].execution_status == "paused"
+    # paused 不自动释放下游（PRD §5）
+    assert st.state_view()["paused_nodes"] == ["n1"]
+
+
+def test_paused_node_does_not_release_downstream(tmp_path):
+    """PRD §5：只有 completed 释放下游；paused 不算完成，也不能靠删边绕过。"""
+    from agent.loop import make_run_ctx
+    from agent.multi import _tool_execute
+    from agent.tools import data as tool_data
+    st = _state(tmp_path)
+    st.save_plan([{"node_id": "n1", "goal": "取数"},
+                  {"node_id": "n2", "goal": "计算", "depends_on": ["n1"]}], "初版")
+    ctx = make_run_ctx("data/finsights.duckdb", None, trace_path=tmp_path / "t.jsonl")
+    rid = tool_data.execute("list_metrics", {}, ctx.tool_ctx, step=0).rid
+    llm = _RetryMockLLM([_asst([_call("w1", "list_metrics", {})]),
+                         _asst([_call("w2", "list_metrics", {})]),
+                         _sub({"facts": [{"rid": rid, "field": "inventory", "value": 1.0,
+                                          "unit": "usd_mn"}],
+                               "required_missing_inputs": ["期初值"], "summary": "缺期初"})])
+    ctx.llm = llm
+    _tool_execute(st, {"node_id": "n1"}, llm, "你是 Worker", ctx, 1, _ma(worker_max_steps=3))
+    ready, blocked = st.ready_nodes(st.latest_plan())
+    assert "n2" not in [n.node_id for n in ready]
+    # 真实入口也要挡住：直接对 n2 执行必须被拒
+    txt = _tool_execute(st, {"node_id": "n2"}, llm, "你是 Worker", ctx, 2, _ma(worker_max_steps=3))
+    assert "dependency_missing" in txt and "n1" in txt
+
+
+# ---------------- PRD §11：续接、对象读取、按范围审查、must_fix 门禁 ----------------
+
+def test_resume_continues_same_context_without_refetching(tmp_path):
+    """PRD §4.5 / §11：阶段用完 → paused → resume_analysis 续接**保留工具历史**，不重取同一份证据。
+
+    断言点：续接那一轮收到的 messages 里能看到上一轮已经拿到的 rid（结果仍在上下文里），
+    且脚本不需要再安排取数调用就能交付。
+    """
+    from agent.loop import make_run_ctx
+    from agent.multi import _tool_execute, _tool_resume
+    from agent.tools import data as tool_data
+    st = _state(tmp_path)
+    st.save_plan([{"node_id": "n1", "goal": "算同比",
+                   "completion_criteria": "给出同比"}], "初版")
+    ctx = make_run_ctx("data/finsights.duckdb", None, trace_path=tmp_path / "t.jsonl")
+    rid = tool_data.execute("list_metrics", {}, ctx.tool_ctx, step=0).rid
+
+    # 第一阶段：取数 + 交付未满足的完成标准 → paused
+    llm1 = _RetryMockLLM([_asst([_call("w1", "list_metrics", {})]),
+                          _asst([_call("w2", "list_metrics", {})]),
+                          _sub({"facts": [{"rid": rid, "field": "inventory", "value": 13731.4,
+                                           "unit": "usd_mn"}],
+                                "required_missing_inputs": [],
+                                "completion_report": [{"criterion": "给出同比", "satisfied": False}],
+                                "next_actions": ["补算同比"], "summary": "已得存货，未算同比"})])
+    ctx.llm = llm1
+    _tool_execute(st, {"node_id": "n1"}, llm1, "你是 Worker", ctx, 1, _ma(worker_max_steps=3))
+    art1 = list(st.artifacts.values())[-1]
+    assert art1.execution_status == "paused" and art1.continuation_id
+
+    # 第二阶段：直接交付（脚本里没有任何取数调用）——证明上下文被沿用
+    llm2 = _RetryMockLLM([_sub({"facts": [{"rid": rid, "field": "inventory", "value": 13731.4,
+                                          "unit": "usd_mn"}],
+                                "required_missing_inputs": [],
+                                "completion_report": [{"criterion": "给出同比", "satisfied": True}],
+                                "summary": "补算完成"})])
+    ctx.llm = llm2
+    txt = _tool_resume(st, {"continuation_id": art1.continuation_id}, llm2,
+                       "你是 Worker", ctx, 2, _ma(worker_max_steps=3))
+    art2 = list(st.artifacts.values())[-1]
+    assert art2.execution_status == "completed", txt
+    assert art2.attempt == 2                                   # 续接是新 attempt，历史保留
+    assert len(st.artifacts) == 2                              # 旧 paused 产物没有被覆盖
+    # 续接那一轮的上下文里带着上一轮的工具结果
+    seen = llm2.calls[0]["messages"]
+    assert any(rid in json.dumps(m, ensure_ascii=False) for m in seen), "续接丢失了已取得的工具结果"
+    # 同一个 continuation 不能重复用
+    txt2 = _tool_resume(st, {"continuation_id": art1.continuation_id}, llm2,
+                        "你是 Worker", ctx, 3, _ma(worker_max_steps=3))
+    assert "已被 resume_analysis 使用过" in txt2
+
+
+def test_resume_actually_sends_new_stage_instruction(tmp_path):
+    """PRD §2/§10.3 必测：新指令必须**真的进入模型输入**，且不能只发一次原问题。
+
+    这正是 PRD §2 记录的实现缺陷：恢复分支直接 `messages = list(resume_messages)`，
+    把本阶段的 user_content 丢掉了。原测试只断言"工具结果还在"，
+    对这个缺陷是瞎的——所以这里单独钉住"新指令确实到达"。
+    """
+    from agent.loop import make_run_ctx
+    from agent.multi import _tool_execute, _tool_resume
+    from agent.tools import data as tool_data
+    st = _state(tmp_path)
+    st.save_plan([{"node_id": "n1", "goal": "算同比", "completion_criteria": "给出同比"}], "初版")
+    ctx = make_run_ctx("data/finsights.duckdb", None, trace_path=tmp_path / "t.jsonl")
+    rid = tool_data.execute("list_metrics", {}, ctx.tool_ctx, step=0).rid
+    llm1 = _RetryMockLLM([_asst([_call("w1", "list_metrics", {})]),
+                          _asst([_call("w2", "list_metrics", {})]),
+                          _sub({"facts": [{"rid": rid, "field": "inventory", "value": 1.0}],
+                                "required_missing_inputs": [],
+                                "completion_report": [{"criterion": "给出同比", "satisfied": False}],
+                                "next_actions": ["补算"], "summary": "未算"})])
+    ctx.llm = llm1
+    _tool_execute(st, {"node_id": "n1"}, llm1, "你是 Worker", ctx, 1, _ma(worker_max_steps=3))
+    art1 = list(st.artifacts.values())[-1]
+    assert art1.execution_status == "paused" and art1.continuation_id
+
+    llm2 = _RetryMockLLM([_sub({"facts": [], "required_missing_inputs": [],
+                                "completion_report": [{"criterion": "给出同比", "satisfied": True}],
+                                "summary": "补算完成"})])
+    ctx.llm = llm2
+    _tool_resume(st, {"continuation_id": art1.continuation_id,
+                      "extra_instructions": "只做补算，不要重取存货"},
+                 llm2, "你是 Worker", ctx, 2, _ma(worker_max_steps=3))
+    sent = llm2.calls[0]["messages"]
+    last = sent[-1]
+    assert last["role"] == "user", "续接时最后一条必须是本阶段的新指令"
+    assert "只做补算，不要重取存货" in last["content"], "补充指令没有真正进入模型输入"
+    assert "补算" in json.dumps(sent, ensure_ascii=False), "上次的 next_actions 应随指令带进来"
+    # 只出现一次 user 指令，不是把原问题重发一遍
+    users = [m["content"] for m in sent if m.get("role") == "user"]
+    assert not any("算存货同比" in (u or "") and "只做补算" not in (u or "") for u in users), \
+        "续接不应把原始任务当成新指令重发"
+
+
+def test_stage_finalize_instruction_does_not_leak_into_resume(tmp_path):
+    """PRD §10.3：阶段性的"停止调用工具"在续接时必须被标为已结束。
+
+    不删原文（历史要可审计），但要显式声明失效——否则上一阶段的收尾指令会跨阶段生效，
+    模型会立刻交付而不推进工具调用。
+    """
+    from agent.subagents import _close_stage_instructions
+    hist = [
+        {"role": "system", "content": "你是 Worker"},
+        {"role": "user", "content": "算存货同比"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"id": "c1", "type": "function", "function": {"name": "list_metrics", "arguments": "{}"}}]},
+        {"role": "tool", "tool_call_id": "c1", "content": "[r1] ..."},
+        {"role": "user", "content": "现在不要再调用任何工具。基于上面已经真实拿到的工具结果，"
+                                   "只输出一个符合协议的 JSON 对象…"},
+    ]
+    out = _close_stage_instructions(hist)
+    assert out[-1]["content"] != hist[-1]["content"], "收尾指令应被标注为已结束"
+    assert "[阶段已结束]" in out[-1]["content"]
+    assert "现在不要再调用任何工具" in out[-1]["content"], "原文必须保留（历史可审计）"
+    # 其他消息与 role 不受影响
+    assert out[1] == hist[1] and out[3] == hist[3]
+    # 幂等：再标一次不会叠加
+    assert _close_stage_instructions(out) == out
+
+
+def test_continuation_invalidated_when_node_definition_changes(tmp_path):
+    """PRD §4.7：节点定义变化后旧 continuation 失效（历史保留，不删）。"""
+    st = _state(tmp_path)
+    st.save_plan([{"node_id": "n1", "goal": "算同比"}], "初版")
+    cid = st.save_continuation("n1", 1, 1, [{"role": "user", "content": "x"}], {}, "p", ["n"])
+    assert st.get_continuation(cid).get("_invalid") is None
+    st.save_plan([{"node_id": "n1", "goal": "算同比（改为环比）"}], "改目标")
+    got = st.get_continuation(cid)
+    assert got.get("_invalid") and "定义变化" in got["invalid_reason"]
+
+
+def test_read_analysis_object_gives_full_content_with_paging(tmp_path):
+    """PRD §8/§11：长 artifact 后半段的错误必须能被读到——不能只给截断摘要。"""
+    from agent.analysis_state import AnalysisArtifact
+    from agent.multi import _tool_read_object
+    st = _state(tmp_path)
+    st.save_plan([{"node_id": "n1", "goal": "取数"}], "初版")
+    # 大量 limitations，错误埋在最后一条
+    lims = [f"限制{i}" for i in range(200)] + ["关键错误：把 COGS 当成了收入"]
+    art = st.add_artifact(AnalysisArtifact(
+        artifact_id="", node_id="n1", plan_revision=1, attempt=1,
+        execution_status="completed", limitations=lims,
+        facts=[{"rid": f"r{i}", "field": "inventory"} for i in range(1, 60)]))
+    toc = _tool_read_object(st, {"object_id": art.artifact_id})
+    assert "limitations" in toc and "目录" in toc                 # 目录给出各部分长度
+    # 分页能翻到最后一条并看到错误
+    mid = _tool_read_object(st, {"object_id": art.artifact_id, "section": "limitations",
+                                 "offset": 100, "limit": 20})
+    assert "还有更多" in mid and "offset=120" in mid              # 明确告知还有剩余与继续位置
+    last = _tool_read_object(st, {"object_id": art.artifact_id, "section": "limitations",
+                              "offset": 200, "limit": 1})
+    assert "关键错误" in last and "共 201 条" in last
+    # 单页上限 200，剩余条目靠 offset 继续取（不静默丢弃）
+    page = _tool_read_object(st, {"object_id": art.artifact_id, "section": "limitations",
+                                   "limit": 200})
+    assert "还有 1 条" in page and "offset=200" in page
+    # 未知对象/字段给出可用清单，不是死路
+    assert "不存在" in _tool_read_object(st, {"object_id": "art999"})
+    assert "没有字段" in _tool_read_object(st, {"object_id": art.artifact_id,
+                                                "section": "nope"})
+
+
+def test_review_no_longer_truncates_object_and_scopes_node_review(tmp_path):
+    """PRD §8：不再 [:3000] 粗暴截断；节点审查带上目标与完成标准（期初取数节点不必回答整题）。"""
+    from agent.loop import make_run_ctx
+    from agent.multi import _tool_review
+    from agent.analysis_state import AnalysisArtifact
+    st = _state(tmp_path)
+    st.save_plan([{"node_id": "n1", "goal": "取 FY2026Q1 期初存货余额",
+                   "completion_criteria": "给出该期初余额的 rid 与数值",
+                   "required_output_refs": ["r2"]}], "初版")
+    art = st.add_artifact(AnalysisArtifact(
+        artifact_id="", node_id="n1", plan_revision=1, attempt=1,
+        execution_status="completed",
+        calculations=[{"input_rids": [f"r{i}"], "expression": "x",
+                       "note": "噪声"} for i in range(400)]))
+    llm = _RetryMockLLM([_sub({"verdict": "accepted", "findings": []})])
+    ctx = make_run_ctx("data/finsights.duckdb", llm, trace_path=tmp_path / "t.jsonl")
+    _tool_review(st, {"target_type": "artifact", "target_id": art.artifact_id}, llm,
+                 "你是 Reviewer", ctx, 1, _ma(), tmp_path)
+    sent = json.dumps(llm.calls[0]["messages"], ensure_ascii=False)
+    # 审查范围带上节点目标与完成标准
+    assert "取 FY2026Q1 期初存货余额" in sent and "给出该期初余额的 rid 与数值" in sent
+    assert "不需要独立完成整题归因" in sent
+    # 摘要是截断的，但明确告知并给出读取通道
+    assert "read_analysis_object" in sent
+    assert "字符" in sent
+
+
+def test_must_fix_unresolved_cannot_be_accepted(tmp_path):
+    """PRD §8：Reviewer 自评 accepted 但留了未解决的 must_fix → 程序纠正为 needs_revision。"""
+    from agent.loop import make_run_ctx
+    from agent.multi import _tool_review
+    from agent.analysis_state import AnalysisArtifact
+    st = _state(tmp_path)
+    st.save_plan([{"node_id": "n1", "goal": "取数"}], "初版")
+    art = st.add_artifact(AnalysisArtifact(artifact_id="", node_id="n1", plan_revision=1,
+                                           attempt=1, execution_status="completed",
+                                           summary="取数完成"))
+    llm = _RetryMockLLM([_sub({"verdict": "accepted", "findings": [
+        {"category": "caliber", "severity": "must_fix",
+         "statement": "把期末余额当平均余额", "explanation": "口径错", "node_id": "n1"}]})])
+    ctx = make_run_ctx("data/finsights.duckdb", llm, trace_path=tmp_path / "t.jsonl")
+    txt = _tool_review(st, {"target_type": "artifact", "target_id": art.artifact_id}, llm,
+                       "你是 Reviewer", ctx, 1, _ma(), tmp_path)
+    rv = list(st.reviews.values())[-1]
+    assert rv.verdict == "needs_revision", "未解决的 must_fix 不能 accepted"
+    assert any("程序纠正" in x for x in rv.unresolved_items)
+    assert "needs_revision" in txt
+    assert st.state_view()["unresolved_findings"]          # 进 state_view 供主 Agent 处理
+    assert st.latest_plan().nodes[0].review_status == "needs_revision"
+
+
+def test_limitation_and_suggestion_do_not_block_acceptance(tmp_path):
+    """对照：limitation/suggestion 不阻塞 accepted——否则会把所有建议都变成返工。"""
+    from agent.loop import make_run_ctx
+    from agent.multi import _tool_review
+    from agent.analysis_state import AnalysisArtifact
+    st = _state(tmp_path)
+    st.save_plan([{"node_id": "n1", "goal": "取数"}], "初版")
+    art = st.add_artifact(AnalysisArtifact(artifact_id="", node_id="n1", plan_revision=1,
+                                           attempt=1, execution_status="completed"))
+    llm = _RetryMockLLM([_sub({"verdict": "accepted", "findings": [
+        {"category": "caliber", "severity": "limitation", "statement": "口径需注明"},
+        {"category": "other", "severity": "suggestion", "statement": "建议补充"}]})])
+    ctx = make_run_ctx("data/finsights.duckdb", llm, trace_path=tmp_path / "t.jsonl")
+    _tool_review(st, {"target_type": "artifact", "target_id": art.artifact_id}, llm,
+                 "你是 Reviewer", ctx, 1, _ma(), tmp_path)
+    rv = list(st.reviews.values())[-1]
+    assert rv.verdict == "accepted"
+    assert st.state_view()["unresolved_findings"] == []
+
+
+def test_review_finding_severity_defaults_and_validation(tmp_path):
+    """旧 mock/旧运行包没有 severity → 按 limitation 兜底（偏保守，不放宽）；非法值被拒。"""
+    from agent.analysis_state import ReviewFinding
+    assert ReviewFinding(category="other", statement="x").severity == "limitation"
+    with pytest.raises(Exception):
+        ReviewFinding(category="other", statement="x", severity="blocker")
+
+
+def test_reviewer_can_actually_call_read_analysis_object(tmp_path):
+    """回归：Reviewer 必须**能调用** read_analysis_object——只写进提示等于没给。
+
+    第一次 live（runs/prd_v2_multi_S01）就栽在这里：提示与工具描述都叫它读完整对象，
+    但 ROLE_TOOLS 里没有这个工具，Reviewer 调不动，于是 8 次审查里 8 次返回 inconclusive。
+    本测试同时钉住"声明里有"+"可 dispatch"。
+    """
+    from agent.analysis_state import AnalysisArtifact
+    from agent.multi import _run_role, _tool_read_object
+    st = _state(tmp_path)
+    st.save_plan([{"node_id": "n1", "goal": "取数"}], "初版")
+    art = st.add_artifact(AnalysisArtifact(
+        artifact_id="", node_id="n1", plan_revision=1, attempt=1,
+        execution_status="completed",
+        limitations=[f"限制{i}" for i in range(50)] + ["关键错误：把 COGS 当收入"]))
+
+    assert "read_analysis_object" in ROLE_TOOLS["reviewer"]
+
+    from agent.loop import make_run_ctx
+    llm = _RetryMockLLM([
+        _asst([_call("rv1", "read_analysis_object",
+                     {"object_id": art.artifact_id, "section": "limitations",
+                      "offset": 48, "limit": 5})]),
+        _sub({"verdict": "accepted", "findings": []}),
+    ])
+    ctx = make_run_ctx("data/finsights.duckdb", llm, trace_path=tmp_path / "t.jsonl")
+    r = _run_role("reviewer", "你是 Reviewer", "审一下", llm, ctx, 1, 4, _ma(),
+                  extra_tools={"read_analysis_object": lambda a: _tool_read_object(st, a)},
+                  target_type="artifact", target_id=art.artifact_id)
+    # 声明里真的有这个工具
+    assert any(sc["function"]["name"] == "read_analysis_object"
+               for sc in (llm.calls[0]["tools"] or []))
+    # 调用真的被执行，错误那条进入了 Reviewer 的上下文
+    seen = json.dumps(llm.calls[1]["messages"], ensure_ascii=False)
+    assert "关键错误" in seen, "Reviewer 读了工具但结果没回到上下文"
+    # 读取事件进了 trace
+    assert any(e["type"] == "tool_result" and e["tool"] == "read_analysis_object"
+               for e in r.events)
+
+
+def test_reviewer_extra_tool_not_leaked_into_worker(tmp_path):
+    """角色权限不串：注入的读取通道只给 reviewer，worker 拿不到。"""
+    from agent.loop import make_run_ctx
+    from agent.multi import _run_role
+    llm = _RetryMockLLM([_sub({"facts": [], "summary": "空"})])
+    ctx = make_run_ctx("data/finsights.duckdb", llm, trace_path=tmp_path / "t.jsonl")
+    _run_role("worker", "你是 Worker", "取数", llm, ctx, 1, 2, _ma(),
+              extra_tools={"read_analysis_object": lambda a: "不应出现"})
+    names = {sc["function"]["name"] for sc in (llm.calls[0]["tools"] or [])}
+    assert "read_analysis_object" not in names, "worker 不该拿到只给 reviewer 的读取通道"
+
+
+def test_reviewer_read_channel_survives_parent_enabled_tools_filter(tmp_path):
+    """回归：父运行的 enabled_tools（禁用披露正文那类开关）不得滤掉角色专属读取通道。
+
+    第一次 PRD v2 live 的真实病因：CLI 把 enabled_tools 设成
+    sorted(DESCRIPTIONS) - DISABLED_TOOLS，里面根本没有 read_analysis_object，
+    于是"角色白名单 ∩ 父配置"把它滤掉了 → Reviewer 看不到读取工具 → 只能判
+    input_unavailable。同时必须保持 get_filing_notes/search_disclosure 仍被禁用。
+    """
+    from agent.loop import make_run_ctx
+    from agent.multi import _run_role, _tool_read_object
+    from agent.tools.base import DESCRIPTIONS
+    from agent.analysis_state import AnalysisArtifact
+    st = _state(tmp_path)
+    st.save_plan([{"node_id": "n1", "goal": "取数"}], "初版")
+    art = st.add_artifact(AnalysisArtifact(artifact_id="", node_id="n1", plan_revision=1,
+                                           attempt=1, execution_status="completed"))
+    ctx = make_run_ctx("data/finsights.duckdb", None, trace_path=tmp_path / "t.jsonl")
+    # 复现 CLI 的真实配置：enabled_tools 只含数据工具，披露两个被禁用
+    ctx.enabled_tools = sorted(set(DESCRIPTIONS) - {"get_filing_notes", "search_disclosure"})
+    llm = _RetryMockLLM([_asst([_call("rv1", "read_analysis_object",
+                                      {"object_id": art.artifact_id})]),
+                         _sub({"verdict": "accepted", "findings": []})])
+    ctx.llm = llm
+    _run_role("reviewer", "你是 Reviewer", "审", llm, ctx, 1, 4, _ma(),
+              extra_tools={"read_analysis_object": lambda a: _tool_read_object(st, a)})
+    names = {sc["function"]["name"] for sc in (llm.calls[0]["tools"] or [])}
+    assert "read_analysis_object" in names, "父配置的 enabled_tools 误伤了角色专属通道"
+    # 反向：披露工具仍必须被禁用（不能为了修这个把隔离放开）
+    assert "get_filing_notes" not in names and "search_disclosure" not in names
 
 
 def test_w1_finalize_still_broken_records_honest_failure(tmp_path):

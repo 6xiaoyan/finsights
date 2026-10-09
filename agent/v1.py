@@ -16,10 +16,24 @@ DB_PATH = Path("data/finsights.duckdb")
 
 
 class Paced:
-    """限速包装：免费档按分钟窗口的 RPM 配额，每次 API 调用先过令牌桶。"""
+    """限速包装：免费档按分钟窗口的 RPM 配额。
+
+    限速点只有一处——`LLMClient.chat` 在每次真正发出的 API 请求前（含其内部 429 重试）
+    调用共享限速器。因此当被包装的客户端自带限速能力（`paces_own_requests`）时，本包装
+    只做"同一个限速器实例"的转发，不再自己 wait()；否则一次请求会被限速两遍，实际速率
+    被腰斩。对没有限速能力的裸 mock 客户端（离线测试），退回由本包装 wait() 的旧语义。
+    """
 
     def __init__(self, client: Any, limiter: Any):
-        self._client, self._limiter = client, limiter
+        self._client = client
+        if getattr(client, "paces_own_requests", False):
+            # 显式传入的限速器优先（CLI --max-rpm / runner --max-rpm 覆盖 config 默认），
+            # 并写回客户端，使主 Agent、multi 子 Agent、CLI 共用这一个实例。
+            if limiter is not None:
+                client.limiter = limiter
+            self._limiter = None
+        else:
+            self._limiter = limiter
 
     def chat(self, messages, tools=None, **kw):
         if self._limiter is not None:

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import re
 import sys
+import json
 from pathlib import Path
 
 import duckdb
@@ -125,6 +126,53 @@ def test_v4_3_small_result_not_truncated(ctx):
 # ---------------- V4.4 / V4.5 schema
 
 PLAN_TOOLS_P4 = set(STORED_TOOLS) | {"recall", "todo_write", "final_answer", "load_skill"}  # forecast P6
+
+
+def test_tool_schemas_have_no_dangling_refs():
+    """跨厂商可用性：工具 schema 必须自洽，不能留悬空 $ref 或 $defs。
+
+    回归背景：原实现 `schema.pop("$defs")` 留下 {"$ref": "#/$defs/TodoItem"}。
+    Agnes 容忍，DeepSeek 严格校验直接 400：
+      Invalid schema for function 'todo_write': Pointer '/$defs/TodoItem' does not exist
+    命中面是所有带嵌套 pydantic 模型的工具（todo_write / final_answer / draft_answer）。
+    """
+    import json
+
+    from agent.tools.base import multi_tool_schemas
+
+    schemas = all_tool_schemas() + multi_tool_schemas()
+    assert schemas
+    offenders = [sc["function"]["name"] for sc in schemas
+                 if "$defs" in json.dumps(sc["function"]["parameters"])
+                 or "$ref" in json.dumps(sc["function"]["parameters"])]
+    assert not offenders, f"这些工具的 schema 仍含 $defs/$ref: {offenders}"
+
+    # 内联后嵌套模型信息没丢：todo_write 的 items 应是展开后的数组项
+    tw = next(sc for sc in schemas if sc["function"]["name"] == "todo_write")
+    items = tw["function"]["parameters"]["properties"]["items"]
+    assert items.get("type") == "array"
+    assert "content" in items["items"].get("properties", {})
+
+    # final_answer 的 claims（Claim 嵌套模型）同样内联
+    fa = next(sc for sc in schemas if sc["function"]["name"] == "final_answer")
+    claims = fa["function"]["parameters"]["properties"]["claims"]
+    assert claims.get("type") == "array"
+    assert "value" in claims["items"].get("properties", {})
+
+
+def test_inline_refs_handles_cycles_and_dangling():
+    """内联器对循环引用与悬空 ref 必须收敛，不能无限递归或抛异常。"""
+    import json
+
+    from agent.tools.base import _inline_refs
+
+    cyc = {"type": "object", "$defs": {"A": {"type": "object",
+                                              "properties": {"self": {"$ref": "#/$defs/A"}}}}}
+    out = _inline_refs(cyc)
+    assert "$defs" not in out and "$ref" not in json.dumps(out)
+
+    dangling = {"type": "object", "properties": {"x": {"$ref": "#/$defs/Missing"}}}
+    assert _inline_refs(dangling)["properties"]["x"] == {}
 
 
 def test_v4_4_schemas_complete_with_usage_hints():

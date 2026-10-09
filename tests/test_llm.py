@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from types import SimpleNamespace
 
 import httpx
@@ -9,8 +10,14 @@ import openai
 import pytest
 
 from agent.llm import LLMClient
+from agent.ratelimit import RateLimiter
 
 _TEST_KEY = "test-key"  # 注入 mock 用假 key；用常量传入，避免触发 G4 的 api_key= 字面量扫描
+
+
+def _no_wait_limiter() -> RateLimiter:
+    """不真正等待的限速器：离线测试里 sleep 是空操作，但 wait() 的调用次数仍可统计。"""
+    return RateLimiter(100000, clock=lambda: 0.0, sleep=lambda _s: None)
 
 
 def _api_error(cls: type[Exception]) -> Exception:
@@ -37,10 +44,10 @@ class _FakeCompletions:
         return item
 
 
-def _make_client(monkeypatch, script) -> tuple[LLMClient, _FakeCompletions]:
+def _make_client(monkeypatch, script, **kw) -> tuple[LLMClient, _FakeCompletions]:
     monkeypatch.setattr("agent.llm.time.sleep", lambda s: None)  # 测试不真等退避
     fake = _FakeCompletions(script)
-    client = LLMClient(api_key=_TEST_KEY)
+    client = LLMClient(api_key=_TEST_KEY, limiter=_no_wait_limiter(), **kw)
     client._client = SimpleNamespace(chat=SimpleNamespace(completions=fake))
     return client, fake
 
@@ -110,7 +117,16 @@ def test_tool_call_parsing(monkeypatch):
 
 
 def test_enable_thinking_sent_explicitly(monkeypatch):
-    """V0.9：每次请求都显式携带 enable_thinking，取值来自 config（agent/judge 分别配置）。"""
+    """V0.9：每次请求都显式携带 thinking 开关，取值来自 config（agent/judge 分别配置）。
+
+    参数名按厂商不同（config.llm.thinking_param）：Agnes/Qwen 用 chat_template_kwargs，
+    DeepSeek 用 thinking.type。两种都要覆盖——发错名字等于没关，而 DeepSeek 默认是开启的。
+    """
+    import yaml
+    from agent.llm import _thinking_extra_body
+
+    style = yaml.safe_load(Path("config.yaml").read_text(encoding="utf-8"))["llm"]["thinking_param"]
+
     seen = {}
 
     class _Capture(_FakeCompletions):
@@ -120,12 +136,31 @@ def test_enable_thinking_sent_explicitly(monkeypatch):
 
     monkeypatch.setattr("agent.llm.time.sleep", lambda s: None)
     fake = _Capture([_resp("a"), _resp("b")])
-    client = LLMClient(api_key=_TEST_KEY)
+    client = LLMClient(api_key=_TEST_KEY, limiter=_no_wait_limiter())
     client._client = SimpleNamespace(chat=SimpleNamespace(completions=fake))
     client.chat([{"role": "user", "content": "x"}], role="agent")
-    assert seen["extra_body"]["chat_template_kwargs"]["enable_thinking"] is False
+    assert seen["extra_body"] == _thinking_extra_body(style, False)
     client.chat([{"role": "user", "content": "x"}], role="judge")
-    assert seen["extra_body"]["chat_template_kwargs"]["enable_thinking"] is False
+    assert seen["extra_body"] == _thinking_extra_body(style, False)
+
+    # 两种厂商写法都要真的能表达"关闭"
+    assert _thinking_extra_body("chat_template", False) == {
+        "chat_template_kwargs": {"enable_thinking": False}}
+    assert _thinking_extra_body("deepseek", False) == {"thinking": {"type": "disabled"}}
+    assert _thinking_extra_body("deepseek", True) == {"thinking": {"type": "enabled"}}
+    with pytest.raises(ValueError):
+        _thinking_extra_body("unknown_vendor", False)
+
+
+def test_api_key_env_is_configurable(monkeypatch):
+    """密钥从 config.llm.api_key_env 指定的环境变量读（各厂商一个 key，同机可并存）。"""
+    import yaml
+    cfg = yaml.safe_load(Path("config.yaml").read_text(encoding="utf-8"))["llm"]
+    monkeypatch.setenv(cfg["api_key_env"], _TEST_KEY)
+    monkeypatch.delenv("LLM_API_KEY", raising=False)
+    client = LLMClient(limiter=_no_wait_limiter())          # 不传 api_key → 走环境变量
+    assert client.api_key_env == cfg["api_key_env"]
+    assert client.base_url == cfg["base_url"] and client.model == cfg["model"]
 
 
 def test_reasoning_content_not_written_back(monkeypatch, capsys):
@@ -157,7 +192,7 @@ def test_temperature_by_role(monkeypatch):
 
     monkeypatch.setattr("agent.llm.time.sleep", lambda s: None)
     fake = _Capture([_resp("a"), _resp("b")])
-    client = LLMClient(api_key=_TEST_KEY)
+    client = LLMClient(api_key=_TEST_KEY, limiter=_no_wait_limiter())
     client._client = SimpleNamespace(chat=SimpleNamespace(completions=fake))
     client.chat([{"role": "user", "content": "x"}], role="agent")
     assert seen["temperature"] == 0.2

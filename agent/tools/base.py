@@ -114,6 +114,23 @@ class ReviewAnalysisArgs(BaseModel):
     target_version: str = Field(default="", description="目标版本/哈希")
     focus: str = Field(default="", description="审查重点（可空）")
 
+class ResumeAnalysisArgs(BaseModel):
+    continuation_id: str = Field(
+        description="execute_analysis 返回的 continuation_id（节点 paused 时给出）"
+    )
+    extra_instructions: str = Field(default="", description="续接时的补充指令（可空）")
+
+
+class ReadAnalysisObjectArgs(BaseModel):
+    object_id: str = Field(description="artifact ID（art1…）、候选答案 ID（answer-cand2）或 review ID（rev1）")
+    section: str = Field(default="",
+                          description="要读的部分，如 facts/calculations/limitations/missing_inputs/"
+                                      "required_missing_inputs/optional_missing_inputs/completion_report/"
+                                      "answer_md/claims/findings。留空返回目录与各部分长度")
+    offset: int = Field(default=0, description="从第几条开始（分页用）")
+    limit: int = Field(default=20, description="最多返回多少条")
+
+
 class DraftAnswerArgs(BaseModel):
     answer_md: str = Field(description="候选答案全文（不可变保存）")
     claims: list[Claim] = Field(
@@ -166,6 +183,8 @@ MULTI_ARGS_MODELS: dict[str, type[BaseModel]] = {
     "execute_analysis": ExecuteAnalysisArgs,
     "review_analysis": ReviewAnalysisArgs,
     "draft_answer": DraftAnswerArgs,
+    "resume_analysis": ResumeAnalysisArgs,
+    "read_analysis_object": ReadAnalysisObjectArgs,
 }
 
 MULTI_DESCRIPTIONS: dict[str, str] = {
@@ -182,6 +201,14 @@ MULTI_DESCRIPTIONS: dict[str, str] = {
     "draft_answer": "保存不可变的候选答案（answer_md + claims），返回 answer_artifact_id。"
                     "何时使用：分析证据足够、准备收尾时。何时不用：还没取数；保存后必须先 "
                     "review_analysis(target_type=answer) 得到 accepted，再用 final_answer 引用该 ID。",
+    "resume_analysis": "续接一个 paused 节点的同一上下文（不重新发送初始任务，已取得的工具结果"
+                       "仍在上下文里，因此不会重复取数）。何时使用：execute_analysis 返回 "
+                       "status=paused 并给出 continuation_id，且该节点仍是必需项。何时不用：节点是 "
+                       "blocked（缺必需输入，补不了）/completed / failed；此时应修订计划或换个目标。",
+    "read_analysis_object": "只读完整读取 artifact / 候选答案 / review 的结构化内容，支持按 section "
+                            "分页。何时使用：审查或引用前要看完整对象——审查对象的摘要会被截断，"
+                            "细节必须用本工具读；也要用它读底层 rid 的完整结果。何时不用：只想知道"
+                            "状态摘要（state_view 已给）。",
 }
 
 
@@ -267,18 +294,54 @@ LOOP_ARGS_MODELS: dict[str, type[BaseModel]] = {
 }
 
 
+def _inline_refs(schema: dict) -> dict:
+    """把 JSON Schema 里的 ``$ref`` 就地展开，并去掉 ``$defs``，得到自洽的 schema。
+
+    为什么必须这么做：pydantic 对嵌套模型生成 ``{"$ref": "#/$defs/TodoItem"}`` + 顶层
+    ``$defs``。原实现直接 ``pop("$defs")``，留下悬空 ``$ref``——Agnes 端点容忍了这种
+    schema，DeepSeek 严格校验会直接 400：
+        Invalid schema for function 'todo_write': Pointer '/$defs/TodoItem' does not exist
+    同一问题会命中所有带嵌套模型的工具（todo_write / final_answer / draft_answer）。
+    内联后 schema 不含 $defs/$ref，任何厂商都能接受；循环引用用已展开路径集合兜住。
+    """
+    defs = schema.get("$defs") or {}
+
+    def _walk(node, seen: frozenset):
+        if isinstance(node, list):
+            return [_walk(v, seen) for v in node]
+        if not isinstance(node, dict):
+            return node
+        ref = node.get("$ref")
+        if isinstance(ref, str) and ref.startswith("#/$defs/"):
+            name = ref.rsplit("/", 1)[-1]
+            siblings = {k: _walk(v, seen) for k, v in node.items() if k != "$ref"}
+            target = defs.get(name)
+            if target is None or name in seen:      # 悬空或循环：留空对象，不能无限展开
+                return siblings or {}
+            merged = _walk(target, seen | {name})
+            if isinstance(merged, dict):
+                merged.update(siblings)             # $ref 的兄弟键（description 等）覆盖默认值
+            return merged
+        return {k: _walk(v, seen) for k, v in node.items() if k != "$defs"}
+
+    return _walk(schema, frozenset())
+
+
+def _tool_parameters(model: type[BaseModel]) -> dict:
+    """工具参数 schema：内联 $ref，保证跨厂商可用（见 _inline_refs 的说明）。"""
+    return _inline_refs(model.model_json_schema())
+
+
 def tool_schemas() -> list[dict]:
     """数据类工具的 OpenAI function-calling 声明（从 pydantic 自动生成，V4.4）。"""
     out = []
     for name, model in ARGS_MODELS.items():
-        schema = model.model_json_schema()
-        schema.pop("$defs", None)
         out.append({
             "type": "function",
             "function": {
                 "name": name,
                 "description": DESCRIPTIONS[name],
-                "parameters": schema,
+                "parameters": _tool_parameters(model),
             },
         })
     return out
@@ -288,10 +351,9 @@ def all_tool_schemas() -> list[dict]:
     """主循环用的完整工具声明：数据类（含 forecast）+ todo_write + final_answer + load_skill。"""
     out = tool_schemas()
     for name, model in LOOP_ARGS_MODELS.items():
-        schema = model.model_json_schema()
-        schema.pop("$defs", None)
         out.append({"type": "function", "function": {
-            "name": name, "description": DESCRIPTIONS[name], "parameters": schema}})
+            "name": name, "description": DESCRIPTIONS[name],
+            "parameters": _tool_parameters(model)}})
     return out
 
 
@@ -300,18 +362,17 @@ def all_args_models() -> dict[str, type[BaseModel]]:
 
 
 def multi_tool_schemas() -> list[dict]:
-    """multi_agent 主 Agent 的工具面（handoff §5）：三类子工具 + draft_answer + recall + final_answer。
+    """multi_agent 主 Agent 的工具面：子 Agent 工具 + draft_answer + resume/read + recall + final_answer。
 
-    单 Agent 的 all_tool_schemas() 保持不变——四类子工具只在 multi 模式暴露。
-    recall 保留只读证据查看能力（§5），不重新查库。
+    单 Agent 的 all_tool_schemas() 保持不变——这些工具只在 multi 模式暴露。
+    recall 保留只读证据查看能力（§5），不重新查库；read_analysis_object 补齐"读完整结构化对象"。
     """
     all_schemas = {sc["function"]["name"]: sc for sc in all_tool_schemas()}
     out = [all_schemas[n] for n in ("recall", "final_answer") if n in all_schemas]
     for name, model in MULTI_ARGS_MODELS.items():
-        schema = model.model_json_schema()
-        schema.pop("$defs", None)
         out.append({"type": "function", "function": {
-            "name": name, "description": MULTI_DESCRIPTIONS[name], "parameters": schema}})
+            "name": name, "description": MULTI_DESCRIPTIONS[name],
+            "parameters": _tool_parameters(model)}})
     return out
 
 

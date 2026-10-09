@@ -12,11 +12,16 @@ from pathlib import Path
 
 from pydantic import BaseModel, Field, field_validator
 
-EXEC_STATES = ("pending", "running", "completed", "blocked", "failed")
+EXEC_STATES = ("pending", "running", "completed", "paused", "blocked", "failed")
 REVIEW_STATES = ("not_reviewed", "needs_revision", "accepted", "inconclusive")
 VERDICTS = ("accepted", "needs_revision", "inconclusive")
 FINDING_CATS = ("task_scope", "caliber", "evidence_quality", "contradiction",
                 "unsupported_cause", "missing_alternative", "other")
+# PRD §8：finding 分严重度。must_fix 未解决不可 accepted；limitation 可通过明确保留限制收尾；
+# suggestion 由主 Agent 说明采用与否。旧运行包没有该字段，按 limitation 兜底（偏保守，不放宽）。
+FINDING_SEVERITIES = ("must_fix", "limitation", "suggestion")
+# PRD §3：paused/blocked/failed 都不自动释放需要完整产物的下游（ready_nodes 的默认口径）。
+RELEASING_STATES = ("completed",)
 
 
 def _ts() -> str:
@@ -48,6 +53,13 @@ class PlanNode(BaseModel):
     input_refs: list[str] = []
     completion_criteria: str = ""
     required_for_answer: bool = True
+    # PRD §5：依赖某个产物里的**具体输出**时声明；下游只真正需要其中一部分时，
+    # 由主 Agent 批准并经结构化校验后使用，不允许直接删边绕过依赖。
+    required_output_refs: list[str] = []
+    # PRD §5：默认只读原始数据可走程序检查；关键解释与最终答案需语义审查。
+    requires_review: bool = True
+    # PRD §4：Worker 每次调用的轮数是"阶段轮数"，阶段边界记 slice_index，便于续接与统计。
+    slice_index: int = 0
     execution_status: str = "pending"
     attempt: int = 0
     latest_artifact_id: str | None = None
@@ -84,13 +96,22 @@ class AnalysisArtifact(BaseModel):
     node_id: str
     plan_revision: int
     attempt: int
-    execution_status: str                    # completed/blocked/failed
+    execution_status: str                    # completed/paused/blocked/failed
     facts: list[dict] = []                   # {rid, field, row, company, period, unit, data_nature}
     calculations: list[dict] = []            # {input_rids, expression, output_rid, caliber}
     interpretations: list[str] = []
     hypotheses: list[dict] = []              # {statement, relation, evidence_refs}
     limitations: list[str] = []
+    # 兼容字段：required/optional 缺口的并集，供旧读取方使用；新代码应读下面两个分开的字段。
     missing_inputs: list[str] = []
+    # PRD §3：Worker 自报状态与逐条完成标准报告（程序不信任，必须自行校验）
+    declared_status: str = ""                # completed|paused|blocked|failed，Worker 的自述
+    completion_report: list[dict] = []       # {criterion, satisfied: bool, evidence_refs, note}
+    # PRD §3：missing_inputs 非空不是 blocked 的充分条件——必须区分必需与可选
+    required_missing_inputs: list[str] = []
+    optional_missing_inputs: list[str] = []
+    next_actions: list[str] = []             # 阶段用完但仍可推进时，告诉主 Agent 下一步做什么
+    continuation_id: str | None = None       # 阶段用完且可续接时的上下文句柄
     evidence_refs: list[str] = []
     summary: str = ""
     stale: bool = False              # 依赖节点重做后标记，主 Agent 决定是否重新执行
@@ -100,8 +121,8 @@ class AnalysisArtifact(BaseModel):
     @field_validator("execution_status")
     @classmethod
     def _exec_ok(cls, v):
-        if v not in ("completed", "blocked", "failed"):
-            raise ValueError("artifact execution_status 必须是 completed/blocked/failed")
+        if v not in ("completed", "paused", "blocked", "failed"):
+            raise ValueError("artifact execution_status 必须是 completed/paused/blocked/failed")
         return v
 
 
@@ -112,6 +133,10 @@ class ReviewFinding(BaseModel):
     explanation: str = ""
     suggested_action: str = ""
     node_id: str | None = None
+    # PRD §8：严重度 + 稳定 ID + 响应状态。旧运行包/旧 mock 没有 severity 时按 limitation 兜底。
+    severity: str = "limitation"
+    finding_id: str = ""
+    response_status: str = "open"           # open / addressed / declined
     model_config = {"extra": "forbid"}
 
     @field_validator("category")
@@ -119,6 +144,13 @@ class ReviewFinding(BaseModel):
     def _cat_ok(cls, v):
         if v not in FINDING_CATS:
             raise ValueError(f"finding.category 必须是 {FINDING_CATS}")
+        return v
+
+    @field_validator("severity")
+    @classmethod
+    def _sev_ok(cls, v):
+        if v not in FINDING_SEVERITIES:
+            raise ValueError(f"finding.severity 必须是 {FINDING_SEVERITIES}")
         return v
 
 
@@ -147,17 +179,26 @@ class Review(BaseModel):
             raise ValueError(f"verdict 必须是 {VERDICTS}")
         return v
 
+    def unresolved_must_fix(self) -> list[ReviewFinding]:
+        """未解决的 must_fix 问题（PRD §8：这类存在时不允许 accepted）。"""
+        return [f for f in self.findings
+                if f.severity == "must_fix" and f.response_status != "addressed"]
+
 
 class AnalysisState:
     """版本化分析状态：plan 修订不可覆盖；依赖重做使下游 stale；每次提交后持久化。"""
 
     def __init__(self, contract: TaskContract, out_dir: Path,
-                 max_plan_nodes: int = 0, max_plan_revisions: int = 0):
+                 max_plan_nodes: int = 0, max_plan_revisions: int = 0,
+                 *, _no_persist: bool = False):
         """max_plan_nodes/max_plan_revisions 在开发裁定下默认 0＝不再作为停止上限。
 
         保留这两个形参只为兼容既有调用与测试：传 >0 时仍作为硬性结构约束拒绝（节点数/修订数），
         传 0 时不再因数值达阈值而拒绝推进（handoff「最新裁定」取消任务图节点数与计划修订次数上限）。
         环、缺依赖、自依赖等属于正确性检查，无论是否为 0 都继续拒绝。
+
+        `_no_persist` 供 restore() 使用：构造一个空状态会立刻 persist()，把磁盘上已有的
+        状态覆盖成空——恢复路径必须先填满字段再落盘，否则就是静默丢数据。
         """
         self.contract = contract
         self.contract_version = "c1"
@@ -165,19 +206,68 @@ class AnalysisState:
         self.plans: dict[int, Plan] = {}
         self.artifacts: dict[str, AnalysisArtifact] = {}
         self.reviews: dict[str, Review] = {}
-        self.counters = {"plan": 0, "artifact": 0, "review": 0}
+        self.counters = {"plan": 0, "artifact": 0, "review": 0, "continuation": 0}
+        self.continuations: dict[str, dict] = {}
         self.max_plan_nodes = max_plan_nodes
         self.max_plan_revisions = max_plan_revisions
         self.plan_change: dict = {}      # 最近一次修订的变更摘要（§7.1：变更摘要/失效节点/当前状态）
         self.out_dir = out_dir
+        if not _no_persist:
+            self.persist()
+
+    # ---- 恢复（PRD §10.1/§10.3）----
+    #: 状态负载的 schema 版本。结构不兼容时必须拒绝加载，不能"尽力而为"地部分恢复。
+    STATE_SCHEMA_VERSION = "as1"
+
+    @classmethod
+    def restore(cls, payload: dict, out_dir: Path,
+                max_plan_nodes: int = 0, max_plan_revisions: int = 0) -> "AnalysisState":
+        """从 persist() 落盘的负载重建一个**非空**状态。
+
+        还原任务图与历史修订、产物、审查、continuation、候选答案与全部计数器；
+        ID 计数器接着往后分配，绝不复用已用编号（PRD §10.1：恢复后 rid 不指向不同结果）。
+        """
+        ver = payload.get("schema_version")
+        if ver and ver != cls.STATE_SCHEMA_VERSION:
+            raise ValueError(f"CHECKPOINT_INCOMPATIBLE: analysis_state schema {ver} "
+                             f"≠ {cls.STATE_SCHEMA_VERSION}")
+        self = cls(TaskContract(**payload["contract"]), out_dir,
+                   max_plan_nodes, max_plan_revisions, _no_persist=True)
+        self.contract_version = payload.get("contract_version", "c1")
+        self.latest_revision = int(payload.get("latest_revision", 0))
+        self.plans = {int(k): Plan(**v) for k, v in (payload.get("plans") or {}).items()}
+        self.artifacts = {k: AnalysisArtifact(**v)
+                          for k, v in (payload.get("artifacts") or {}).items()}
+        self.reviews = {k: Review(**v) for k, v in (payload.get("reviews") or {}).items()}
+        # 计数器：缺键的旧负载按已出现的最大编号兜底，避免"恢复后重发 art1 覆盖旧产物"
+        c = payload.get("counters") or {}
+        self.counters = {k: int(c.get(k, 0)) for k in ("plan", "artifact", "review", "continuation")}
+        self.counters["plan"] = max(self.counters["plan"], self.latest_revision)
+        for arts in self.artifacts.values():
+            n = arts.artifact_id[3:]
+            if n.isdigit():
+                self.counters["artifact"] = max(self.counters["artifact"], int(n))
+        for rvs in self.reviews.values():
+            n = rvs.review_id[3:]
+            if n.isdigit():
+                self.counters["review"] = max(self.counters["review"], int(n))
+        self.counters["continuation"] = max(
+            self.counters["continuation"],
+            max((int(cid[4:]) for cid in self.continuations if cid[4:].isdigit()), default=0))
+        self.continuations = dict(payload.get("continuations") or {})
+        self.plan_change = dict(payload.get("plan_change") or {})
+        self._answer_candidate = payload.get("answer_candidate")
         self.persist()
+        return self
 
     # ---- plan ----
     #: Planner 可以提议的字段（execution_status/attempt/latest_artifact_id/review_status 由程序持有）
     NODE_INPUT_FIELDS = ("node_id", "goal", "depends_on", "input_refs",
-                         "completion_criteria", "required_for_answer")
-    #: 只有这些字段变化才算"节点定义变化"（required_for_answer 是元数据，不触发重做）
-    NODE_DEF_FIELDS = ("goal", "depends_on", "input_refs", "completion_criteria")
+                         "completion_criteria", "required_for_answer",
+                         "required_output_refs", "requires_review")
+    #: 只有这些字段变化才算"节点定义变化"（required_for_answer/requires_review 是元数据，不触发重做）
+    NODE_DEF_FIELDS = ("goal", "depends_on", "input_refs", "completion_criteria",
+                       "required_output_refs")
 
     def save_plan(self, nodes: list[dict], reason: str) -> Plan:
         """保存新的计划 revision（§6.2/§7.1）：历史不可覆盖，未修改节点保留有效结果。
@@ -219,7 +309,7 @@ class AnalysisState:
             # 带依赖的节点"误判成已改（无谓作废旧证据）。修正为 != 与标量分支口径一致。
             changed = any(
                 f in clean and (sorted(clean[f] or []) != sorted(cur.get(f) or [])
-                                if f in ("depends_on", "input_refs")
+                                if f in ("depends_on", "input_refs", "required_output_refs")
                                 else clean[f] != (cur.get(f) or ""))
                 for f in self.NODE_DEF_FIELDS)
             if changed:
@@ -283,6 +373,9 @@ class AnalysisState:
                             f"plan revision {plan.revision}：{nid} 定义变化，{aid} 及其审核失效")
         for nid in updated + added:
             stale_now += self.mark_stale_downstream(plan, nid)
+            # PRD §4.7：定义变了，该节点的旧续接上下文不再有效（历史保留，不删）
+            self.invalidate_continuations(
+                nid, f"plan revision {plan.revision}：节点 {nid} 定义变化，旧上下文失效")
         self.plan_change = {"revision": plan.revision, "carried": carried,
                             "updated": updated, "added": added,
                             "stale_artifacts": sorted(set(stale_now))}
@@ -297,13 +390,17 @@ class AnalysisState:
 
         依赖是否满足只看同一计划里被依赖节点的执行状态（与 execute_analysis 的守卫同一口径）：
         原先按 artifact 主键查找 node_id，永远查不到 → 有依赖的节点恒被判为受阻。
+
+        PRD §5：只有 completed 自动释放下游；paused/blocked/failed 都不释放——
+        "已完成结果挡住下游" 的真正修法不是放宽这条，而是别把已完成的节点误判成 blocked
+        （见 multi._judge_completion：阶段用完 ≠ blocked）。
         """
         status = {n.node_id: n.execution_status for n in plan.nodes}
         ready, blocked = [], []
         for n in plan.nodes:
-            if n.execution_status == "completed":
-                continue
-            unmet = [d for d in n.depends_on if status.get(d) != "completed"]
+            if n.execution_status in ("completed", "running", "paused"):
+                continue                       # 已完成/在跑/待续接，都不再作为可启动项
+            unmet = [d for d in n.depends_on if status.get(d) not in RELEASING_STATES]
             (blocked if unmet else ready).append(n)
         return ready, blocked
 
@@ -352,8 +449,49 @@ class AnalysisState:
         latest = {n.latest_artifact_id for plan in self.plans.values()
                   for n in plan.nodes if n.latest_artifact_id}
         return sorted(aid for aid, a in self.artifacts.items()
-                      if a.execution_status in ("completed", "blocked")
+                      if a.execution_status in ("completed", "paused", "blocked")
                       and not a.stale and aid in latest)
+
+    # ---- continuation（PRD §4：阶段轮数用完时保存上下文，供显式续接）----
+    def save_continuation(self, node_id: str, attempt: int, plan_revision: int,
+                          messages: list[dict], payload: dict | None,
+                          progress: str, next_actions: list[str],
+                          node_def_hash: str = "") -> str:
+        """保存一个可续接的上下文句柄。返回 continuation_id。
+
+        只保存程序侧已落盘的证据引用与消息，不含任何凭据（PRD §4.6）。
+        """
+        self.counters["continuation"] = self.counters.get("continuation", 0) + 1
+        cid = f"cont{self.counters['continuation']}"
+        self.continuations[cid] = {
+            "continuation_id": cid, "node_id": node_id, "attempt": attempt,
+            "plan_revision": plan_revision, "node_def_hash": node_def_hash,
+            "messages": list(messages), "payload": payload or {},
+            "progress": progress, "next_actions": list(next_actions),
+            "consumed_rounds": len(messages), "created_ts": _ts(),
+            "used": False, "invalid_reason": "",
+        }
+        self.persist()
+        return cid
+
+    def get_continuation(self, cid: str) -> dict | None:
+        c = self.continuations.get(cid)
+        if not c:
+            return None
+        if c.get("invalid_reason"):
+            return {**c, "_invalid": True}
+        return c
+
+    def invalidate_continuations(self, node_id: str, reason: str) -> list[str]:
+        """节点定义或输入证据变更后，旧 continuation 不可直接沿用（PRD §4.7）；历史保留。"""
+        out = []
+        for cid, c in self.continuations.items():
+            if c["node_id"] == node_id and not c.get("invalid_reason") and not c.get("used"):
+                c["invalid_reason"] = reason
+                out.append(cid)
+        if out:
+            self.persist()
+        return out
 
     # ---- artifact / review ----
     def add_artifact(self, a: AnalysisArtifact) -> AnalysisArtifact:
@@ -364,10 +502,11 @@ class AnalysisState:
         if plan:
             for n in plan.nodes:
                 if n.node_id == a.node_id:
+                    # PRD §3：节点执行状态跟随产物状态（completed/paused/blocked/failed），
+                    # 不再把非 completed 折叠成别的值——paused 有独立语义（可续接）。
                     n.latest_artifact_id = a.artifact_id
                     n.attempt = a.attempt
-                    n.execution_status = ("completed" if a.execution_status == "completed"
-                                          else a.execution_status)
+                    n.execution_status = a.execution_status
         self.persist()
         return a
 
@@ -406,11 +545,16 @@ class AnalysisState:
             # §7.3：主 Agent 需要"就绪/受阻节点"才能决定下一步 execute_analysis
             "ready_nodes": [n.node_id for n in ready],
             "blocked_nodes": {n.node_id: [d for d in n.depends_on] for n in blocked},
+            # PRD §9：paused 单独给出——主 Agent 要据此显式选择 resume 或结束，程序不自行续接
+            "paused_nodes": [n.node_id for n in (plan.nodes if plan else [])
+                             if n.execution_status == "paused"],
             "artifact_ids": sorted(self.artifacts),
             "valid_artifact_ids": self.valid_artifact_ids(),
+            # PRD §8：只把未解决的 must_fix 列为待处理；limitation 可通过明确保留限制收尾，
+            # suggestion 由主 Agent 说明采用与否，不应混进"未解决问题"制造噪声。
             "unresolved_findings": [f"{rv.review_id}:{f.statement[:40]}"
-                                    for rv in self.reviews.values() for f in rv.findings
-                                    if rv.verdict == "needs_revision"],
+                                    for rv in self.reviews.values()
+                                    for f in rv.unresolved_must_fix()],
         }
 
     # ---- 候选答案（§8：不可变 answer artifact，经 review 后才能提交）----
@@ -435,9 +579,13 @@ class AnalysisState:
         return getattr(self, "_answer_candidate", None)
 
     # ---- 持久化 ----
-    def persist(self) -> None:
-        self.out_dir.mkdir(parents=True, exist_ok=True)
-        data = {
+    def snapshot(self) -> dict:
+        """可 JSON 序列化的完整状态负载（不落盘）。
+
+        检查点要把它整体存进 MySQL，所以必须与写文件走同一份序列化逻辑；
+        否则会出现"文件里能恢复、检查点里恢复不了"这种很难查的偏差。
+        """
+        return {
             "contract": json.loads(self.contract.model_dump_json()),
             "contract_version": self.contract_version,
             "plans": {str(k): json.loads(v.model_dump_json()) for k, v in self.plans.items()},
@@ -446,6 +594,12 @@ class AnalysisState:
             "reviews": {k: json.loads(v.model_dump_json()) for k, v in self.reviews.items()},
             "answer_candidate": getattr(self, "_answer_candidate", None),
             "plan_change": dict(getattr(self, "plan_change", None) or {}),
+            "continuations": dict(getattr(self, "continuations", None) or {}),
+            # 恢复用的 schema 版本：结构变了就显式拒绝加载，而不是尽力部分恢复
+            "schema_version": self.STATE_SCHEMA_VERSION,
         }
+
+    def persist(self) -> None:
+        self.out_dir.mkdir(parents=True, exist_ok=True)
         (self.out_dir / "analysis_state.json").write_text(
-            json.dumps(data, ensure_ascii=False, indent=1), encoding="utf-8")
+            json.dumps(self.snapshot(), ensure_ascii=False, indent=1), encoding="utf-8")

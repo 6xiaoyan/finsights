@@ -3,6 +3,8 @@
 - execute_analysis：执行就绪节点（依赖完成后才能执行，产出 artifact）
 - review_analysis：审查 plan / artifact / answer（verdict=accepted/needs_revision/inconclusive）
 - draft_answer：保存不可变候选答案，返回 answer_artifact_id
+- resume_analysis：续接 paused 节点的同一上下文（不重复取数）
+- read_analysis_object：分页读完整 artifact / 候选答案 / review
 - recall：只读查看已有取数结果（不重新查库）
 - final_answer：引用已审候选的 answer_artifact_id 提交
 
@@ -11,6 +13,12 @@
 2. 第一步必须调用 plan_analysis(action=create) 建立任务图；没有计划就没有证据，
    也就没有可提交的答案。取数与分析通过 execute_analysis 交给 Worker，不由你直接取数。
 3. 缺依赖 → 补依赖或修订计划；审查 needs_revision → execute_analysis 新 attempt 或改计划。
+   节点状态 completed/paused/blocked/failed 的含义不同，不要一律当成失败：
+   - completed：必需交付都满足，可继续下游；
+   - paused：阶段轮数用完但还没完成，用 resume_analysis 续接（同一上下文，不重复取数）；
+   - blocked：缺本节点必需输入，补不了，需要修订计划；
+   - failed：执行异常，换目标再试。
+   只有 completed 会自动释放下游；paused/blocked 不释放，不要靠删依赖边绕过。
 4. 用户明确的公司/期间/比较口径不可更改；发现矛盾用 review findings 记录。
 5. 最终提交顺序不可跳过：draft_answer 保存候选 → review_analysis(target_type=answer,
    target_id=候选 ID) 得到 accepted → final_answer，并在 answer_artifact_id 字段里

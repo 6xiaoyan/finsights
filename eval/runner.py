@@ -4,7 +4,8 @@
 - 每题跑 N 次；每次运行的 trace 存 `runs/<run_id>/<qid>_<trial>.jsonl`（每条消息/工具调用一行）。
 - 记录：是否正确、步数、工具调用次数、SQL 报错次数、token 用量、延迟、成本（list 价，推广期实际为 0）。
 - 输出 `eval/reports/<run_id>.md`（每类均值 ± 标准差 + 过程指标），更新 `eval/reports/leaderboard.md`。
-- 限速：agnes 免费档约 20 RPM，客户端令牌桶默认 18。
+- 限速：Agnes 免费档实测约 10 RPM 有效上限（2026-10-09 小样本，429 无 Retry-After），
+  客户端令牌桶默认取保守值 8 RPM（llm.rate_limit_rpm）；限速点在 LLMClient 内部，含其 429 重试。
 - 真实 LLM 运行属于 live 检查（verify 0.5）：离线测试用注入的 mock agent 调用 run_suite()。
 """
 from __future__ import annotations
@@ -21,6 +22,10 @@ from typing import Callable
 
 from openai import RateLimitError
 
+# 共享限速器（实现见 agent/ratelimit.py）：限速点只有 LLMClient 内一处，
+# runner 只负责按 config/--max-rpm 建出那一个实例并交给 agent 复用。
+from agent.ratelimit import DEFAULT_RATE_LIMIT_RPM
+from agent.ratelimit import RateLimiter as _RateLimiter
 from eval.graders import get_grader
 from eval.schema import Answer, Question
 
@@ -41,21 +46,10 @@ def load_questions(datasets: str) -> list[Question]:
     return out
 
 
-class RateLimiter:
-    """令牌桶：max_rpm 每分钟请求数，线程安全。"""
-
-    def __init__(self, max_rpm: float):
-        self.interval = 60.0 / max_rpm
-        self._lock = threading.Lock()
-        self._next = 0.0
-
-    def wait(self) -> None:
-        with self._lock:
-            now = time.monotonic()
-            self._next = max(self._next, now)
-            wake = self._next
-            self._next += self.interval
-        time.sleep(max(0.0, wake - now))
+# 兼容说明：RateLimiter 的实现已迁到 agent/ratelimit.py（限速点只有 LLMClient 内一处，
+# 含它自己的 429 重试）。本模块继续以 `eval.runner.RateLimiter` 这个名字再导出同一个类，
+# 兼容 scripts/live/ 等既有调用方；不是子类、不是副本。
+RateLimiter = _RateLimiter
 
 
 def make_agent(name: str, limiter: RateLimiter) -> AgentFn:
@@ -313,7 +307,7 @@ def rebuild_leaderboard(runs_root: Path = RUNS, reports_root: Path = REPORTS) ->
 def _default_rpm() -> float:
     import yaml
     cfg = yaml.safe_load(Path("config.yaml").read_text(encoding="utf-8"))
-    return float((cfg.get("llm") or {}).get("rate_limit_rpm", 18))
+    return float((cfg.get("llm") or {}).get("rate_limit_rpm", DEFAULT_RATE_LIMIT_RPM))
 
 
 def main(argv: list[str]) -> int:

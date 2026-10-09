@@ -81,7 +81,9 @@ def run(question: str, llm: LLMClient | None = None, db_path: Path = DB_PATH,
     try:
         for step in range(max_steps):
             stats["steps"] = step + 1
-            if limiter:
+            # LLMClient 自己就对每次请求（含内部重试）限速，这里不能再加一层，
+            # 否则一次请求被限速两遍。裸 mock 客户端没有该能力时仍由外部 limiter 限速。
+            if limiter and not getattr(llm, "paces_own_requests", False):
                 limiter.wait()
             t0 = time.time()
             res = llm.chat(messages, tools=TOOLS)
