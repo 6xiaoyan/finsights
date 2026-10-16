@@ -62,6 +62,14 @@ Copy-Item -Recurse -Force "D:\finsights\finsights-dev\runs\cli-20261016-134035" 
 
 `--judge` 默认 `fake`（离线）。`live` 会实例化真实 `LLMClient`，本阶段不要用。
 
+> **输出目录共用**：上面 2) 的分步命令与 3) 的单角色命令都写同一个 `--out` 目录，
+> 会**覆盖** `replay` 产生的对应文件（例如只跑 `--role reviewer` 会把
+> `roles_trajectory.json` 覆盖成只含 reviewer）。要保留完整回放产物，
+> 分步调试时换一个 `--out`，或最后重跑一次 `replay`。
+
+**可复现性已实测**：把 `eval/reports/process` 覆盖成残缺产物后重跑 1) 的命令，
+`git status` 干净 —— 产物被逐字节复原。
+
 ## 3. 固定包回放结果（`runs/cli-20261016-134035`）
 
 命令：`replay --run-dir runs/cli-20261016-134035 --out-dir eval/reports/process`
