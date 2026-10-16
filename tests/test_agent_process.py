@@ -1147,3 +1147,247 @@ def test_evaluate_sample_runs_pipeline():
     assert out["measured"]["node_count"] >= 1
     assert out["coverage"]["status"] == "judged"
     assert out["annotation"] == sample["annotations"]
+
+
+# ------------------------------------------------------------------ Task 8：Worker
+
+WORKER_SAMPLES = Path("eval/agent_process/samples/worker.jsonl")
+
+_WORKER_CAUSES = ("upstream_goal_error", "handoff_omission", "intent_error",
+                  "text2sql_parse_error", "executor_error", "data_unavailable")
+
+
+def _art(**kw):
+    from eval.agent_process.schema import ArtifactView
+
+    base = {"artifact_id": "art1", "node_id": "n1", "plan_revision": 1, "attempt": 1,
+            "execution_status": "completed", "version": "rev1-attempt1"}
+    base.update(kw)
+    return ArtifactView(**base)
+
+
+def test_facts_with_and_without_rid_counted():
+    from eval.agent_process.roles.worker import evaluate_artifact_measured
+
+    out = evaluate_artifact_measured(
+        _art(facts=[{"rid": "r2", "field": "inventory", "value": 1},
+                    {"rid": "r3", "field": "revenue", "value": 2},
+                    {"field": "cogs", "value": 3}]),
+        rids_in_store={"r2", "r3"})
+
+    assert out["facts_with_rid"] == 2
+    assert out["facts_missing_rid"] == 1
+    assert out["rids_not_in_store"] == []
+
+
+def test_rid_not_in_store_flagged():
+    from eval.agent_process.roles.worker import evaluate_artifact_measured
+
+    out = evaluate_artifact_measured(
+        _art(facts=[{"rid": "r99", "field": "inventory", "value": 1}],
+             evidence_refs=["r99"]),
+        rids_in_store={"r1", "r2"})
+
+    assert out["rids_not_in_store"] == ["r99"]
+    assert out["evidence_refs_not_in_store"] == ["r99"]
+
+
+def test_calculations_missing_output_rid():
+    from eval.agent_process.roles.worker import evaluate_artifact_measured
+
+    out = evaluate_artifact_measured(
+        _art(calculations=[{"input_rids": ["r2"], "expression": "a/b"},
+                           {"input_rids": ["r2"], "expression": "a-b",
+                            "output_rid": "r2"}]),
+        rids_in_store={"r2"})
+
+    assert out["calculations_missing_output_rid"] == 1
+
+
+def test_completion_criteria_coverage_from_completion_report():
+    from eval.agent_process.roles.worker import evaluate_artifact_measured
+
+    out = evaluate_artifact_measured(
+        _art(completion_report=[{"criterion": "给出数值", "satisfied": True},
+                                {"criterion": "给出同比", "satisfied": False}],
+             evidence_refs=["r2"]),
+        rids_in_store={"r2"})
+
+    assert out["criteria_covered"] == 1
+    assert out["criteria_uncovered"] == 1
+
+
+def test_node_completed_does_not_imply_success(tmp_path):
+    """execution_status=completed 不等于任务成功：产物无任何 rid 时必须看得见。"""
+    from eval.agent_process.adapt import load_process_package
+    from eval.agent_process.roles.worker import evaluate_node
+
+    run = _write_run_package(tmp_path)
+    state_path = run / "analysis" / "analysis_state.json"
+    state = json.loads(state_path.read_text(encoding="utf-8"))
+    state["artifacts"]["art1"]["facts"] = [{"field": "inventory", "value": 1.0}]
+    state["artifacts"]["art1"]["evidence_refs"] = []
+    state_path.write_text(json.dumps(state, ensure_ascii=False), encoding="utf-8")
+
+    out = evaluate_node(load_process_package(run, case_id="LV-T01"), "n1")
+
+    assert out["measured"]["facts_missing_rid"] == 1
+    assert out["evidence_basis"]["evidence_support"] == "measured"
+    assert "success" not in out          # 不提供「completed 即成功」的字段
+    assert out["measured"]["execution_status"] == "completed"
+
+
+def test_worker_counts_are_per_node(tmp_path):
+    from eval.agent_process.adapt import load_process_package
+    from eval.agent_process.roles.worker import evaluate_node
+
+    rec = [{"type": "llm_retry", "attempt": 1, "main_step": 2,
+            "parent_call_id": "worker@2#n1"},
+           {"type": "tool_result", "role": "worker", "step": 0, "tool": "recall",
+            "ok": True, "rid": "r2", "call_id": "c1", "args_head": "{}",
+            "result_head": "", "main_step": 2, "parent_call_id": "worker@2#n1"}]
+    run = _write_run_package(tmp_path, extra_trace_events=rec)
+    out = evaluate_node(load_process_package(run, case_id="LV-T01"), "n1")
+
+    c = out["counts"]
+    assert c["role_calls"] == 1
+    assert c["llm_retry"] == 1
+    assert c["recall_reads"] == 1
+    assert c["query_calls"] == 2
+    assert c["redundant_same_tool"] == 1     # query_financial_data 调了两次
+
+
+def test_attribution_unknown_when_evidence_insufficient(tmp_path):
+    """不凭最终错误倒推根因：没有证据就说未知。"""
+    from eval.agent_process.adapt import load_process_package
+    from eval.agent_process.roles.worker import evaluate_node
+
+    run = _write_run_package(tmp_path)
+    state_path = run / "analysis" / "analysis_state.json"
+    state = json.loads(state_path.read_text(encoding="utf-8"))
+    state["artifacts"]["art1"]["execution_status"] = "failed"
+    state_path.write_text(json.dumps(state, ensure_ascii=False), encoding="utf-8")
+
+    out = evaluate_node(load_process_package(run, case_id="LV-T01"), "n1")
+
+    assert out["attribution"]["cause"] == "unknown"
+    assert "证据不足" in out["attribution"]["reason"]
+
+
+def test_attribution_data_unavailable_from_no_data(tmp_path):
+    from eval.agent_process.adapt import load_process_package
+    from eval.agent_process.roles.worker import evaluate_node
+
+    specs = [{"ok": True, "rid": None, "status": "empty",
+              "args": {"question": "无数据"}}]
+    run = _write_run_package(tmp_path, with_instrumentation=True, query_specs=specs)
+    out = evaluate_node(load_process_package(run, case_id="LV-T01"), "n1")
+
+    assert out["attribution"]["cause"] == "data_unavailable"
+
+
+def test_attribution_parse_error_from_text2sql(tmp_path):
+    from eval.agent_process.adapt import load_process_package
+    from eval.agent_process.roles.worker import evaluate_node
+
+    specs = [{"ok": False, "rid": None, "status": "unsupported",
+              "issue_codes": ["extractor_protocol"], "args": {"question": "坏查询"}}]
+    run = _write_run_package(tmp_path, with_instrumentation=True, query_specs=specs)
+    out = evaluate_node(load_process_package(run, case_id="LV-T01"), "n1")
+
+    assert out["attribution"]["cause"] == "text2sql_parse_error"
+
+
+def test_attribution_executor_error(tmp_path):
+    from eval.agent_process.adapt import load_process_package
+    from eval.agent_process.roles.worker import evaluate_node
+
+    specs = [{"ok": False, "rid": None, "status": "error",
+              "issue_codes": ["query_error"], "args": {"question": "SQL 失败"}}]
+    run = _write_run_package(tmp_path, with_instrumentation=True, query_specs=specs)
+    out = evaluate_node(load_process_package(run, case_id="LV-T01"), "n1")
+
+    assert out["attribution"]["cause"] == "executor_error"
+
+
+def test_attribution_handoff_omission_when_upstream_incomplete(tmp_path):
+    """依赖节点没交付 → 上下文交接遗漏，而不是把错算到 Worker 头上。"""
+    from eval.agent_process.adapt import load_process_package
+    from eval.agent_process.roles.worker import evaluate_node
+
+    run = _write_run_package(tmp_path)
+    state_path = run / "analysis" / "analysis_state.json"
+    state = json.loads(state_path.read_text(encoding="utf-8"))
+    # n1 改为依赖一个未完成的 n0
+    state["plans"]["1"]["nodes"][0]["depends_on"] = ["n0"]
+    state["plans"]["1"]["nodes"].append({
+        "node_id": "n0", "goal": "上游取数", "depends_on": [], "input_refs": [],
+        "completion_criteria": "给出数", "required_for_answer": True,
+        "required_output_refs": [], "requires_review": False, "slice_index": 0,
+        "execution_status": "pending", "attempt": 0, "latest_artifact_id": None,
+        "review_status": "not_reviewed"})
+    state_path.write_text(json.dumps(state, ensure_ascii=False), encoding="utf-8")
+
+    out = evaluate_node(load_process_package(run, case_id="LV-T01"), "n1")
+    assert out["attribution"]["cause"] == "handoff_omission"
+
+
+def test_worker_judged_dimensions_unknown_without_judge(tmp_path):
+    from eval.agent_process.adapt import load_process_package
+    from eval.agent_process.roles.worker import evaluate_node
+
+    out = evaluate_node(load_process_package(_write_run_package(tmp_path),
+                                             case_id="LV-T01"), "n1")
+
+    assert out["judged"] is None
+    assert out["evidence_basis"]["query_intent"] == "unknown"
+    assert out["evidence_basis"]["calculation"] == "unknown"
+
+
+def test_worker_judged_dimensions_pipeline_check_with_fake_judge(tmp_path):
+    from eval.agent_process.adapt import load_process_package
+    from eval.agent_process.roles.common import make_judge
+    from eval.agent_process.roles.worker import evaluate_node
+
+    judge = make_judge("fake", point_fn=lambda q, p, f, a: {"verdict": "met",
+                                                           "reason": "意图一致"})
+    out = evaluate_node(load_process_package(_write_run_package(tmp_path),
+                                             case_id="LV-T01"), "n1", judge=judge)
+
+    assert out["judged"]["query_intent"]["verdict"] == "met"
+    assert out["evidence_basis"]["query_intent"] == "pipeline_check"
+
+
+def test_unknown_node_id_is_reported_not_crashed(tmp_path):
+    from eval.agent_process.adapt import load_process_package
+    from eval.agent_process.roles.worker import evaluate_node
+
+    out = evaluate_node(load_process_package(_write_run_package(tmp_path),
+                                             case_id="LV-T01"), "n99")
+    assert out["measured"] == {}
+    assert out["attribution"]["cause"] == "unknown"
+
+
+def test_worker_samples_cover_required_classes():
+    from eval.agent_process.roles.common import load_samples
+
+    samples = load_samples(WORKER_SAMPLES)
+    assert len(samples) >= 6
+    for s in samples:
+        assert {"sample_id", "node", "artifact", "annotations"} <= set(s)
+    causes = {s["annotations"]["cause"] for s in samples}
+    assert set(_WORKER_CAUSES) <= causes, f"缺类别: {sorted(set(_WORKER_CAUSES) - causes)}"
+
+
+def test_worker_evaluate_sample_runs():
+    from eval.agent_process.roles.common import load_samples, make_judge
+    from eval.agent_process.roles.worker import evaluate_sample
+
+    sample = load_samples(WORKER_SAMPLES)[0]
+    judge = make_judge("fake", point_fn=lambda q, p, f, a: {"verdict": "met",
+                                                           "reason": "ok"})
+    out = evaluate_sample(sample, judge)
+
+    assert out["sample_id"] == sample["sample_id"]
+    assert out["attribution"]["cause"] == sample["annotations"]["cause"]
+    assert out["annotation"] == sample["annotations"]
