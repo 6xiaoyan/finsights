@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -439,3 +440,131 @@ def test_system_prompt_hash_matches_run_package_convention():
     digest = hashlib.sha256(text.encode("utf-8")).hexdigest()[:12]
     # 该值来自 runs/cli-20261016-134035 的 run_meta.json
     assert digest == "ce0422809738"
+
+
+# ------------------------------------------------------------- Task 5：运行包导出
+
+_QUERY_REC = {
+    "query_trace_id": "q1", "call_index": 0, "step": 0,
+    "question": "联想 FY2024Q2 存货", "node_task": "取存货",
+    "status": "ok", "issue_codes": [], "plan": {"metrics": ["inventory"]},
+    "plan_digest": "9e3ef01addb3", "attempts": 1,
+    "extractor_events": [{"type": "extractor_call", "attempt": 1, "status": "parsed"}],
+    "prompt_version": "pv", "catalog_version": "cv", "data_version": "dv",
+    "result_ids": ["r2"], "sql_chars": 48, "total_rows": 1, "truncated": False,
+}
+
+_VISIBLE_REC = {
+    "agent_call_id": "worker@2#n1", "role": "worker", "main_step": 2,
+    "plan_revision": 1, "node_id": "n1", "target_id": None, "target_version": None,
+    "system_prompt_sha256_12": "ce20181ce3e2",
+    "user_content": "任务目标：取存货（密钥 sk-abcdefgh12345678 已脱敏）",
+    "user_chars": 40, "user_content_chars": 40, "user_truncated": False,
+    "resumed": False, "resume_message_count": 0,
+}
+
+
+def _export(query_db, tmp_path, *, queries=(), visible=(), agent_mode="multi_agent"):
+    """直接调 _export_package：只关心导出这一环。"""
+    from agent.cli import _export_package
+    from agent.loop import CONFIG_PATH, make_run_ctx
+
+    ctx = make_run_ctx(str(query_db), llm=None, run_id="t1",
+                       config_path=CONFIG_PATH, enabled_tools=["query_financial_data"])
+    ctx.agent_mode = agent_mode
+    ctx.query_backend = "text2sql"
+    ctx.tool_ctx.stats["query_trace"] = list(queries)
+    ctx.stats["visible_context"] = list(visible)
+
+    out_dir = tmp_path / "cli-t1"
+    client = SimpleNamespace(model="mock-model")
+    out = SimpleNamespace(answer=SimpleNamespace(status="answered", answer_md="答案正文",
+                                                 claims=[]), verified=True)
+    info = {"trace": [{"type": "assistant", "step": 1, "content": "hi"}]}
+    meta = _export_package(out_dir, "联想存货如何？", None, Path(query_db), client,
+                           str(CONFIG_PATH), ctx, out, info, "t1")
+    return out_dir, meta
+
+
+def test_export_writes_query_trace_jsonl(query_db, tmp_path):
+    recs = [dict(_QUERY_REC), dict(_QUERY_REC, query_trace_id="q2", call_index=1)]
+    out_dir, _ = _export(query_db, tmp_path, queries=recs)
+
+    path = out_dir / "analysis" / "query_trace.jsonl"
+    assert path.exists()
+    lines = [json.loads(x) for x in path.read_text(encoding="utf-8").splitlines() if x.strip()]
+    assert len(lines) == 2
+    assert lines[0]["query_trace_id"] == "q1"
+    assert lines[1]["result_ids"] == ["r2"]
+
+
+def test_export_writes_visible_context_jsonl(query_db, tmp_path):
+    out_dir, _ = _export(query_db, tmp_path, visible=[dict(_VISIBLE_REC)])
+
+    path = out_dir / "analysis" / "visible_context.jsonl"
+    assert path.exists()
+    lines = [json.loads(x) for x in path.read_text(encoding="utf-8").splitlines() if x.strip()]
+    assert len(lines) == 1
+    assert lines[0]["agent_call_id"] == "worker@2#n1"
+    assert lines[0]["user_content"]
+    # 整份内容只在这里存一次：不要再塞一份预览
+    assert "user_preview" not in lines[0]
+
+
+def test_exported_visible_context_is_redacted(query_db, tmp_path):
+    rec = dict(_VISIBLE_REC,
+               user_content='api_key: secret123 与 sk-abcdefgh12345678 都不该落盘')
+    out_dir, _ = _export(query_db, tmp_path, visible=[rec])
+
+    text = (out_dir / "analysis" / "visible_context.jsonl").read_text(encoding="utf-8")
+    assert "sk-abcdefgh12345678" not in text
+    assert "secret123" not in text
+    assert "***REDACTED***" in text
+
+
+def test_run_meta_records_new_counts(query_db, tmp_path):
+    recs = [dict(_QUERY_REC), dict(_QUERY_REC, query_trace_id="q2")]
+    _, meta = _export(query_db, tmp_path, queries=recs, visible=[dict(_VISIBLE_REC)])
+
+    assert meta["query_trace_calls"] == 2
+    assert meta["visible_context_calls"] == 1
+
+
+def test_process_files_lists_new_files(query_db, tmp_path):
+    _, meta = _export(query_db, tmp_path, queries=[dict(_QUERY_REC)],
+                      visible=[dict(_VISIBLE_REC)])
+
+    files = meta["multi_agent"]["process_files"]
+    assert "query_trace.jsonl" in files
+    assert "visible_context.jsonl" in files
+
+
+def test_export_omits_files_when_no_data(query_db, tmp_path):
+    """没有数据就不写空文件；但计数字段要写 0 —— 0 表示「确实没有」，不是「没测」。"""
+    out_dir, meta = _export(query_db, tmp_path)
+
+    assert not (out_dir / "analysis" / "query_trace.jsonl").exists()
+    assert not (out_dir / "analysis" / "visible_context.jsonl").exists()
+    assert meta["query_trace_calls"] == 0
+    assert meta["visible_context_calls"] == 0
+
+
+def test_query_log_read_from_tool_ctx_and_context_log_from_run_ctx(query_db, tmp_path):
+    """两处 stats 是不同字典：查询在 tool_ctx.stats，可见上下文在 run ctx.stats。
+
+    读错字典会静默丢数据，所以把这条钉住。
+    """
+    from agent.cli import _export_package
+    from agent.loop import CONFIG_PATH, make_run_ctx
+
+    ctx = make_run_ctx(str(query_db), llm=None, run_id="t2", config_path=CONFIG_PATH)
+    ctx.agent_mode = "multi_agent"
+    ctx.tool_ctx.stats["query_trace"] = [dict(_QUERY_REC)]
+    ctx.stats["visible_context"] = [dict(_VISIBLE_REC)]
+    out_dir = tmp_path / "cli-t2"
+    out = SimpleNamespace(answer=SimpleNamespace(status="answered", answer_md="a",
+                                                 claims=[]), verified=True)
+    _export_package(out_dir, "q", None, Path(query_db), SimpleNamespace(model="m"),
+                    str(CONFIG_PATH), ctx, out, {"trace": []}, "t2")
+    (out_dir / "analysis" / "query_trace.jsonl").read_text(encoding="utf-8")
+    (out_dir / "analysis" / "visible_context.jsonl").read_text(encoding="utf-8")

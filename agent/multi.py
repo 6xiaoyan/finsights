@@ -671,6 +671,16 @@ def _context_refs(user: str, ident: dict) -> dict:
     return refs
 
 
+def redact_record(rec: dict) -> dict:
+    """导出前的兜底脱敏：记录里每个字符串值都再过一遍。
+
+    主要脱敏发生在采集点（_emit_subagent_context）；这里是写盘边界上的第二道，
+    保证即使将来有新的生产者忘了脱敏，密钥也不会落进运行包。
+    id/hash 类值不会被模式命中，所以对它们是空操作。
+    """
+    return {k: (_redact_text(v) if isinstance(v, str) else v) for k, v in rec.items()}
+
+
 def _emit_subagent_context(ctx: Any, *, agent_call_id: str, role: str, step: int,
                            ident: dict, sys_prompt: str, user: str,
                            resume_messages: list[dict] | None) -> None:
