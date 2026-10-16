@@ -87,6 +87,24 @@ def test_reused_cases_keep_history():
     reused = [c for c in cases.values() if c.origin == "reused"]
     assert len(reused) >= 5
     assert all(c.selected_id for c in reused)                  # 保留审核历史来源
+    # S01–S07 全部覆盖
+    covered = {c.selected_id for c in reused if c.selected_id}
+    assert {"S01", "S02", "S03", "S04", "S05", "S06", "S07"} <= covered
+    # 复用题一律留在开发集
+    assert all(c.split == "dev" for c in reused)
+
+
+def test_split_and_dataset_meta():
+    from collections import Counter
+    import json
+    cases = load_dataset("eval/datasets/financial_real_v1/cases.jsonl")
+    splits = Counter(c.split for c in cases)
+    assert splits == {"dev": 20, "holdout": 10}
+    meta = json.loads(Path("eval/datasets/financial_real_v1/dataset_meta.json")
+                      .read_text(encoding="utf-8"))
+    assert meta["n_cases"] == 30
+    assert meta["db_sha256_12"]
+    assert meta["blocked"] == ["LV-E2E-FY2027Q1-SEGMENT-GAP-001"]
 
 
 def test_verify_sources_reported_hits():

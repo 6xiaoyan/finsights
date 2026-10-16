@@ -22,6 +22,7 @@
 | `eval/financial_e2e/cli.py` | 命令入口 |
 | `eval/datasets/financial_real_v1/cases.jsonl` | 30 题数据集（含答案、得分点、来源、审核状态） |
 | `eval/datasets/financial_real_v1/sources.json` | 来源索引（URL→PDF/sha256/涉及题） |
+| `eval/datasets/financial_real_v1/dataset_meta.json` | 数据集元信息（题数/数据版本/split/blocked） |
 | `eval/datasets/financial_real_v1/build_cases.py` | 可重建脚本（从 DB + PDF 重算） |
 | `docs/superpowers/specs/2026-10-16-eval-e2e-design.md` | 设计说明 |
 | `tests/test_financial_e2e.py` | 离线测试（24 项） |
@@ -69,6 +70,10 @@
 - 复用已审开发题 9 条（S01、S02、S03、S04×2、S05、S06、S07；另 R02 作为 blocked 题）：
   `origin=reused`，保留 `selected_id` 与审核历史。S01–S07 全部覆盖。
 - 新构造 21 题：`origin=new`。
+- 开发/留出：**dev 20 / holdout 10**（复用的 S 题按已审用途全部留在开发集；
+  FY2026/FY2027Q1 簇内共享较多，留出按事件与 as_of 窗口尽量隔离，实际数量如实记录）。
+- 数据版本记录在 `eval/datasets/financial_real_v1/dataset_meta.json`（`db_sha256_12`、
+  题型/来源/split/审核状态计数）。
 - 全部 `review_status=draft`（生成器不得自批）。
 - `blocked=1`：`LV-E2E-FY2027Q1-SEGMENT-GAP-001`（结构化库无分部收入/抵销项）。
 - 预测题真实实绩仅在评测侧 `forecast_truth`，不进入 `CaseInput`；`LV-E2E-FY2027Q2-...`

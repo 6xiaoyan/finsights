@@ -1025,14 +1025,51 @@ add(
     data_visibility={"basis": "as_of", "as_of": "2025-05-22"},
 )
 
+# ---- 开发/留出划分（PRD §5.4：约 20/10；复用的 S 题按已审用途继续归开发集）----
+# 留出题按事件与输入窗口尽量与开发集隔离；FY2026/FY2027Q1 簇内共享较多，实际数量如实记录。
+HOLDOUT = {
+    "LV-E2E-FY2024-ANNUAL-BRIDGE-001",
+    "LV-E2E-FY2024-INVENTORY-DIO-001",
+    "LV-E2E-FY2025Q4-SINGLE-VS-ANNUAL-001",
+    "LV-E2E-FY2026Q4-DSO-001",
+    "LV-E2E-FY2026Q4-DEFERRED-001",
+    "LV-E2E-FY2026Q3-OI-VS-NI-001",
+    "LV-E2E-FY2026Q2-REVENUE-FORECAST-001",
+    "LV-E2E-FY2026Q3-REVENUE-FORECAST-001",
+    "LV-E2E-FY2026Q4-REVENUE-FORECAST-001",
+    "LV-E2E-FY2026Q2-GM-FORECAST-001",
+}
+for _i, _c in enumerate(CASES):
+    if _c.case_id in HOLDOUT and _c.origin != "reused":
+        CASES[_i] = _c.model_copy(update={"split": "holdout"})
+
 # ---- 写盘 ----
 if len(CASES) != 30:
     print(f"警告：期望 30 题，实际 {len(CASES)} 题", file=sys.stderr)
 save_dataset(CASES, OUT)
 write_sources_index(CASES, "eval/datasets/financial_real_v1/sources.json", manifest=MAN)
-n_blocked = sum(1 for c in CASES if c.blocked)
-print(f"已写入 {OUT}：{len(CASES)} 题（blocked={n_blocked}）")
+
+# 数据集元信息：记录数据版本（供报告按版本对齐，PRD §6.3/§9.1）
+import hashlib  # noqa: E402
+import json  # noqa: E402
 from collections import Counter  # noqa: E402
-print("题型分布:", dict(Counter(c.question_type for c in CASES)))
-print("origin:", dict(Counter(c.origin for c in CASES)))
+
+db = Path("data/finsights.duckdb")
+meta = {
+    "dataset": "financial_real_v1",
+    "n_cases": len(CASES),
+    "db": str(db),
+    "db_sha256_12": hashlib.sha256(db.read_bytes()).hexdigest()[:12] if db.exists() else None,
+    "question_type": dict(Counter(c.question_type for c in CASES)),
+    "origin": dict(Counter(c.origin for c in CASES)),
+    "split": dict(Counter(c.split for c in CASES)),
+    "review_status": dict(Counter(c.review_status for c in CASES)),
+    "blocked": [c.case_id for c in CASES if c.blocked],
+    "note": "全部 draft，待人工/独立审核；真实实绩仅评测侧。",
+}
+Path("eval/datasets/financial_real_v1/dataset_meta.json").write_text(
+    json.dumps(meta, ensure_ascii=False, indent=1), encoding="utf-8")
+print(f"已写入 {OUT}：{len(CASES)} 题（blocked={meta['blocked']}）")
+print("题型分布:", meta["question_type"])
+print("split:", meta["split"], "origin:", meta["origin"])
 _con.close()

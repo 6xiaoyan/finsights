@@ -69,9 +69,12 @@ def cmd_validate(args) -> int:
         errors.append("没有任何 approved 题（正式评分前需人工审核）")
     print(f"cases={len(cases)} approved={approved} blocked={blocked}")
     by_type: dict[str, int] = {}
+    by_split: dict[str, int] = {}
     for c in cases:
         by_type[c.question_type] = by_type.get(c.question_type, 0) + 1
+        by_split[c.split] = by_split.get(c.split, 0) + 1
     print("题型分布:", by_type)
+    print("开发/留出:", by_split)
     if errors:
         print("校验失败：", file=sys.stderr)
         for e in errors:

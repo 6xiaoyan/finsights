@@ -1,0 +1,27 @@
+{
+ "dataset": "financial_real_v1",
+ "n_cases": 30,
+ "db": "data\\finsights.duckdb",
+ "db_sha256_12": "860558522f16",
+ "question_type": {
+  "multi_period": 6,
+  "attribution": 10,
+  "judgment": 8,
+  "forecast": 6
+ },
+ "origin": {
+  "reused": 9,
+  "new": 21
+ },
+ "split": {
+  "dev": 20,
+  "holdout": 10
+ },
+ "review_status": {
+  "draft": 30
+ },
+ "blocked": [
+  "LV-E2E-FY2027Q1-SEGMENT-GAP-001"
+ ],
+ "note": "全部 draft，待人工/独立审核；真实实绩仅评测侧。"
+}
