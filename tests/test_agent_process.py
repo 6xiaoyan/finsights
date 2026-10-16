@@ -52,9 +52,12 @@ def _write_run_package(
     verified: bool = False,
     with_instrumentation: bool = False,
     with_usage: bool = True,
+    with_pricing: bool = True,
     two_result_lines: bool = True,
     first_result_status: str | None = None,
     query_specs: list[dict] | None = None,
+    extra_trace_events: list[dict] | None = None,
+    reported_subagent_calls: int | None = None,
 ) -> Path:
     """构造最小 multi_agent/text2sql 运行包。
 
@@ -63,6 +66,8 @@ def _write_run_package(
     - query_specs：每次 query_financial_data 调用的形态（ok/rid/args），默认两次同
       rid 调用，复刻真实包里「同计划复用 rid」的现象。
     - two_result_lines=True：trace.jsonl 末尾出现两行 type=result（复刻真实包）。
+    - extra_trace_events：追加到 result 行之前的额外事件（注入重复/畸形事件用）。
+    - reported_subagent_calls：覆盖 run_meta 自报的 subagent_calls（制造差异用）。
     """
     specs = query_specs if query_specs is not None else _DEFAULT_QUERY_SPECS
     run = tmp_path / "cli-20261016-134035"
@@ -88,7 +93,8 @@ def _write_run_package(
         "multi_agent": {
             "cfg_rounds": {"main_max_steps": 20, "planner_max_steps": 4,
                            "worker_max_steps": 6, "reviewer_max_steps": 4},
-            "subagent_calls": 3,
+            "subagent_calls": (reported_subagent_calls if reported_subagent_calls is not None
+                               else 3),
             "subagent_role_calls": {"planner": 1, "worker": 1, "reviewer": 1},
             "subagent_child_steps": 6,
             "plan_revisions": 1,
@@ -107,6 +113,8 @@ def _write_run_package(
             "process_files": ["analysis_state.json", "analysis_review.md"],
         },
     }
+    if not with_pricing:
+        meta["config"] = {"llm": {}}
     if with_usage:
         meta["usage"] = {"steps": 20, "prompt_tokens": 383994, "completion_tokens": 22438,
                          "latency_s": 164.82, "sql_errors": 0,
@@ -162,6 +170,8 @@ def _write_run_package(
         events.append({"type": "result", "status": first_result_status or status,
                        "verified": verified,
                        "stop_reason": "主循环轮数用尽（max_steps=20，未提交最终答案）"})
+    if extra_trace_events:
+        events += extra_trace_events
     events.append({"type": "result", "status": status, "verified": verified})
 
     (run / "trace.jsonl").write_text(
@@ -573,3 +583,189 @@ def test_falls_back_to_results_rows_when_no_query_events(tmp_path):
     assert len(pkg.query_records) == 1
     assert pkg.query_records[0].linkage == "unknown"
     assert pkg.query_records[0].call_index is None
+
+
+# ------------------------------------------------------------------ Task 2
+
+def _metrics(tmp_path, **kw):
+    from eval.agent_process.adapt import load_process_package
+    from eval.agent_process.metrics import compute_metrics
+
+    return compute_metrics(load_process_package(_write_run_package(tmp_path, **kw),
+                                                case_id="LV-T01"))
+
+
+def test_tool_calls_deduped_by_parent_and_call_id(tmp_path):
+    """主循环转发与子循环事件可能重复，同一 (parent, call_id) 只算一次。"""
+    dup = {"type": "tool_result", "role": "worker", "step": 0,
+           "tool": "query_financial_data", "ok": True, "rid": "r2", "call_id": "call_w1",
+           "args_head": "{}", "result_head": "[查询状态] ok",
+           "main_step": 2, "parent_call_id": "worker@2#n1"}
+    base = _metrics(tmp_path / "a")
+    withdup = _metrics(tmp_path / "b", extra_trace_events=[dup])
+
+    assert withdup["tool_calls"]["total"] == base["tool_calls"]["total"]
+    assert withdup["tool_calls"]["deduped_duplicates"] == 1
+
+
+def test_tool_skipped_not_counted_as_success(tmp_path):
+    """跳过是 skipped，既不算成功也不算失败；`ok` 缺失才归 unknown_status。"""
+    m = _metrics(tmp_path)["tool_calls"]
+
+    assert m["skipped"] == 1
+    assert m["by_tool"]["query_financial_data"] == {"ok": 2, "skipped": 1}
+    # 夹具里没有「ok 字段缺失」的事件 —— skipped 自带原因，不该混进 unknown_status
+    assert m["unknown_status"] == 0
+    assert m["total"] == 4          # 3 次 tool_result + 1 次 tool_skipped
+    assert m["tool_result_events"] == 3
+
+
+def test_missing_ok_goes_to_unknown_status(tmp_path):
+    no_ok = {"type": "tool_result", "role": "worker", "step": 0, "tool": "calc",
+             "call_id": "call_x1", "args_head": "{}", "result_head": "",
+             "main_step": 2, "parent_call_id": "worker@2#n1"}
+    base = _metrics(tmp_path / "a")
+    got = _metrics(tmp_path / "b", extra_trace_events=[no_ok])
+
+    assert got["tool_calls"]["unknown_status"] == base["tool_calls"]["unknown_status"] + 1
+    assert got["tool_calls"]["ok"] == base["tool_calls"]["ok"]
+    assert got["tool_calls"]["error"] == base["tool_calls"]["error"]
+
+
+def test_exception_types_parsed_from_tool_error_text(tmp_path):
+    bad = {"type": "tool_result", "role": "worker", "step": 0, "tool": "calc",
+           "ok": False, "call_id": "call_e1", "args_head": "{}",
+           "result_head": "工具错误: ValueError: 参数不合法",
+           "main_step": 2, "parent_call_id": "worker@2#n1"}
+    m = _metrics(tmp_path, extra_trace_events=[bad])
+
+    assert m["tool_calls"]["error"] == 1
+    assert m["exception_types"] == {"ValueError": 1}
+
+
+def test_role_calls_pair_start_and_end(tmp_path):
+    m = _metrics(tmp_path)["role_calls"]
+
+    assert m["total"] == 3
+    assert m["by_role"] == {"planner": 1, "worker": 1, "reviewer": 1}
+    assert m["pairs_missing_end"] == 0
+
+
+def test_role_call_without_end_has_no_latency(tmp_path):
+    orphan = {"type": "subagent_start", "role": "worker", "step": 9,
+              "agent_call_id": "worker@9#n9", "node_id": "n9", "plan_revision": 1}
+    m = _metrics(tmp_path, extra_trace_events=[orphan])
+
+    assert m["role_calls"]["total"] == 4
+    assert m["role_calls"]["pairs_missing_end"] == 1
+    # 缺 end 就不该有耗时，不能填 0
+    assert "worker@9#n9" not in m["latency_ms"]["by_role_call"]
+
+
+def test_rid_reuse_not_treated_as_call_count(tmp_path):
+    """同计划复用 rid：调用数按调用计，rd 只作结果引用。"""
+    m = _metrics(tmp_path)["queries"]
+
+    assert m["calls"] == 2
+    assert m["unique_result_ids"] == 1
+    assert m["rid_reuse_calls"] == 1
+
+
+def test_query_calls_match_reported_extraction_calls(tmp_path):
+    m = _metrics(tmp_path)
+    assert m["queries"]["calls"] == m["extraction"]["calls_reported"]
+    assert m["extraction"]["calls_reported"] == 2
+
+
+def test_missing_usage_is_null_not_zero(tmp_path):
+    t = _metrics(tmp_path, with_usage=False)["tokens"]
+
+    assert t["prompt_tokens"] is None
+    assert t["completion_tokens"] is None
+    assert t["source"] == "missing"
+
+
+def test_subagent_tokens_not_added_to_run_total(tmp_path):
+    """run_meta.usage 是总量；子 Agent token 是其中的子集，不相加。"""
+    t = _metrics(tmp_path)["tokens"]
+
+    assert t["prompt_tokens"] == 383994                      # 不是 383994 + 3200
+    assert t["subagent_prompt_tokens"] == 900 + 1500 + 800
+    assert t["source"] == "run_meta"
+    assert any("子集" in n for n in t["notes"])
+
+
+def test_reported_vs_recomputed_discrepancy_flagged(tmp_path):
+    m = _metrics(tmp_path, reported_subagent_calls=5)
+
+    disc = {d["field"]: d for d in m["discrepancies"]}
+    assert disc["subagent_calls"]["reported"] == 5
+    assert disc["subagent_calls"]["recomputed"] == 3
+
+
+def test_no_discrepancy_when_reported_matches(tmp_path):
+    m = _metrics(tmp_path)
+    assert [d["field"] for d in m["discrepancies"]] == []
+
+
+def test_cost_estimate_null_when_pricing_absent(tmp_path):
+    assert _metrics(tmp_path, with_pricing=False)["cost_usd_estimate"] is None
+    assert _metrics(tmp_path / "b")["cost_usd_estimate"] is not None
+
+
+def test_cost_estimate_uses_reported_tokens(tmp_path):
+    m = _metrics(tmp_path)
+    # 383994/1e6*0.15 + 22438/1e6*0.60
+    assert m["cost_usd_estimate"] == pytest.approx(0.0575991 + 0.0134628, rel=1e-6)
+
+
+def test_reviewer_evidence_reads_counted(tmp_path):
+    reads = [{"type": "tool_result", "role": "reviewer", "step": 0,
+              "tool": "read_analysis_object", "ok": True, "rid": None,
+              "call_id": "call_r1", "args_head": '{"object_id": "art1"}',
+              "result_head": "...", "main_step": 6, "parent_call_id": "reviewer@6#art1"},
+             {"type": "tool_result", "role": "worker", "step": 0, "tool": "recall",
+              "ok": True, "rid": "r2", "call_id": "call_c1", "args_head": '{}',
+              "result_head": "...", "main_step": 2, "parent_call_id": "worker@2#n1"}]
+    m = _metrics(tmp_path, extra_trace_events=reads)["result_reads"]
+
+    assert m["reviewer_evidence_reads"] == 1
+    assert m["read_analysis_object_calls"] == 1
+    assert m["recall_calls"] == 1
+
+
+def test_denominators_exposed(tmp_path):
+    m = _metrics(tmp_path)
+
+    # 分母必须与原始计数并列，便于看出「跳过没进分母/分子」
+    assert m["denominators"]["tool_calls_total"] == m["tool_calls"]["total"]
+    assert m["denominators"]["tool_calls_ok_plus_error_plus_skipped_plus_unknown"] == \
+        m["tool_calls"]["total"]
+    assert m["denominators"]["role_calls_total"] == m["role_calls"]["total"]
+
+
+def test_rounds_separate_main_and_sub(tmp_path):
+    m = _metrics(tmp_path)["rounds"]
+
+    # 主循环轮数与子循环步数分开，不能用 max_steps 掩盖上百步子调用
+    assert m["main_assistant_events"] == 1
+    assert m["subagent_child_steps"] == 2 + 3 + 1
+    assert m["main_steps_reported"] == 20
+    assert m["subagent_child_steps_reported"] == 6
+
+
+def test_retries_counted(tmp_path):
+    retries = [{"type": "llm_retry", "attempt": 1}, {"type": "stop_reject", "step": 3},
+               {"type": "protocol_correction", "role": "planner", "step": 1,
+                "main_step": 1, "parent_call_id": "planner@1#plan"}]
+    m = _metrics(tmp_path, extra_trace_events=retries)["retries"]
+
+    assert m["llm_retry"] == 1
+    assert m["stop_reject"] == 1
+    assert m["protocol_correction"] == 1
+
+
+def test_metrics_has_no_single_total_score(tmp_path):
+    m = _metrics(tmp_path)
+    assert "total_score" not in m
+    assert "score" not in m
