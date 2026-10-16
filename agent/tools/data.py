@@ -395,22 +395,37 @@ def _h_forecast(args, ctx: ToolContext, step: int) -> Outcome:
 
 def _render_query_result(result, ctx: ToolContext) -> str:
     """把查询/提取结果渲染成模型可读文本；成功时给出 rid 头行供 claims 引用。"""
-    lines = [f"[查询状态] {result.status}"]
-    if result.issues:
-        lines.append("问题: " + "; ".join(f"{i.code}: {i.message}" for i in result.issues))
-    if result.status == "ok" and result.result_ids:
-        rid = result.result_ids[0]
-        cols = ", ".join(map(str, result.columns))
-        lines.append(f"[{rid}] query_financial_data(rows={result.total_rows} cols=[{cols}])")
-        if result.truncated:
-            lines.append(f"（结果共 {result.total_rows} 行，此处只显示前 {len(result.rows)} 行；"
+    status = getattr(result, "status", "")
+    lines = [f"[查询状态] {status}"]
+    issues = getattr(result, "issues", None) or []
+    if issues:
+        def _it(x):
+            if hasattr(x, "code"):
+                return f"{getattr(x, 'code', '')}: {getattr(x, 'message', '') or ''}".rstrip(": ")
+            if isinstance(x, dict):
+                return f"{x.get('code','')}: {x.get('message','') or ''}".rstrip(": ")
+            return str(x)
+        lines.append("问题: " + "; ".join(_it(x) for x in issues))
+    if status == "ok" and getattr(result, "result_ids", None):
+        rid = getattr(result, "result_ids")[0]
+        cols = ", ".join(map(str, getattr(result, "columns", []) or []))
+        total_rows = getattr(result, "total_rows", len(getattr(result, "rows", []) or []))
+        lines.append(f"[{rid}] query_financial_data(rows={total_rows} cols=[{cols}])")
+        if getattr(result, "truncated", False):
+            lines.append(f"（结果共 {total_rows} 行，此处只显示前 "
+                         f"{len(getattr(result, 'rows', []) or [])} 行；"
                          f'完整结果可用 recall("{rid}") 查看）')
-        lines.append(_table(pd.DataFrame(result.rows)))
-    if result.plan is not None:
-        lines.append("查询计划: " + json.dumps(result.plan.model_dump(), ensure_ascii=False))
-    if getattr(result, "provenance", None):
-        lines.append("provenance: " + json.dumps(result.provenance, ensure_ascii=False))
-    if result.issues and result.status != "ok":
+        lines.append(_table(pd.DataFrame(getattr(result, "rows", None) or [])))
+    plan = getattr(result, "plan", None)
+    if plan is not None:
+        try:
+            lines.append("查询计划: " + json.dumps(plan.model_dump(), ensure_ascii=False))
+        except Exception:  # noqa: BLE001
+            lines.append("查询计划: " + str(plan))
+    prov = getattr(result, "provenance", None)
+    if prov:
+        lines.append("provenance: " + json.dumps(prov, ensure_ascii=False))
+    if issues and status != "ok":
         lines.append("提示：以上状态表示未取到可用数据，不要编造数值；"
                      "按需修正问题（公司/期间/指标/口径）后重试，或把缺失写入 missing_inputs。")
     return "\n".join(lines)

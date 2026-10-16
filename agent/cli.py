@@ -405,9 +405,7 @@ def main(argv: list[str] | None = None) -> int:
     ctx.tool_ctx.llm = ctx.llm
     ctx.tool_ctx.query_backend = args.query_backend or "metric"
     ctx.tool_ctx.query_cfg = dict(cfg_full.get("query") or {})
-    if args.query_backend is not None:
-        from agent.query.catalog import BusinessCatalog
-        ctx.tool_ctx.catalog = BusinessCatalog.build(str(db_path))
+    # 始终构建业务目录并注入，使 provenance/catalog_version 与提取器可用；\n    # 缺省路径上 query_financial_data 不在 enabled_tools，不会被模型触发。\n    from agent.query.catalog import BusinessCatalog\n    ctx.tool_ctx.catalog = BusinessCatalog.build(str(db_path))
 
     # ---- 初始数据包（固定规则，step=0，先于 Agent 自主取数）----
     pk_metrics = list(rule.get("metrics") or [])

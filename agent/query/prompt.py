@@ -12,7 +12,8 @@ _TEMPLATE = """你是财务问题的**结构化信息提取器**。把「用户�
 ## 输出协议（严格，不得出现协议外字段）
 只输出一个 JSON 对象，顶层恰好三个键：status、issues、plan。
 - status: "ok" | "needs_clarification" | "unknown_value" | "unsupported"
-- issues: 字符串数组；status=ok 时必须为空数组
+- issues: 字符串数组 **或** {"code","message"} 对象数组；status=ok 时必须为空数组
+- issues 优先以 {"code": "<code>", "message": "<中文说明>"} 形式给出，code 必须是\n  运行时规定的小写 snake_case（unknown_metric / unknown_company / ...），以减少格式修复
 - plan: status=ok 时给出对象；否则必须为 null（null 时禁止执行任何查询）
 
 plan 对象：

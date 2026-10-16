@@ -154,6 +154,9 @@ def compute_comparisons(df: pd.DataFrame, plan: QueryPlan) -> pd.DataFrame:
                     val, flag = None, None
                 elif bv == 0:
                     val, flag = None, "zero_baseline"
+                elif bv < 0:
+                    val = (cv - bv) / bv if cv is not None else None
+                    flag = "negative_baseline"
                 elif cv is None:
                     val, flag = None, None
                 else:
