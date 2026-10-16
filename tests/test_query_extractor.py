@@ -98,3 +98,25 @@ def test_prompt_mentions_catalog_and_version(query_db, metrics_path):
     s = build_extractor_prompt(cat)
     assert "inventory" in s and "Lenovo" in s
     assert isinstance(PROMPT_VERSION, str) and len(PROMPT_VERSION) >= 8
+
+
+def test_zero_repairs_does_not_retry(query_db, metrics_path):
+    cat = _cat(query_db, metrics_path)
+    llm = MockLLM([_resp("这不是 JSON")])
+    result, _ = extract_plan("q", "t", cat, llm, max_format_repairs=0)
+    assert result.status == "unsupported" and len(llm.calls) == 1
+
+
+def test_temperature_forwarded_to_model(query_db, metrics_path):
+    cat = _cat(query_db, metrics_path)
+    llm = MockLLM([_resp(OK_PLAN)])
+    captured = {}
+    orig = llm.chat
+
+    def spy(messages, tools=None, role="agent", temperature=None):
+        captured["temperature"] = temperature
+        return orig(messages, tools=tools, role=role, temperature=temperature)
+
+    llm.chat = spy
+    extract_plan("q", "t", cat, llm, temperature=0.0)
+    assert captured["temperature"] == 0.0

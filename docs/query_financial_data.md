@@ -43,6 +43,15 @@
 受控模式下 `run_sql`、`variance`、`working_capital`、`peer_compare` 等取数旁路**不可用**，
 防止绕过提取通道。主循环另有 `todo_write/final_answer/load_skill`。
 
+### 配置（`config.yaml` 的 `query:` 段）
+
+| 键 | 默认 | 含义 |
+|---|---|---|
+| `extraction_temperature` | `0.0` | 提取模型温度；`null` 则回退 `llm.temperature_agent` |
+| `max_format_repairs` | `1` | **仅格式/协议错误**允许的修复次数；业务歧义与目录外值不重试 |
+
+有效值写入 `run_meta.json` 的 `query_config`；缺省路径不读取本段。
+
 ## 3. 查询计划 v1（模型输出，代码校验）
 
 | 字段 | 说明 |

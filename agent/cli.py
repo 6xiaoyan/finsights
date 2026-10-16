@@ -165,6 +165,7 @@ def _export_package(out_dir: Path, question: str, as_of, db_path: Path, client,
         "extraction_prompt_version": _prompt_version(),
         "extraction_calls": getattr(getattr(ctx, "tool_ctx", None), "stats", {}).get(
             "extraction_calls", 0),
+        "query_config": getattr(getattr(ctx, "tool_ctx", None), "query_cfg", None) or {},
         "dictionary_version": _dict_version(),
         "dev_model_note": "开发执行模型与项目运行模型（client.model）是不同配置；详见交付说明",
         "usage": {k: info.get(k) for k in ("steps", "prompt_tokens", "completion_tokens",
@@ -403,6 +404,7 @@ def main(argv: list[str] | None = None) -> int:
     # 受控查询路径注入提取模型与业务目录（缺省路径不构建目录，保持历史行为不变）
     ctx.tool_ctx.llm = ctx.llm
     ctx.tool_ctx.query_backend = args.query_backend or "metric"
+    ctx.tool_ctx.query_cfg = dict(cfg_full.get("query") or {})
     if args.query_backend is not None:
         from agent.query.catalog import BusinessCatalog
         ctx.tool_ctx.catalog = BusinessCatalog.build(str(db_path))

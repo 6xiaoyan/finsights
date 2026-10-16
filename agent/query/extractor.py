@@ -48,8 +48,14 @@ def _normalize(raw, catalog) -> ExtractionResult:
 
 
 def extract_plan(question: str, node_task: str, catalog, llm, *,
-                 ctx=None, node_id: str | None = None) -> tuple[ExtractionResult, list[dict]]:
-    """调用提取模型并校验，返回 (ExtractionResult, 事件列表)。不抛异常。"""
+                 ctx=None, node_id: str | None = None,
+                 temperature: float | None = None,
+                 max_format_repairs: int = 1) -> tuple[ExtractionResult, list[dict]]:
+    """调用提取模型并校验，返回 (ExtractionResult, 事件列表)。不抛异常。
+
+    `max_format_repairs` 只针对格式/协议错误；超过上限即返回 unsupported（不执行部分计划）。
+    `temperature` 显式覆盖时透传给 LLMClient（默认 None 用 role=agent 的温度）。
+    """
     events: list[dict] = []
     messages = [
         {"role": "system", "content": build_extractor_prompt(catalog)},
@@ -57,8 +63,9 @@ def extract_plan(question: str, node_task: str, catalog, llm, *,
             {"question": question, "node_task": node_task}, ensure_ascii=False)},
     ]
     result: ExtractionResult | None = None
-    for attempt in (1, 2):
-        resp = llm.chat(messages, tools=None, role="agent")
+    attempts = max(0, int(max_format_repairs)) + 1
+    for attempt in range(1, attempts + 1):
+        resp = llm.chat(messages, tools=None, role="agent", temperature=temperature)
         stats = getattr(ctx, "stats", None) if ctx is not None else None
         if isinstance(stats, dict):
             stats["extraction_calls"] = stats.get("extraction_calls", 0) + 1
@@ -81,7 +88,7 @@ def extract_plan(question: str, node_task: str, catalog, llm, *,
             ev["status"] = "invalid"
             ev["error"] = str(e)[:200]
             events.append(ev)
-            if attempt == 1:
+            if attempt < attempts:
                 messages.append({"role": "assistant", "content": content[:500]})
                 messages.append({"role": "user", "content": _FORMAT_CORRECTION})
                 continue

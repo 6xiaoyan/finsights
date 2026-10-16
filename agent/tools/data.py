@@ -48,6 +48,7 @@ class ToolContext:
     llm: Any = None         # agent.llm.LLMClient：query_financial_data 的提取模型（运行时注入）
     catalog: Any = None     # agent.query.catalog.BusinessCatalog：查询目录（运行时注入）
     query_backend: str = "metric"   # 受控运行路径：metric | text2sql（历史 = metric）
+    query_cfg: dict = field(default_factory=dict)  # config.yaml 的 query 段（提取温度/修复次数）
     stats: dict = field(default_factory=dict)  # 运行统计：extraction_calls 等
 
     @property
@@ -421,7 +422,10 @@ def _h_query_financial_data(args, ctx: ToolContext, step: int) -> Outcome:
     if ctx.catalog is None or ctx.llm is None:
         raise ValueError("query_financial_data 需要注入目录与模型（运行配置错误）")
     node_task = getattr(args, "node_task", "") or ""
-    extraction, events = extract_plan(args.question, node_task, ctx.catalog, ctx.llm, ctx=ctx)
+    qcfg = getattr(ctx, "query_cfg", None) or {}
+    extraction, events = extract_plan(args.question, node_task, ctx.catalog, ctx.llm, ctx=ctx,
+                                      temperature=qcfg.get("extraction_temperature"),
+                                      max_format_repairs=int(qcfg.get("max_format_repairs", 1)))
     ctx.stats.setdefault("extractor_events", []).extend(events)
     if extraction.status != "ok" or extraction.plan is None:
         return Outcome(_render_query_result(extraction, ctx), ok=False, rid=None)

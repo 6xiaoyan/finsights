@@ -161,6 +161,7 @@ class SubAgentRunner:
                            llm=getattr(self.parent, "llm", None),
                            catalog=getattr(parent_tool_ctx, "catalog", None),
                            query_backend=getattr(self.parent, "query_backend", None) or "metric",
+                           query_cfg=getattr(parent_tool_ctx, "query_cfg", None) or {},
                            stats=getattr(parent_tool_ctx, "stats", None) or {})
 
     def run(self, user_content: str, resume_messages: list[dict] | None = None) -> SubResult:

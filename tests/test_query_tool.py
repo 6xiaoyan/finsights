@@ -24,9 +24,11 @@ class MockLLM:
     def __init__(self, replies):
         self.replies = list(replies)
         self.calls = []
+        self.temps = []
 
     def chat(self, messages, tools=None, role="agent", temperature=None):
         self.calls.append(messages)
+        self.temps.append(temperature)
         return self.replies.pop(0)
 
 
@@ -89,3 +91,11 @@ def test_extraction_calls_counted(query_db, metrics_path):
     ctx = _ctx(query_db, metrics_path, MockLLM([_resp(OK_PLAN)]))
     execute("query_financial_data", {"question": "q"}, ctx)
     assert ctx.stats.get("extraction_calls") == 1
+
+
+def test_query_cfg_temperature_forwarded(query_db, metrics_path):
+    llm = MockLLM([_resp(OK_PLAN)])
+    ctx = _ctx(query_db, metrics_path, llm)
+    ctx.query_cfg = {"extraction_temperature": 0.0, "max_format_repairs": 1}
+    execute("query_financial_data", {"question": "q"}, ctx)
+    assert llm.temps == [0.0]

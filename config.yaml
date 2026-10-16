@@ -85,6 +85,15 @@ initial_packet:
   metrics: [inventory, revenue, cogs, accounts_receivable, accounts_payable]
   quarters_back: 8          # 自问题期间（含）向前 N 个连续财季；期间未解析时取库内最近 N 期
 
+# 自然语言查询工具（自建财务 Agent + Text2SQL）。仅 `--query-backend` 显式启用时生效；
+# 缺省路径不读取本段，历史行为不变。有效值随运行写入 run_meta.json 的 query_config。
+query:
+  # 提取模型温度。结构化提取要可复现，给 0.0；写 null 则退回 llm.temperature_agent。
+  extraction_temperature: 0.0
+  # 仅"格式/协议错误"允许的修复次数；业务歧义（needs_clarification）与目录外值（unknown_value）
+  # 一律不重试（PRD §5.1）。
+  max_format_repairs: 1
+
 # multi_agent 模式（handoff_multi_agent_attribution_development.md「最新裁定」2026-10-06）：
 # 开发阶段只以【最大轮数】控制运行——每轮＝一次模型请求。资源停止上限（时间/token/子调用总数/
 # 任务图节点数/单节点尝试次数/计划修订次数/最终答案修订次数）已全部取消，仅完整记录消耗，不再据此提前停止。
