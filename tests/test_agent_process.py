@@ -945,3 +945,205 @@ def test_query_count_not_scored_by_volume(tmp_path):
 
     assert "calls" in diag
     assert "score" not in diag and "quality" not in diag
+
+
+# ------------------------------------------------------------------ Task 7：Planner
+
+PLANNER_SAMPLES = Path("eval/agent_process/samples/planner.jsonl")
+
+
+def _planner_pkg(tmp_path, *, revisions=1, contract_period="FY2024Q2"):
+    """构造带指定计划修订数与节点内容的包。"""
+    run = _write_run_package(tmp_path)
+    state_path = run / "analysis" / "analysis_state.json"
+    state = json.loads(state_path.read_text(encoding="utf-8"))
+    state["contract"]["period"] = contract_period
+    base = state["plans"]["1"]
+    for rev in range(2, revisions + 1):
+        plan = json.loads(json.dumps(base))
+        plan["revision"] = rev
+        plan["plan_id"] = f"plan{rev}"
+        state["plans"][str(rev)] = plan
+    state["latest_revision"] = revisions
+    state_path.write_text(json.dumps(state, ensure_ascii=False), encoding="utf-8")
+    return run
+
+
+def _planner_eval(run, **kw):
+    from eval.agent_process.adapt import load_process_package
+    from eval.agent_process.roles import planner
+
+    return planner.evaluate_package(load_process_package(run, case_id="LV-T01"), **kw)
+
+
+def _plan_view(nodes, revision=1):
+    from eval.agent_process.schema import PlanNodeView, PlanView
+
+    return PlanView(revision=revision,
+                    nodes=[PlanNodeView(**n) for n in nodes])
+
+
+def test_plan_measured_counts_nodes_and_required():
+    from eval.agent_process.roles.planner import evaluate_plan_measured
+
+    out = evaluate_plan_measured(_plan_view([
+        {"node_id": "n1", "goal": "取数", "required_for_answer": True},
+        {"node_id": "n2", "goal": "写结论", "required_for_answer": False},
+    ]))
+
+    assert out["node_count"] == 2
+    assert out["required_node_count"] == 1
+
+
+def test_plan_measured_detects_duplicate_goals():
+    from eval.agent_process.roles.planner import evaluate_plan_measured
+
+    out = evaluate_plan_measured(_plan_view([
+        {"node_id": "n1", "goal": "取存货同比"},
+        {"node_id": "n2", "goal": "  取存货同比  "},      # 归一化后相同
+        {"node_id": "n3", "goal": "取收入同比"},
+    ]))
+
+    assert out["duplicate_goals"] == [["n1", "n2"]]
+
+
+def test_plan_measured_detects_dangling_and_self_deps():
+    from eval.agent_process.roles.planner import evaluate_plan_measured
+
+    out = evaluate_plan_measured(_plan_view([
+        {"node_id": "n1", "goal": "A", "depends_on": ["n9"]},
+        {"node_id": "n2", "goal": "B", "depends_on": ["n2"]},
+    ]))
+
+    assert out["dangling_deps"] == ["n1->n9"]
+    assert out["self_deps"] == ["n2"]
+
+
+def test_plan_measured_detects_cycle():
+    from eval.agent_process.roles.planner import evaluate_plan_measured
+
+    ok = evaluate_plan_measured(_plan_view([
+        {"node_id": "n1", "goal": "A", "depends_on": ["n2"]},
+        {"node_id": "n2", "goal": "B", "depends_on": ["n1"]},
+    ]))
+    assert ok["cycle"] is True
+
+    acyclic = evaluate_plan_measured(_plan_view([
+        {"node_id": "n1", "goal": "A"},
+        {"node_id": "n2", "goal": "B", "depends_on": ["n1"]},
+    ]))
+    assert acyclic["cycle"] is False
+
+
+def test_scope_drift_flags_period_outside_contract():
+    from eval.agent_process.roles.planner import evaluate_plan_measured
+
+    out = evaluate_plan_measured(
+        _plan_view([
+            {"node_id": "n1", "goal": "取 FY2024Q2 存货"},
+            {"node_id": "n2", "goal": "取 FY2023Q4 存货做对比"},
+        ]),
+        contract={"period": "FY2024Q2"})
+
+    assert out["scope_drift"] == ["n2"]
+
+
+def test_scope_drift_empty_without_contract():
+    """没有合同就不判断范围偏移，不猜。"""
+    from eval.agent_process.roles.planner import evaluate_plan_measured
+
+    out = evaluate_plan_measured(_plan_view([{"node_id": "n1", "goal": "FY2023Q4"}]))
+    assert out["scope_drift"] == []
+
+
+def test_planner_plan_revisions_and_nodes_by_revision(tmp_path):
+    out = _planner_eval(_planner_pkg(tmp_path, revisions=2))
+
+    assert out["plan_revisions"] == 2
+    assert set(out["nodes_by_revision"]) == {1, 2}
+    assert out["nodes_by_revision"][1] == ["n1", "n2"]
+
+
+def test_coverage_unknown_without_points(tmp_path):
+    out = _planner_eval(_planner_pkg(tmp_path))
+
+    assert out["coverage"]["status"] == "unknown"
+    assert out["evidence_basis"]["coverage"] == "unknown"
+    assert out["coverage"]["mapping"] == []
+
+
+def test_coverage_judged_with_fake_judge_is_pipeline_check(tmp_path):
+    """模拟 Judge 的结论只能是 pipeline_check，不得冒充真实模型评分。"""
+    from eval.agent_process.roles.common import make_judge
+
+    judge = make_judge("fake", point_fn=lambda q, p, f, a: {
+        "verdict": "met", "reason": "计划里有对应节点"})
+    points = [{"point_id": "p1", "atomic_judgment": "给出存货同比"},
+              {"point_id": "p2", "atomic_judgment": "给出收入同比"}]
+    out = _planner_eval(_planner_pkg(tmp_path), judge=judge, points=points)
+
+    assert out["coverage"]["status"] == "judged"
+    assert out["evidence_basis"]["coverage"] == "pipeline_check"
+    assert [m["point_id"] for m in out["coverage"]["mapping"]] == ["p1", "p2"]
+    assert all(m["verdict"] == "met" for m in out["coverage"]["mapping"])
+
+
+def test_coverage_mapping_carries_evidence_reason(tmp_path):
+    from eval.agent_process.roles.common import make_judge
+
+    judge = make_judge("fake", point_fn=lambda q, p, f, a: {
+        "verdict": "missing", "reason": "计划没有任何节点覆盖该点"})
+    out = _planner_eval(_planner_pkg(tmp_path), judge=judge,
+                        points=[{"point_id": "p1", "atomic_judgment": "x"}])
+
+    m = out["coverage"]["mapping"][0]
+    assert m["verdict"] == "missing"
+    assert m["reason"] == "计划没有任何节点覆盖该点"
+
+
+def test_coverage_does_not_look_at_final_answer(tmp_path):
+    """计划覆盖与最终答案覆盖分开：本函数不读 final_answer。"""
+    out = _planner_eval(_planner_pkg(tmp_path))
+    blob = json.dumps(out, ensure_ascii=False)
+    assert "final_answer" not in blob
+    assert "answer_candidate" not in blob
+
+
+def test_evidence_basis_helper():
+    from eval.agent_process.roles.common import evidence_basis
+
+    assert evidence_basis(True, False) == "measured"
+    assert evidence_basis(False, True) == "pipeline_check"
+    assert evidence_basis(False, True, judge_is_live=True) == "model_judged"
+    assert evidence_basis(False, False) == "unknown"
+
+
+def test_samples_file_has_recommended_split():
+    from eval.agent_process.roles.common import load_samples
+
+    samples = load_samples(PLANNER_SAMPLES)
+    assert len(samples) >= 5
+    for s in samples:
+        assert {"sample_id", "question", "contract", "plan", "annotations"} <= set(s)
+        assert s["annotations"]["coverage"]
+
+    assert any(v == "uncovered" for s in samples
+               for v in s["annotations"]["coverage"].values())
+    assert any("duplicate_node" in s["annotations"].get("expected_flags", [])
+               for s in samples)
+    assert any("implicit" in s["annotations"]["coverage"].values() for s in samples)
+
+
+def test_evaluate_sample_runs_pipeline():
+    from eval.agent_process.roles.common import load_samples, make_judge
+    from eval.agent_process.roles.planner import evaluate_sample
+
+    sample = load_samples(PLANNER_SAMPLES)[0]
+    judge = make_judge("fake", point_fn=lambda q, p, f, a: {"verdict": "met",
+                                                           "reason": "看得见"})
+    out = evaluate_sample(sample, judge)
+
+    assert out["sample_id"] == sample["sample_id"]
+    assert out["measured"]["node_count"] >= 1
+    assert out["coverage"]["status"] == "judged"
+    assert out["annotation"] == sample["annotations"]
