@@ -1736,3 +1736,137 @@ def test_compat_table_lists_unknown_legacy_fields():
     # 两套同名不同义的 id 必须在兼容表里说明
     assert "plan_digest" in md
     assert "同名不同义" in md or "内容寻址" in md
+
+
+# ------------------------------------------------------------------ Task 11：CLI
+
+def _cli(argv):
+    from eval.agent_process.cli import main
+
+    return main(["python -m eval.agent_process", *argv])
+
+
+def test_parser_has_six_subcommands():
+    from eval.agent_process.cli import build_parser
+
+    sub = build_parser()._subparsers._group_actions[0]
+    assert set(sub.choices) == {"adapt", "metrics", "roles", "queries", "report", "replay"}
+
+
+def test_adapt_writes_json(tmp_path):
+    run = _write_run_package(tmp_path)
+    out = tmp_path / "out"
+    rc = _cli(["adapt", "--run-dir", str(run), "--case-id", "LV-T01", "--out", str(out)])
+
+    assert rc == 0
+    data = json.loads((out / "adapt.json").read_text(encoding="utf-8"))
+    assert data["run_id"] == "20261016-134035"
+    assert data["final_status"] == "refuse"
+
+
+def test_metrics_writes_json(tmp_path):
+    run = _write_run_package(tmp_path)
+    out = tmp_path / "out"
+    assert _cli(["metrics", "--run-dir", str(run), "--out", str(out)]) == 0
+
+    m = json.loads((out / "metrics.json").read_text(encoding="utf-8"))
+    for k in ("tool_calls", "role_calls", "tokens", "discrepancies"):
+        assert k in m
+
+
+def test_queries_writes_json(tmp_path):
+    run = _write_run_package(tmp_path)
+    out = tmp_path / "out"
+    assert _cli(["queries", "--run-dir", str(run), "--out", str(out)]) == 0
+
+    q = json.loads((out / "queries.json").read_text(encoding="utf-8"))
+    assert "by_reason" in q and "records" in q
+
+
+def test_roles_samples_mode_offline(tmp_path):
+    run = _write_run_package(tmp_path)
+    out = tmp_path / "out"
+    rc = _cli(["roles", "--run-dir", str(run), "--mode", "samples", "--judge", "fake",
+               "--out", str(out)])
+
+    assert rc == 0
+    for role in ("planner", "worker", "reviewer"):
+        data = json.loads((out / f"roles_samples_{role}.json").read_text(encoding="utf-8"))
+        assert data["samples"], f"{role} 样例结果为空"
+        assert data["mode"] == "samples"
+        assert data["judge"] == "fake"
+        assert "pipeline_check" in json.dumps(data, ensure_ascii=False) or \
+               "not_real_quality_score" in data
+
+
+def test_roles_trajectory_mode(tmp_path):
+    run = _write_run_package(tmp_path)
+    out = tmp_path / "out"
+    assert _cli(["roles", "--run-dir", str(run), "--mode", "trajectory",
+                 "--judge", "fake", "--out", str(out)]) == 0
+
+    data = json.loads((out / "roles_trajectory.json").read_text(encoding="utf-8"))
+    assert set(data["roles"]) == {"planner", "worker", "reviewer"}
+    assert data["judge"] == "fake"
+    assert data["is_real_quality_score"] is False
+
+
+def test_roles_single_role_selection(tmp_path):
+    run = _write_run_package(tmp_path)
+    out = tmp_path / "out"
+    assert _cli(["roles", "--run-dir", str(run), "--mode", "trajectory",
+                 "--role", "reviewer", "--out", str(out)]) == 0
+
+    data = json.loads((out / "roles_trajectory.json").read_text(encoding="utf-8"))
+    assert set(data["roles"]) == {"reviewer"}
+
+
+def test_report_writes_markdown(tmp_path):
+    run = _write_run_package(tmp_path)
+    out = tmp_path / "r.md"
+    assert _cli(["report", "--run-dir", str(run), "--case-id", "LV-T01",
+                 "--out", str(out)]) == 0
+
+    md = out.read_text(encoding="utf-8")
+    assert "# 过程评测报告" in md
+    assert "## 字段兼容表" in md
+
+
+def test_replay_runs_all_steps(tmp_path):
+    run = _write_run_package(tmp_path)
+    out = tmp_path / "replay"
+    assert _cli(["replay", "--run-dir", str(run), "--case-id", "LV-T01",
+                 "--out-dir", str(out)]) == 0
+
+    for name in ("adapt.json", "metrics.json", "queries.json", "roles_trajectory.json",
+                 "roles_samples_planner.json", "report.md", "compat_table.md",
+                 "results.jsonl"):
+        assert (out / name).exists(), f"replay 缺产物: {name}"
+
+
+def test_replay_report_shows_undelivered_and_completed(tmp_path):
+    run = _write_run_package(tmp_path)
+    out = tmp_path / "replay"
+    _cli(["replay", "--run-dir", str(run), "--case-id", "LV-T01", "--out-dir", str(out)])
+
+    md = (out / "report.md").read_text(encoding="utf-8")
+    assert "completed" in md and "accepted" in md
+    assert "不代表" in md
+
+
+def test_live_judge_not_instantiated_by_default(tmp_path, monkeypatch):
+    """默认离线：不得偷偷建 LLMClient。"""
+    import agent.llm as llm_mod
+
+    def _boom(*a, **k):
+        raise AssertionError("默认路径不应实例化 LLMClient")
+
+    monkeypatch.setattr(llm_mod, "LLMClient", _boom)
+    run = _write_run_package(tmp_path)
+    assert _cli(["roles", "--run-dir", str(run), "--mode", "both", "--judge", "fake",
+                 "--out", str(tmp_path / "out")]) == 0
+
+
+def test_missing_run_dir_fails_loudly(tmp_path):
+    rc = _cli(["metrics", "--run-dir", str(tmp_path / "nope"), "--out", str(tmp_path / "o")])
+    assert rc != 0
