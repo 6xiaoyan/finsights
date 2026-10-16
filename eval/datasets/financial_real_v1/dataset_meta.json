@@ -14,9 +14,10 @@
   "new": 21
  },
  "split": {
-  "dev": 20,
-  "holdout": 10
+  "dev": 25,
+  "holdout": 5
  },
+ "holdout_independent": 3,
  "review_status": {
   "draft": 30
  },

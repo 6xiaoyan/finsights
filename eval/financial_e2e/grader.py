@@ -14,61 +14,120 @@ from eval.contracts import GradeResult
 from eval.financial_e2e.judge import WHOLE_DIMENSIONS
 from eval.financial_e2e.schema import CaseRecord
 
-GRADER_VERSION = "e2e-v1"
+GRADER_VERSION = "e2e-v2"
 _NUM_RE = re.compile(r"-?\d[\d,]*(?:\.\d+)?")
 # 常见单位换算到 usd_mn（答案可能用亿/百万表达）
-_UNIT_TO_USD_MN = {"usd_mn": 1.0, "usd_million": 1.0, "百万美元": 1.0, "百万": 1.0,
-                   "usd_bn": 1000.0, "十亿美元": 1000.0, "亿美元": 100.0, "亿": 100.0}
+_UNIT_TO_USD_MN = {"usd_mn": 1.0, "usd_million": 1.0, "百万美元": 1.0, "百萬美元": 1.0,
+                   "百万": 1.0, "usd_bn": 1000.0, "十亿美元": 1000.0, "亿美元": 100.0,
+                   "億美元": 100.0, "亿": 100.0, "億": 100.0}
+# 单位应出现的正向词（宽松）；以及明显冲突词（保守黑名单）
+_UNIT_TOKENS = {
+    "usd_mn": ("美元", "usd", "million", "百萬", "百万"),
+    "pct": ("%", "％", "百分"),
+    "pct_point": ("百分点", "個百分點", "pp"),
+    "days": ("天",),
+    "ratio": ("倍", "x"),
+}
+_UNIT_CONFLICT = {
+    "usd_mn": ("人民币", "港元", "日元", "%"),
+    "pct": ("天", "百万美元", "百萬美元"),
+    "pct_point": ("天",),
+    "days": ("%", "美元"),
+}
+_WINDOW = 48  # 数字前后检索上下文的字符数
 
 
 def extract_numbers(text: str) -> list[float]:
-    out: list[float] = []
+    return [v for _, v in _number_spans(text)]
+
+
+def _number_spans(text: str) -> list[tuple[int, float]]:
+    out: list[tuple[int, float]] = []
     for m in _NUM_RE.finditer(text or ""):
         try:
-            out.append(float(m.group(0).replace(",", "")))
+            out.append((m.start(), float(m.group(0).replace(",", ""))))
         except ValueError:
             continue
     return out
 
 
-def _match_number(expected: float, numbers: list[float], rel: float,
-                  abs_tol: float | None) -> float | None:
-    for n in numbers:
-        tol = abs_tol if abs_tol is not None else abs(expected) * rel
-        if abs(n - expected) <= max(tol, 1e-9):
-            return n
-    return None
+def _period_tokens(period: str) -> list[str]:
+    """把断言的 period 归一成若干可匹配的期间写法。"""
+    toks: set[str] = set()
+    p = period.replace(" ", "")
+    m = re.match(r"FY(\d{4})(Q[1-4])?$", p)
+    if m:
+        fy4, q = m.group(1), m.group(2)
+        toks.update({f"FY{fy4}", f"FY{fy4[2:]}"})
+        if q:
+            toks.update({f"FY{fy4}{q}", f"FY{fy4[2:]}{q}", f"{fy4}{q}", f"{fy4[2:]}{q}"})
+    else:
+        for part in re.findall(r"FY\d{4}|Q[1-4]|[0-9]+M|H[12]", period):
+            toks.add(part)
+        fy = re.search(r"FY(\d{4})", period)
+        if fy:
+            toks.add(f"FY{fy.group(1)[2:]}")
+    return sorted(toks, key=len, reverse=True)
+
+
+def _candidate_hits(a, spans, text: str) -> list[tuple[int, float, str]]:
+    """返回 (位置, 命中值, 命中方式)。含单位换算匹配。"""
+    hits: list[tuple[int, float, str]] = []
+    factor = _UNIT_TO_USD_MN.get(a.unit, 1.0)
+    for pos, n in spans:
+        tol = a.tolerance_abs if a.tolerance_abs is not None else abs(a.value) * a.tolerance
+        if abs(n - a.value) <= max(tol, 1e-9):
+            hits.append((pos, n, "direct"))
+        else:
+            for scale, tag in ((factor, "unit_converted"), (factor * 100, "unit_converted_100"),
+                               (factor / 100, "unit_converted_0.01")):
+                if scale and abs(n * scale - a.value) <= max(abs(a.value) * a.tolerance, 1e-9):
+                    hits.append((pos, n, tag))
+                    break
+    return hits
 
 
 def verify_numeric(case: CaseRecord, answer_text: str) -> list[dict]:
-    """程序核验数值断言。找到匹配数字 → measured；否则 model_judged 交由逐点判定。"""
-    numbers = extract_numbers(answer_text)
+    """程序核验数值断言——必须先确认"该数字出现在对应对期间附近"才算 measured。
+
+    只按数值近似命中会把碰巧出现的数字误报为"程序已核实"（复审问题 2）；
+    因此要求数字窗口内出现该断言的期间写法，且单位不出现明显冲突词。
+    期间不符或无法确认时标 model_judged，不谎称程序已确认。
+    """
+    text = answer_text or ""
+    spans = _number_spans(text)
     results: list[dict] = []
     for a in case.numeric_assertions:
-        found = _match_number(a.value, numbers, a.tolerance, a.tolerance_abs)
-        if found is not None:
-            results.append({"metric": a.metric, "period": a.period, "expected": a.value,
-                            "unit": a.unit, "found": found, "ok": True,
-                            "method": "measured", "category": a.category})
+        tokens = _period_tokens(a.period)
+        hits = _candidate_hits(a, spans, text)
+        base = {"metric": a.metric, "period": a.period, "expected": a.value,
+                "unit": a.unit, "category": a.category}
+        measured = None
+        conflict = None
+        for pos, n, tag in hits:
+            window = text[max(0, pos - _WINDOW):pos + _WINDOW]
+            if tokens and not any(t in window for t in tokens):
+                continue                       # 数字命中但期间不符 → 不算命中
+            unit_tokens = _UNIT_TOKENS.get(a.unit, ())
+            bad = [w for w in _UNIT_CONFLICT.get(a.unit, ()) if w in window]
+            if bad:
+                conflict = (n, tag, bad)
+                continue
+            measured = (n, tag)
+            break
+        if measured is not None:
+            n, tag = measured
+            results.append({**base, "found": n, "ok": True, "method": f"measured:{tag}",
+                            "reason": "数字与期间/单位上下文一致"})
+        elif conflict is not None:
+            n, tag, bad = conflict
+            results.append({**base, "found": n, "ok": False,
+                            "method": "measured_unit_mismatch",
+                            "reason": f"命中数字但单位疑似冲突: {bad}"})
         else:
-            # 允许单位换算后的匹配（如答案写成亿美元）
-            factor = _UNIT_TO_USD_MN.get(a.unit, 1.0)
-            alt = None
-            for n in numbers:
-                for scale in (factor, factor * 100, factor / 100):
-                    if scale and abs(n * scale - a.value) <= abs(a.value) * a.tolerance:
-                        alt = n
-                        break
-                if alt is not None:
-                    break
-            if alt is not None:
-                results.append({"metric": a.metric, "period": a.period, "expected": a.value,
-                                "unit": a.unit, "found": alt, "ok": True,
-                                "method": "measured_unit_converted", "category": a.category})
-            else:
-                results.append({"metric": a.metric, "period": a.period, "expected": a.value,
-                                "unit": a.unit, "found": None, "ok": None,
-                                "method": "model_judged", "category": a.category})
+            reason = ("命中相近数字但期间不符或缺失" if hits else "未抽取到对应期间的确切数字")
+            results.append({**base, "found": None, "ok": None, "method": "model_judged",
+                            "reason": reason})
     return results
 
 
@@ -134,8 +193,10 @@ def grade_case(case: CaseRecord, answer_text: str, judge, run_id: str = "") -> d
                             verdict="missing", dimension_scores={}, evidence_refs=[],
                             unknown_reason=None)
         numeric = verify_numeric(case, "")
+        from eval.financial_e2e.forecast import forecast_metrics
         return {"case_id": case.case_id, "run_id": run_id, "points": points,
                 "whole": whole, "numeric": numeric,
+                "forecast": forecast_metrics(case, ""),
                 "aggregate": aggregate_case(case, points, whole, numeric, delivered=False)}
     points = [grade_point(case, p, answer_text, judge) for p in case.scoring_points]
     for g in points:
@@ -143,8 +204,10 @@ def grade_case(case: CaseRecord, answer_text: str, judge, run_id: str = "") -> d
     whole = grade_whole(case, answer_text, judge)
     whole.run_id = run_id
     numeric = verify_numeric(case, answer_text)
+    from eval.financial_e2e.forecast import forecast_metrics
+    forecast = forecast_metrics(case, answer_text)
     return {"case_id": case.case_id, "run_id": run_id, "points": points,
-            "whole": whole, "numeric": numeric,
+            "whole": whole, "numeric": numeric, "forecast": forecast,
             "aggregate": aggregate_case(case, points, whole, numeric,
                                         delivered=bool(answer_text))}
 
@@ -192,7 +255,9 @@ def aggregate_case(case: CaseRecord, points: list[GradeResult], whole: GradeResu
         "optional_total": len(opt_pairs),
         "optional_hit_rate": round(_weighted(opt_pairs), 4),
         "whole_dimensions": whole.dimension_scores,
-        "numeric_measured": sum(1 for n in numeric if n["method"].startswith("measured")),
+        "numeric_measured": sum(1 for n in numeric if n.get("ok") is True
+                                and str(n["method"]).startswith("measured")),
+        "numeric_conflict": sum(1 for n in numeric if n.get("ok") is False),
         "numeric_model_judged": sum(1 for n in numeric if n["method"] == "model_judged"),
         "missing_point_ids": [p.point_id for p, g in req_pairs if g.verdict == "missing"],
         "contradicted_point_ids": [p.point_id for p, g in req_pairs if g.verdict == "contradicted"],

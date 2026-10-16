@@ -71,57 +71,105 @@ def _esc(s: str) -> str:
     return (s or "").replace("|", "\\|").replace("\n", " ")
 
 
+def _agg(item: dict) -> dict | None:
+    return (item.get("result") or {}).get("aggregate")
+
+
 def summary_report_md(results: list[dict], dataset_name: str, judge_name: str,
                       judge_model: str | None, run_ids: list[str]) -> str:
-    """results: 每项 {case, result, run_id, final_status}。按题型/标记分组。"""
+    """results: 每项 {case, result|None, run_id, final_status}。按题型/标记分组。
+
+    遍历数据集全部题：缺结果的题（未运行/被阻塞）也计入分母，不无声消失（复审问题 3）。
+    """
     groups: dict[tuple, list[dict]] = defaultdict(list)
     for r in results:
         c: CaseRecord = r["case"]
-        key = (c.question_type, c.real_synthetic, c.split, c.review_status)
-        groups[key].append(r)
+        groups[(c.question_type, c.real_synthetic, c.split, c.review_status)].append(r)
+
+    total = len(results)
+    scored = [r for r in results if _agg(r) is not None
+              and r["final_status"] not in ("blocked", "run_missing", "not_run")]
+    blocked = [r for r in results if r["final_status"] == "blocked" or r["case"].blocked]
+    not_run = [r for r in results if r["final_status"] in ("not_run", "run_missing")]
+    refused = [r for r in scored if r["final_status"] != "answered"]
 
     lines = [f"# E2E 汇总报告：{dataset_name}", "",
              f"- 运行：{', '.join(run_ids) or '—'}",
              f"- judge：{judge_name}（model={judge_model or '—'}）",
-             f"- 题数：{len(results)}",
+             f"- 题数：{total}",
              "- 说明：本版不把质量/耗时/token 拼成单一总分，不设统一通过线。", "",
+             "## 分母完整性", "",
+             "| 口径 | 数量 | 说明 |", "|---|---|---|",
+             f"| 数据集题数 | {total} | 汇总范围内全部题 |",
+             f"| 已评分 | {len(scored)} | 有运行包并完成评分 |",
+             f"| 其中未交付 | {len(refused)} | refuse/clarify/error，计入未完成分母 |",
+             f"| blocked | {len(blocked)} | 保留在数据集，不与正常答错混算 |",
+             f"| 未运行/缺运行包 | {len(not_run)} | 计入分母并单列，不静默丢弃 |", "",
              "## 分组统计", "",
-             "| 题型 | 真实/合成 | split | 审核 | 题数 | 交付数 | 必答命中(均值) | 保守–乐观 | 整篇均值 |",
+             "| 题型 | 真实/合成 | split | 审核 | 题数 | 已评分 | 交付数 | 必答命中(均值) | 保守–乐观 |",
              "|---|---|---|---|---|---|---|---|---|"]
     for key in sorted(groups, key=lambda k: (k[0], k[1], k[2], k[3])):
         rows = groups[key]
         n = len(rows)
-        delivered = sum(1 for x in rows if x["result"]["aggregate"]["delivered"])
-        hits = [x["result"]["aggregate"]["required_hit_rate"] for x in rows]
-        lo = [x["result"]["aggregate"]["required_hit_range"][0] for x in rows]
-        hi = [x["result"]["aggregate"]["required_hit_range"][1] for x in rows]
-        whole = [sum(x["result"]["aggregate"]["whole_dimensions"].values()) /
-                 max(1, len(x["result"]["aggregate"]["whole_dimensions"])) for x in rows
-                 if x["result"]["aggregate"]["whole_dimensions"]]
-        lines.append(f"| {key[0]} | {key[1]} | {key[2]} | {key[3]} | {n} | {delivered}"
-                     f" | {_mean(hits):.2f} | {_mean(lo):.2f}–{_mean(hi):.2f}"
-                     f" | {_mean(whole):.2f} |")
+        aggs = [_agg(x) for x in rows]
+        scored_rows = [a for a in aggs if a is not None]
+        delivered = sum(1 for a in scored_rows if a["delivered"])
+        hits = [a["required_hit_rate"] for a in scored_rows]
+        lo = [a["required_hit_range"][0] for a in scored_rows]
+        hi = [a["required_hit_range"][1] for a in scored_rows]
+        lines.append(f"| {key[0]} | {key[1]} | {key[2]} | {key[3]} | {n} | {len(scored_rows)}"
+                     f" | {delivered} | {_mean(hits):.2f} | {_mean(lo):.2f}–{_mean(hi):.2f} |")
 
-    blocked = [r for r in results if r["case"].blocked]
-    refused = [r for r in results if r["final_status"] != "answered"]
-    lines += ["", "## 未交付与阻塞", "",
-              f"- 未交付答案（refuse/clarify/error）：{len(refused)} 题"
-              f"（计入应答题分母，不因节点 completed 改记成功）",
-              f"- blocked 题：{len(blocked)} 题（保留在数据集中，不与正常答错混算）", ""]
-    for r in refused:
-        lines.append(f"- 未交付：{r['case'].case_id}｜status={r['final_status']}")
-    for r in blocked:
-        lines.append(f"- blocked：{r['case'].case_id}｜{r['case'].blocked_reason or '原因未记录'}")
+    if refused:
+        lines += ["", "## 已评分但未交付", ""]
+        for r in refused:
+            lines.append(f"- {r['case'].case_id}｜status={r['final_status']}"
+                         f"（计入未完成分母，不因节点 completed 改记成功）")
+    if blocked:
+        lines += ["", "## blocked（不计入通过率，单列）", ""]
+        for r in blocked:
+            lines.append(f"- {r['case'].case_id}｜{r['case'].blocked_reason or '原因未记录'}")
+    if not_run:
+        lines += ["", "## 未运行/缺运行包（计入分母）", ""]
+        for r in not_run:
+            lines.append(f"- {r['case'].case_id}｜{r['final_status']}")
+
+    # 预测误差（仅评测侧，事后）
+    fc = [(r, (_agg(r) or {}) ) for r in results
+          if r["case"].question_type == "forecast" and _agg(r) is not None]
+    if fc:
+        lines += ["", "## 预测题事后误差（仅评测侧）", "",
+                  "| case_id | 真实值 | 预测点 | 抽出方式 | 绝对误差 | 相对误差 | 区间覆盖 | 区间宽度 |",
+                  "|---|---|---|---|---|---|---|---|"]
+        for r, _ in fc:
+            fm = (r["result"] or {}).get("forecast") or {}
+            if not fm:
+                lines.append(f"| {r['case'].case_id} | — | — | 无评测侧真实实绩 | — | — | — | — |")
+                continue
+            pt = "—" if fm.get("point") is None else f"{fm['point']:g}"
+            ae = "—" if fm.get("abs_err") is None else f"{fm['abs_err']:,.2f}"
+            pe = "—" if fm.get("pct_err") is None else f"{fm['pct_err']:.1%}"
+            cov = "—" if fm.get("covered") is None else ("是" if fm["covered"] else "否")
+            wid = "—" if fm.get("width") is None else f"{fm['width']:,.2f}"
+            lines.append(f"| {r['case'].case_id} | {fm['actual']:g} | {pt} | "
+                         f"{fm.get('point_method')} | {ae} | {pe} | {cov} | {wid} |")
+        lines += ["", "- 备注：预测论证质量由逐点得分点判定，与预测结果误差分开呈现（PRD §5.3）。"]
 
     lines += ["", "## 逐题明细", "",
-              "| case_id | 题型 | 交付 | 必答命中 | missing | contradicted | unknown |",
-              "|---|---|---|---|---|---|---|"]
+              "| case_id | 题型 | split | 状态 | 交付 | 必答命中 | missing | contradicted | unknown |",
+              "|---|---|---|---|---|---|---|---|---|"]
     for r in sorted(results, key=lambda x: x["case"].case_id):
-        a = r["result"]["aggregate"]
-        lines.append(f"| {r['case'].case_id} | {r['case'].question_type}"
-                     f" | {'是' if a['delivered'] else '否'} | {a['required_hit_rate']:.2f}"
-                     f" | {a['required_missing']} | {a['required_contradicted']}"
-                     f" | {a['required_unknown']} |")
+        a = _agg(r)
+        if a is None:
+            lines.append(f"| {r['case'].case_id} | {r['case'].question_type}"
+                         f" | {r['case'].split} | {r['final_status']}"
+                         f" | 否 | — | — | — | — |")
+        else:
+            lines.append(f"| {r['case'].case_id} | {r['case'].question_type}"
+                         f" | {r['case'].split} | {r['final_status']}"
+                         f" | {'是' if a['delivered'] else '否'} | {a['required_hit_rate']:.2f}"
+                         f" | {a['required_missing']} | {a['required_contradicted']}"
+                         f" | {a['required_unknown']} |")
     return "\n".join(lines) + "\n"
 
 

@@ -94,17 +94,27 @@ def test_reused_cases_keep_history():
     assert all(c.split == "dev" for c in reused)
 
 
-def test_split_and_dataset_meta():
-    from collections import Counter
+def test_split_is_group_disjoint_and_meta():
+    from collections import Counter, defaultdict
     import json
     cases = load_dataset("eval/datasets/financial_real_v1/cases.jsonl")
     splits = Counter(c.split for c in cases)
-    assert splits == {"dev": 20, "holdout": 10}
+    assert splits == {"dev": 25, "holdout": 5}
+    # 复审问题 4：同一 split_group 不得同时出现在 dev 与 holdout
+    by_group: dict[str, set[str]] = defaultdict(set)
+    for c in cases:
+        by_group[c.split_group].add(c.split)
+    assert all(len(v) == 1 for v in by_group.values()), by_group
+    # 留出题必须显式标注是否独立（与开发集期间是否重叠）
+    for c in cases:
+        if c.split == "holdout":
+            assert "independent_holdout" in c.data_visibility, c.case_id
     meta = json.loads(Path("eval/datasets/financial_real_v1/dataset_meta.json")
                       .read_text(encoding="utf-8"))
     assert meta["n_cases"] == 30
     assert meta["db_sha256_12"]
     assert meta["blocked"] == ["LV-E2E-FY2027Q1-SEGMENT-GAP-001"]
+    assert "holdout_independent" in meta
 
 
 def test_verify_sources_reported_hits():
@@ -182,11 +192,26 @@ def test_trace_events_map_types(tmp_path: Path):
     assert events[1].result_ids == ["r1"]
 
 
-def test_verify_numeric_measured():
-    c = make_case()
-    res = verify_numeric(c, "收入为 18,829.869 百万美元，同比 +21.9%。")
+def test_verify_numeric_measured_requires_period_context():
+    c = make_case()   # 断言期间 FY2026Q1
+    res = verify_numeric(c, "FY2026Q1 收入为 18,829.869 百万美元。")
     assert res[0]["ok"] is True
     assert res[0]["method"].startswith("measured")
+
+
+def test_verify_numeric_rejects_wrong_period_number():
+    """复审问题 2：碰巧出现的相近数字、期间不符时不得标 measured。"""
+    c = make_case()
+    res = verify_numeric(c, "FY1900Q1 的其他指标为 18,829.869 元。")
+    assert res[0]["ok"] is None
+    assert res[0]["method"] == "model_judged"
+
+
+def test_verify_numeric_flags_unit_conflict():
+    c = make_case()   # usd_mn 断言
+    res = verify_numeric(c, "FY2026Q1 该数为 18,829.869 人民币百万元。")
+    assert res[0]["ok"] is False
+    assert res[0]["method"] == "measured_unit_mismatch"
 
 
 def test_verify_numeric_model_judged_when_absent():
@@ -319,6 +344,90 @@ def test_summary_report_flags_blocked():
     assert "缺分部数据" in md
 
 
+def test_score_run_refuses_draft_without_allow_draft(tmp_path: Path):
+    from eval.financial_e2e.cli import main
+    cases_path = save_dataset([make_case()], tmp_path / "cases.jsonl")
+    run_dir = _write_run(tmp_path, "answered", "# q\n- status: answered\n\nx\n")
+    out = tmp_path / "out"
+    with pytest.raises(SystemExit):
+        main(["prog", "score-run", "--run-dir", str(run_dir), "--case-id", "C-001",
+              "--cases", str(cases_path), "--out", str(out), "--judge-fake"])
+
+
+def test_validate_require_approved_checks_every_case(tmp_path: Path):
+    from eval.financial_e2e.cli import main
+    # 一题 approved、一题 draft：--require-approved 不能只看到"至少一道 approved"
+    c1 = make_case("C-001").model_copy(update={"review_status": "approved"})
+    c2 = make_case("C-002")
+    p = save_dataset([c1, c2], tmp_path / "cases.jsonl")
+    assert main(["prog", "validate", "--cases", str(p)]) == 0
+    assert main(["prog", "validate", "--cases", str(p), "--require-approved"]) == 1
+
+
+def test_unscored_cases_enter_denominator(tmp_path: Path):
+    from eval.financial_e2e.cli import _record_unscored
+    from eval.financial_e2e.judge import CallableJudge
+    c1 = make_case("C-001")
+    c2 = make_case("C-002").model_copy(update={"blocked": True, "blocked_reason": "缺数据"})
+    jl = tmp_path / "results.jsonl"
+    judge = CallableJudge(point_fn=lambda q, p, f, a: "met")
+    _record_unscored(c2, "blocked", judge, jl, tmp_path / "cases.jsonl", reason="缺数据")
+    rec = json.loads(jl.read_text(encoding="utf-8").splitlines()[0])
+    assert rec["final_status"] == "blocked"
+    assert rec["result"]["aggregate"]["delivered"] is False
+    # 报告：数据集里未被评分的题也进入分母并列出
+    items = [{"case": c1, "result": None, "run_id": "", "final_status": "not_run"},
+             {"case": c2, "result": rec["result"], "run_id": "", "final_status": "blocked"}]
+    md = summary_report_md(items, "ds", "callable", None, [])
+    assert "未运行/缺运行包" in md
+    assert "blocked" in md and "缺数据" in md
+    assert "分母完整性" in md
+
+
+def test_report_judge_name_from_results(tmp_path: Path):
+    from eval.financial_e2e.cli import main
+    cases_path = save_dataset([make_case()], tmp_path / "cases.jsonl")
+    out = tmp_path / "out"
+    jl = out / "results.jsonl"
+    out.mkdir()
+    res = grade_case(make_case(), "答案", CallableJudge(point_fn=lambda q, p, f, a: "met"))
+    result_dump = {"points": [g.model_dump() for g in res["points"]],
+                   "whole": res["whole"].model_dump(), "numeric": res["numeric"],
+                   "forecast": res["forecast"], "aggregate": res["aggregate"]}
+    jl.write_text(json.dumps({"case_id": "C-001", "run_id": "r", "final_status": "answered",
+                              "judge": {"name": "callable", "model": "fake"},
+                              "result": result_dump}) + "\n", encoding="utf-8")
+    rc = main(["prog", "report", "--results", str(jl), "--cases", str(cases_path),
+               "--out", str(out / "s.md")])
+    assert rc == 0
+    assert "judge：callable" in (out / "s.md").read_text(encoding="utf-8")
+
+
+def test_forecast_metrics_point_and_interval():
+    from eval.financial_e2e.forecast import forecast_metrics
+    c = make_case().model_copy(update={
+        "question_type": "forecast", "as_of": "2025-08-14",
+        "forecast_truth": {"metric": "revenue", "period": "FY2026Q2", "value": 20452.022,
+                           "unit": "usd_mn"},
+    })
+    fm = forecast_metrics(c, "预测值: 20000\n预测区间: 19500 ~ 21000\n方法: 同比外推")
+    assert fm["point"] == 20000.0
+    assert fm["abs_err"] == pytest.approx(452.022)
+    assert fm["covered"] is True       # 20452.022 ∈ [19500, 21000]
+    assert fm["width"] == 1500.0
+    # 真实值为零时不计算相对误差
+    c0 = c.model_copy(update={"forecast_truth": {**c.forecast_truth, "value": 0.0}})
+    fm0 = forecast_metrics(c0, "预测值: 5")
+    assert fm0["pct_err"] is None
+    assert fm0["pct_err_note"]
+
+
+def test_forecast_metrics_none_without_truth():
+    from eval.financial_e2e.forecast import forecast_metrics
+    c = make_case().model_copy(update={"question_type": "forecast", "forecast_truth": None})
+    assert forecast_metrics(c, "预测值: 1") is None
+
+
 def test_cli_score_run_and_report(tmp_path: Path):
     from eval.financial_e2e.cli import main
     cases_path = save_dataset([make_case()], tmp_path / "cases.jsonl")
@@ -326,7 +435,8 @@ def test_cli_score_run_and_report(tmp_path: Path):
                          "# q\n- status: answered\n\n收入 18,829.869 百万美元，同比约 +22%。\n")
     out = tmp_path / "out"
     rc = main(["prog", "score-run", "--run-dir", str(run_dir), "--case-id", "C-001",
-               "--cases", str(cases_path), "--out", str(out), "--judge-fake"])
+               "--cases", str(cases_path), "--out", str(out), "--judge-fake",
+               "--allow-draft"])
     assert rc == 0
     results = out / "results.jsonl"
     assert results.exists()

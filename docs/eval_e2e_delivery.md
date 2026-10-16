@@ -40,11 +40,12 @@
 .venv\Scripts\python -m eval.financial_e2e generate-points --cases eval/datasets/financial_real_v1/cases.jsonl --ids LV-E2E-... --write
 
 # 对已有运行包评分（只读原包，不重新请求 Agent）
-.venv\Scripts\python -m eval.financial_e2e score-run --run-dir runs/cli-20261016-134035 --case-id LV-E2E-FY2026Q1-CONFLICT-001 --out eval/reports/e2e
+# 正式评分要求每题 approved；校准时显式加 --allow-draft（结果按非正式处理）
+.venv\Scripts\python -m eval.financial_e2e score-run --run-dir runs/cli-20261016-134035 --case-id LV-E2E-FY2026Q1-CONFLICT-001 --out eval/reports/e2e --allow-draft
 
 # 按固定数据集调用当前 Agent（子进程 agent.cli）并评分
-.venv\Scripts\python -m eval.financial_e2e run-dataset --cases eval/datasets/financial_real_v1/cases.jsonl --agent-mode multi_agent --query-backend text2sql --out eval/reports/e2e --reset
-.venv\Scripts\python -m eval.financial_e2e run-dataset --dry-run    # 只打印将执行的题
+.venv\Scripts\python -m eval.financial_e2e run-dataset --cases eval/datasets/financial_real_v1/cases.jsonl --agent-mode multi_agent --query-backend text2sql --out eval/reports/e2e --reset --allow-draft
+.venv\Scripts\python -m eval.financial_e2e run-dataset --dry-run    # 只打印将执行的题（含 blocked 标记）
 
 # 汇总报告
 .venv\Scripts\python -m eval.financial_e2e report --results eval/reports/e2e/results.jsonl --out eval/reports/e2e_summary.md
@@ -70,8 +71,11 @@
 - 复用已审开发题 9 条（S01、S02、S03、S04×2、S05、S06、S07；另 R02 作为 blocked 题）：
   `origin=reused`，保留 `selected_id` 与审核历史。S01–S07 全部覆盖。
 - 新构造 21 题：`origin=new`。
-- 开发/留出：**dev 20 / holdout 10**（复用的 S 题按已审用途全部留在开发集；
-  FY2026/FY2027Q1 簇内共享较多，留出按事件与 as_of 窗口尽量隔离，实际数量如实记录）。
+- 开发/留出：**dev 25 / holdout 5**。按 `split_group` **整组划分，同一组不跨集**
+  （复用的 S01–S07 所在组 FY2026/FY2025Q3/FY2027Q1 归开发集）。留出题逐题检查期间是否
+  与开发集重叠并写入 `data_visibility.independent_holdout`：其中 FY2024×2 与 global 为
+  **独立留出（3 题）**，FY2025Q4、FY2027Q2 预测与开发集共享期间，**标记为非独立留出**，
+  不得据此宣称泛化能力。实际数量（25/5、独立 3）如实记录，因 S01–S07 已占多期窗口。
 - 数据版本记录在 `eval/datasets/financial_real_v1/dataset_meta.json`（`db_sha256_12`、
   题型/来源/split/审核状态计数）。
 - 全部 `review_status=draft`（生成器不得自批）。
@@ -89,14 +93,23 @@
 
 ## 4. 评分方法
 
+- **准入把关**：`score-run` / `run-dataset` 默认要求每题 `approved`，未审核题被拒绝
+  （`--allow-draft` 仅用于校准/离线，报告会据结果显示实际 judge 与来源）。
+  `validate --require-approved` 要求**校验范围内每一道可评分题**都 approved，而非"至少一道"。
 - 逐点：LLM-as-judge → met / partial / missing / contradicted / unknown。
   `unknown` 保留在必答分母，并给保守/乐观命中区间；optional 独立展示，不入必答分母。
 - 整篇：扣题、推理连贯、结论与证据一致、不确定性、表达清晰度各 1–5 分；不读取内部
   Reviewer 的 accepted/rejected。
-- 数值：能可靠抽取时标 `measured`（含单位换算），否则标 `model_judged`，不谎称程序已确认。
+- 数值：必须先确认"该数字出现在对应**期间**附近且单位无明显冲突"才标 `measured`；
+  期间不符或无法确认标 `model_judged`；单位明显冲突标 `measured_unit_mismatch`（ok=False）。
+  只按数值近似命中会把碰巧出现的数字误报为已核实，本版已禁止。
 - 未交付（refuse/clarify/error）：所有必答点记 missing，计入未完成分母，不因节点 completed
   或 Reviewer accepted 改记成功。
-- 汇总按题型/真实合成/split/审核状态分组；blocked 与未交付单列；本版不拼单一总分。
+- 未运行/缺运行包、被阻塞题：均写入结果并进入汇总分母，单列呈现，不静默丢弃。
+- 汇总按题型/真实合成/split/审核状态分组；blocked、未交付、未运行分别单列；本版不拼单一总分。
+- 汇总报告中的 `judge` 名与 model 来自结果记录，不再固定写成 `llm`。
+- 预测题另列事后误差：点预测（契约行优先，否则启发式并标注方式）、绝对/相对误差
+  （真实值为零时不报相对误差）、区间是否覆盖真实值、区间宽度；与论证质量分开呈现。
 
 ## 5. 样例（离线）
 
@@ -136,5 +149,6 @@ LV-E2E-FY2026Q1-CONFLICT-001: status=refuse delivered=False 必答命中=0.00 \
 - **未单独创建 worktree**：本次在 `D:\finsights\finsights-dev` 内新建分支 `feat/eval-e2e`
   开发（该检出为 A 独占）。PRD §4.2 建议的独立 worktree 用于 A/B 并行隔离；B 仍应使用
   独立 worktree。
-- 30 题仅 20 条已披露数值断言做了"数值→页码"自动核验；行列与期间的完整核对仍需人工。
+- 30 题共 22 条已披露数值断言做了"数值→页码"自动核验；行列与期间的完整核对仍需人工。
+- 留出集仅 3 题为"与开发集期间不重叠"的独立留出；其余留出题标注为非独立。
 - 未跑真实模型评分；judge 公平性需在人工校准后再批量评分（PRD §9.2）。

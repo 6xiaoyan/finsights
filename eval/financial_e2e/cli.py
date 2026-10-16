@@ -43,6 +43,15 @@ def _judge(args):
     return LLMJudge()
 
 
+def _gate_review(cases, allow_draft: bool) -> None:
+    """正式评分默认要求每题 approved；未审核题不得进入正式评分（复审问题 1）。"""
+    drafts = [c.case_id for c in cases if c.review_status != "approved"]
+    if drafts and not allow_draft:
+        raise SystemExit(
+            f"拒绝评分：{len(drafts)} 题未 approved（正式评分需人工/独立审核）：{drafts[:8]}"
+            "…；校准/离线可用 --allow-draft，并在报告中标注结果非正式。")
+
+
 def cmd_validate(args) -> int:
     cases = load_dataset(args.cases)
     errors: list[str] = []
@@ -65,8 +74,12 @@ def cmd_validate(args) -> int:
                 errors.append(f"{c.case_id}: blocked 但未记录 blocked_reason")
         if c.question_type == "forecast" and not c.as_of:
             errors.append(f"{c.case_id}: forecast 题必须指定 as_of")
-    if args.require_approved and approved == 0:
-        errors.append("没有任何 approved 题（正式评分前需人工审核）")
+    if args.require_approved:
+        # 不只是"至少有一道 approved"：本次校验范围内的可评分题必须全部 approved
+        not_approved = [c.case_id for c in cases
+                        if c.review_status != "approved" and not c.blocked]
+        if not_approved:
+            errors.append(f"{len(not_approved)} 题未 approved，不能进入正式评分：{not_approved}")
     print(f"cases={len(cases)} approved={approved} blocked={blocked}")
     by_type: dict[str, int] = {}
     by_split: dict[str, int] = {}
@@ -188,6 +201,7 @@ def _score_one(case: CaseRecord, run_dir: Path, judge, results_jsonl: Path,
                "points": [g.model_dump() for g in result["points"]],
                "whole": result["whole"].model_dump(),
                "numeric": result["numeric"],
+               "forecast": result["forecast"],
                "aggregate": result["aggregate"],
            }}
     report_dir.mkdir(parents=True, exist_ok=True)
@@ -200,6 +214,7 @@ def _score_one(case: CaseRecord, run_dir: Path, judge, results_jsonl: Path,
 def cmd_score_run(args) -> int:
     cases = load_dataset(args.cases)
     case = _find_case(cases, args.case_id)
+    _gate_review([case], args.allow_draft)
     judge = _judge(args)
     run_dir = Path(args.run_dir)
     if not run_dir.exists():
@@ -245,10 +260,12 @@ def cmd_run_dataset(args) -> int:
         cases = [c for c in cases if c.case_id in keep]
     if args.max:
         cases = cases[:args.max]
-    cases = [c for c in cases if not c.blocked]
+    # 正式评分默认要求 approved；blocked 题保留在结果（记 blocked，不运行 Agent）
+    _gate_review([c for c in cases if not c.blocked], args.allow_draft)
     if args.dry_run:
         for c in cases:
-            print(f"[dry-run] {c.case_id} as_of={c.as_of} q={c.question[:40]}...")
+            tag = "BLOCKED" if c.blocked else c.split
+            print(f"[dry-run] {tag} {c.case_id} as_of={c.as_of} q={c.question[:40]}...")
         return 0
     out_root = Path(args.out_root)
     out_root.mkdir(parents=True, exist_ok=True)
@@ -258,35 +275,80 @@ def cmd_run_dataset(args) -> int:
         results_jsonl.unlink()
     records = []
     for c in cases:
+        if c.blocked:
+            rec = _record_unscored(c, "blocked", judge, results_jsonl, Path(args.cases),
+                                   reason=c.blocked_reason)
+            records.append(rec)
+            print(f"{c.case_id}: blocked（{c.blocked_reason}），记入分母但不运行")
+            continue
         run_dir = _run_agent_cli(c, out_root, args)
         if run_dir is None:
-            print(f"{c.case_id}: 运行包缺失，记未交付（不伪造事件）", file=sys.stderr)
+            rec = _record_unscored(c, "run_missing", judge, results_jsonl, Path(args.cases),
+                                   reason="Agent 未产生运行包")
+            records.append(rec)
+            print(f"{c.case_id}: 运行包缺失，记入分母（不伪造事件）", file=sys.stderr)
             continue
         rec = _score_one(c, run_dir, judge, results_jsonl, Path(args.out) / "cases",
                          Path(args.cases))
         records.append(rec)
-    print(f"完成 {len(records)} 题评分；结果：{results_jsonl}")
+    scored = sum(1 for r in records if r["final_status"] not in ("blocked", "run_missing"))
+    print(f"共 {len(records)} 题入分母（已评分 {scored}）；结果：{results_jsonl}")
     return 0
 
 
+def _record_unscored(case, status: str, judge, results_jsonl: Path, dataset_path: Path,
+                     reason: str | None) -> dict:
+    """未运行/被阻塞的题也写入结果，保证汇总分母完整（复审问题 3）。"""
+    result = grade_case(case, "", judge, run_id="")
+    from eval.runner import _git_commit
+    rec = {"case_id": case.case_id, "run_id": "", "final_status": status,
+           "final_answer": None, "dataset": str(dataset_path),
+           "dataset_revision": case.case_revision, "code_commit": _git_commit(),
+           "grader_version": GRADER_VERSION,
+           "judge": {"name": getattr(judge, "name", "unknown"),
+                     "model": getattr(judge, "model", None)},
+           "unscored_reason": reason,
+           "result": {"points": [g.model_dump() for g in result["points"]],
+                      "whole": result["whole"].model_dump(),
+                      "numeric": result["numeric"], "forecast": result["forecast"],
+                      "aggregate": result["aggregate"]}}
+    results_jsonl.parent.mkdir(parents=True, exist_ok=True)
+    with results_jsonl.open("a", encoding="utf-8") as f:
+        f.write(json.dumps(rec, ensure_ascii=False) + "\n")
+    return rec
+
+
 def cmd_report(args) -> int:
-    cases = {c.case_id: c for c in load_dataset(args.cases)}
-    results = _load_results(Path(args.results))
+    all_cases = load_dataset(args.cases)
+    if args.ids:
+        keep = set(args.ids.split(","))
+        all_cases = [c for c in all_cases if c.case_id in keep]
+    by_id = {c.case_id: c for c in all_cases}
+    results = {r["case_id"]: r for r in _load_results(Path(args.results))}
     items = []
-    for rec in results:
-        case = cases.get(rec["case_id"])
-        if case is None:
-            print(f"警告：结果中的 {rec['case_id']} 不在数据集，跳过", file=sys.stderr)
-            continue
-        items.append({"case": case, "result": rec["result"],
-                      "run_id": rec["run_id"], "final_status": rec["final_status"]})
-    run_ids = sorted({r["run_id"] for r in results})
-    judge_name = "llm"
-    md = summary_report_md(items, args.dataset_name, judge_name, args.judge_model, run_ids)
+    for case in all_cases:                       # 遍历数据集，缺结果的题也计入分母
+        rec = results.get(case.case_id)
+        if rec is None:
+            items.append({"case": case, "result": None, "run_id": "",
+                          "final_status": "not_run"})
+        else:
+            items.append({"case": case, "result": rec["result"],
+                          "run_id": rec.get("run_id", ""),
+                          "final_status": rec.get("final_status", "unknown")})
+    run_ids = sorted({r["run_id"] for r in results.values() if r.get("run_id")})
+    judges = {(r.get("judge") or {}).get("name") for r in results.values()}
+    judges.discard(None)
+    judge_name = judges.pop() if len(judges) == 1 else ("mixed/部分缺记录" if judges else "n/a")
+    judge_model = args.judge_model
+    if judge_model is None:
+        models = {(r.get("judge") or {}).get("model") for r in results.values()}
+        models.discard(None)
+        judge_model = models.pop() if len(models) == 1 else None
+    md = summary_report_md(items, args.dataset_name, judge_name, judge_model, run_ids)
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(md, encoding="utf-8")
-    print(f"汇总报告：{out}（{len(items)} 题）")
+    print(f"汇总报告：{out}（{len(items)} 题，其中未运行 {sum(1 for i in items if i['final_status']=='not_run')} 题）")
     return 0
 
 
@@ -337,6 +399,8 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--out", default="eval/reports/e2e")
     s.add_argument("--results", default=None)
     s.add_argument("--judge-fake", action="store_true")
+    s.add_argument("--allow-draft", action="store_true",
+                   help="允许对未 approved 题评分（校准/离线；结果非正式）")
     s.set_defaults(func=cmd_score_run)
 
     r = sub.add_parser("run-dataset", help="按固定数据集调用当前 Agent 并评分")
@@ -351,11 +415,14 @@ def build_parser() -> argparse.ArgumentParser:
     r.add_argument("--reset", action="store_true")
     r.add_argument("--dry-run", action="store_true")
     r.add_argument("--judge-fake", action="store_true")
+    r.add_argument("--allow-draft", action="store_true",
+                   help="允许对未 approved 题运行评分（校准/离线；结果非正式）")
     r.set_defaults(func=cmd_run_dataset)
 
     p = sub.add_parser("report", help="生成汇总报告")
     p.add_argument("--results", required=True)
     p.add_argument("--cases", default=str(DEFAULT_CASES))
+    p.add_argument("--ids", default=None, help="只汇总这些题（缺结果的题仍计入分母）")
     p.add_argument("--out", default="eval/reports/e2e_summary.md")
     p.add_argument("--dataset-name", default="financial_real_v1")
     p.add_argument("--judge-model", default=None)

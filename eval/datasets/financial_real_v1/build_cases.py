@@ -1025,23 +1025,47 @@ add(
     data_visibility={"basis": "as_of", "as_of": "2025-05-22"},
 )
 
-# ---- 开发/留出划分（PRD §5.4：约 20/10；复用的 S 题按已审用途继续归开发集）----
-# 留出题按事件与输入窗口尽量与开发集隔离；FY2026/FY2027Q1 簇内共享较多，实际数量如实记录。
-HOLDOUT = {
-    "LV-E2E-FY2024-ANNUAL-BRIDGE-001",
-    "LV-E2E-FY2024-INVENTORY-DIO-001",
-    "LV-E2E-FY2025Q4-SINGLE-VS-ANNUAL-001",
-    "LV-E2E-FY2026Q4-DSO-001",
-    "LV-E2E-FY2026Q4-DEFERRED-001",
-    "LV-E2E-FY2026Q3-OI-VS-NI-001",
-    "LV-E2E-FY2026Q2-REVENUE-FORECAST-001",
-    "LV-E2E-FY2026Q3-REVENUE-FORECAST-001",
-    "LV-E2E-FY2026Q4-REVENUE-FORECAST-001",
-    "LV-E2E-FY2026Q2-GM-FORECAST-001",
-}
+# ---- 开发/留出划分（PRD §5.4）----
+# 按 split_group 整组划分，禁止同一组同时出现在开发集与留出集（复审问题 4）。
+# 含已审 S01–S07 的组（FY2026 / FY2025Q3 / FY2027Q1）按已审用途归开发集；
+# 其余组（FY2024 / FY2025 / FY2027 / global）归留出，并逐题检查期间是否与开发集重叠。
+import re  # noqa: E402
+
+_DEV_GROUPS = {"FY2026", "FY2025Q3", "FY2027Q1"}
+
+
+def _periods(case) -> set[tuple[int, int | None]]:
+    out: set[tuple[int, int | None]] = set()
+    for a in case.numeric_assertions:
+        m = re.match(r"FY(\d{4})(?:Q([1-4]))?", a.period)
+        if m:
+            out.add((int(m.group(1)), int(m.group(2)) if m.group(2) else None))
+    return out
+
+
+def _overlaps(p: tuple[int, int | None], pool: set[tuple[int, int | None]]) -> bool:
+    for fy, q in pool:
+        if fy == p[0] and (q is None or p[1] is None or q == p[1]):
+            return True
+    return False
+
+
 for _i, _c in enumerate(CASES):
-    if _c.case_id in HOLDOUT and _c.origin != "reused":
-        CASES[_i] = _c.model_copy(update={"split": "holdout"})
+    _split = "dev" if (_c.split_group in _DEV_GROUPS or _c.origin == "reused") else "holdout"
+    CASES[_i] = _c.model_copy(update={"split": _split})
+
+_dev_periods: set[tuple[int, int | None]] = set()
+for _c in CASES:
+    if _c.split == "dev":
+        _dev_periods |= _periods(_c)
+for _i, _c in enumerate(CASES):
+    if _c.split == "holdout":
+        _independent = not any(_overlaps(p, _dev_periods) for p in _periods(_c))
+        _vis = dict(_c.data_visibility)
+        _vis["independent_holdout"] = _independent
+        if not _independent:
+            _vis["independent_holdout_note"] = "与开发集共享期间，结论不得当作独立留出泛化证据"
+        CASES[_i] = _c.model_copy(update={"data_visibility": _vis})
 
 # ---- 写盘 ----
 if len(CASES) != 30:
@@ -1063,6 +1087,9 @@ meta = {
     "question_type": dict(Counter(c.question_type for c in CASES)),
     "origin": dict(Counter(c.origin for c in CASES)),
     "split": dict(Counter(c.split for c in CASES)),
+    "holdout_independent": sum(1 for c in CASES
+                               if c.split == "holdout"
+                               and c.data_visibility.get("independent_holdout")),
     "review_status": dict(Counter(c.review_status for c in CASES)),
     "blocked": [c.case_id for c in CASES if c.blocked],
     "note": "全部 draft，待人工/独立审核；真实实绩仅评测侧。",
