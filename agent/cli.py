@@ -434,9 +434,11 @@ def main(argv: list[str] | None = None) -> int:
         else:  # initial packet trace (PRD 3.4)
             ctx.trace.event(type="tool_result", step=0, tool="query_metric",
                            ok=True, result_id=packet.rid, initial_packet=True)
+        # 审计上不能伪装成一次成功的 tool_result（量化 review/timeline 会误报）；
     else:
-        ctx.trace.event(type="tool_result", step=0, tool="query_financial_data",
-                       ok=True, result_id=None, initial_packet=True,
+        # 以独立事件类型落痕，timeline 过滤器只收集 assistant+tool_result，因此不会出现假成功调用。
+        ctx.trace.event(type="tool_skipped", step=0, tool="query_financial_data",
+                       ok=None, result_id=None, initial_packet=True, reason="skipped",
                        skipped="text2sql: initial packet not pre-loaded")
 
 
