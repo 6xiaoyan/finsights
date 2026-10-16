@@ -36,6 +36,17 @@ _UNIT_CONFLICT = {
 }
 _WINDOW = 48  # 数字前后检索上下文的字符数
 
+# 季度/累计的多种写法（中英文），用于年度与累计断言的期间隔离
+_LATIN_Q = ("Q1", "Q2", "Q3", "Q4", "q1", "q2", "q3", "q4")
+_CH_Q1Q4 = ("第一季", "第一季度", "第二季", "第二季度", "第三季", "第三季度",
+            "第四季", "第四季度", "一季度", "二季度", "三季度", "四季度",
+            "1季度", "2季度", "3季度", "4季度", "首季")
+_Q3_Q4 = ("Q3", "q3", "Q4", "q4", "第三季", "第三季度", "三季度", "3季度",
+          "第四季", "第四季度", "四季度", "4季度")
+_Q4 = ("Q4", "q4", "第四季", "第四季度", "四季度", "4季度")
+_CUMULATIVE = ("9M", "9m", "9个月", "9個月", "九个月", "九個月", "前三季", "前三季度",
+               "H1", "h1", "上半年", "半年度", "半财年", "半財年")
+
 
 def extract_numbers(text: str) -> list[float]:
     return [v for _, v in _number_spans(text)]
@@ -65,21 +76,20 @@ def _period_requirement(period: str) -> tuple[list[list[str]], list[str]]:
         short = fy4[2:]
         if q:
             return [[f"FY{fy4}{q}", f"FY{short}{q}", f"{fy4}{q}", f"{short}{q}"]], []
-        # 年度断言：窗口内出现季度或累计标记时不算命中，避免 FY2026Q1 的数字
-        # 被当成 FY2026 年度值（复审阻断项）。
-        return [[f"FY{fy4}", f"FY{short}"]], [
-            "Q1", "Q2", "Q3", "Q4", "q1", "q2", "q3", "q4",
-            "9M", "9m", "9个月", "九个月", "前三季", "前三季度",
-            "H1", "h1", "上半年", "半年度", "半财年",
-        ]
+        # 年度断言：窗口内出现季度（含中文"第一季/第一季度"）或累计标记时不算命中，
+        # 避免 FY2026Q1 / FY2026第一季度 的数字被当成 FY2026 年度值（复审阻断项）。
+        return [[f"FY{fy4}", f"FY{short}"]], \
+            list(_LATIN_Q) + list(_CH_Q1Q4) + list(_CUMULATIVE)
     groups: list[list[str]] = []
     forbidden: list[str] = []
-    if "9M" in p or "9个月" in period or "九个月" in period or "前三季" in period:
-        groups.append(["9M", "9m", "九个月", "9个月", "前三季", "前三季度", "九個"])
-        forbidden += ["Q4", "q4", "第四季"]
-    if "H1" in p.upper() or "上半年" in period or "半财年" in period:
+    if ("9M" in p or "9个月" in period or "9個月" in period or "九个月" in period
+            or "九個月" in period or "前三季" in period):
+        groups.append(["9M", "9m", "九个月", "九個月", "9个月", "9個月",
+                       "前三季", "前三季度", "九個"])
+        forbidden += list(_Q4)
+    if "H1" in p.upper() or "上半年" in period or "半财年" in period or "半財年" in period:
         groups.append(["H1", "h1", "上半年", "半年度", "半年"])
-        forbidden += ["Q3", "q3", "Q4", "q4", "第三季", "第四季"]
+        forbidden += list(_Q3_Q4)
     fys = re.findall(r"FY(\d{4})", period)
     if fys:
         groups.append([t for f in fys for t in (f"FY{f}", f"FY{f[2:]}")])

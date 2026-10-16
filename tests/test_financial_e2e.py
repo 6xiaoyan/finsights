@@ -226,6 +226,11 @@ def test_verify_numeric_annual_not_matched_by_quarter():
     res = verify_numeric(c, "FY2026Q1 收入为 18,829.869 百万美元。")
     assert res[0]["ok"] is None
     assert res[0]["method"] == "model_judged"
+    # 中文季度写法同样不得命中年度断言
+    res_cn = verify_numeric(c, "FY2026第一季度收入为 18,829.869 百万美元。")
+    assert res_cn[0]["ok"] is None
+    res_cn2 = verify_numeric(c, "FY2026 第四季度收入为 18,829.869 百万美元。")
+    assert res_cn2[0]["ok"] is None
     # 明确年度口径才认
     res2 = verify_numeric(c, "FY2026 全年收入为 18,829.869 百万美元。")
     assert res2[0]["ok"] is True
