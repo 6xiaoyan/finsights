@@ -75,6 +75,14 @@ def _agg(item: dict) -> dict | None:
     return (item.get("result") or {}).get("aggregate")
 
 
+def _split_label(case: CaseRecord) -> str:
+    """区分独立留出与非独立留出；非独立题不得计入正式留出成绩（复审问题 2）。"""
+    if case.split != "holdout":
+        return "dev"
+    return ("holdout(独立)" if case.data_visibility.get("independent_holdout")
+            else "holdout(非独立)")
+
+
 def summary_report_md(results: list[dict], dataset_name: str, judge_name: str,
                       judge_model: str | None, run_ids: list[str]) -> str:
     """results: 每项 {case, result|None, run_id, final_status}。按题型/标记分组。
@@ -84,7 +92,9 @@ def summary_report_md(results: list[dict], dataset_name: str, judge_name: str,
     groups: dict[tuple, list[dict]] = defaultdict(list)
     for r in results:
         c: CaseRecord = r["case"]
-        groups[(c.question_type, c.real_synthetic, c.split, c.review_status)].append(r)
+        groups[(c.question_type, c.real_synthetic, _split_label(c), c.review_status)].append(r)
+    indep = [r for r in results if _split_label(r["case"]) == "holdout(独立)"]
+    nonindep = [r for r in results if _split_label(r["case"]) == "holdout(非独立)"]
 
     total = len(results)
     scored = [r for r in results if _agg(r) is not None
@@ -92,10 +102,15 @@ def summary_report_md(results: list[dict], dataset_name: str, judge_name: str,
     blocked = [r for r in results if r["final_status"] == "blocked" or r["case"].blocked]
     not_run = [r for r in results if r["final_status"] in ("not_run", "run_missing")]
     refused = [r for r in scored if r["final_status"] != "answered"]
+    formal_flags = {r.get("formal") for r in results if r.get("formal") is not None}
+    nature = ("正式（全部 approved）" if formal_flags == {True}
+              else "校准（--allow-draft，非正式）" if formal_flags == {False}
+              else "混合/未标注")
 
     lines = [f"# E2E 汇总报告：{dataset_name}", "",
              f"- 运行：{', '.join(run_ids) or '—'}",
              f"- judge：{judge_name}（model={judge_model or '—'}）",
+             f"- 结果性质：{nature}",
              f"- 题数：{total}",
              "- 说明：本版不把质量/耗时/token 拼成单一总分，不设统一通过线。", "",
              "## 分母完整性", "",
@@ -104,7 +119,9 @@ def summary_report_md(results: list[dict], dataset_name: str, judge_name: str,
              f"| 已评分 | {len(scored)} | 有运行包并完成评分 |",
              f"| 其中未交付 | {len(refused)} | refuse/clarify/error，计入未完成分母 |",
              f"| blocked | {len(blocked)} | 保留在数据集，不与正常答错混算 |",
-             f"| 未运行/缺运行包 | {len(not_run)} | 计入分母并单列，不静默丢弃 |", "",
+             f"| 未运行/缺运行包 | {len(not_run)} | 计入分母并单列，不静默丢弃 |",
+             f"| 独立留出 | {len(indep)} | 与开发集期间不重叠，可作留出成绩 |",
+             f"| 非独立留出 | {len(nonindep)} | 与开发集共享期间，仅作诊断，不计入留出成绩 |", "",
              "## 分组统计", "",
              "| 题型 | 真实/合成 | split | 审核 | 题数 | 已评分 | 交付数 | 必答命中(均值) | 保守–乐观 |",
              "|---|---|---|---|---|---|---|---|---|"]
@@ -133,6 +150,14 @@ def summary_report_md(results: list[dict], dataset_name: str, judge_name: str,
         lines += ["", "## 未运行/缺运行包（计入分母）", ""]
         for r in not_run:
             lines.append(f"- {r['case'].case_id}｜{r['final_status']}")
+    if nonindep:
+        lines += ["", "## 非独立留出（诊断，不计入留出成绩）", "",
+                  "与开发集共享期间，泛化结论不得据此得出。", ""]
+        for r in nonindep:
+            a = _agg(r)
+            hit = "—" if a is None else f"{a['required_hit_rate']:.2f}"
+            lines.append(f"- {r['case'].case_id}｜必答命中 {hit}"
+                         f"｜{r['case'].data_visibility.get('independent_holdout_note', '')}")
 
     # 预测误差（仅评测侧，事后）
     fc = [(r, (_agg(r) or {}) ) for r in results
@@ -162,11 +187,11 @@ def summary_report_md(results: list[dict], dataset_name: str, judge_name: str,
         a = _agg(r)
         if a is None:
             lines.append(f"| {r['case'].case_id} | {r['case'].question_type}"
-                         f" | {r['case'].split} | {r['final_status']}"
+                         f" | {_split_label(r['case'])} | {r['final_status']}"
                          f" | 否 | — | — | — | — |")
         else:
             lines.append(f"| {r['case'].case_id} | {r['case'].question_type}"
-                         f" | {r['case'].split} | {r['final_status']}"
+                         f" | {_split_label(r['case'])} | {r['final_status']}"
                          f" | {'是' if a['delivered'] else '否'} | {a['required_hit_rate']:.2f}"
                          f" | {a['required_missing']} | {a['required_contradicted']}"
                          f" | {a['required_unknown']} |")

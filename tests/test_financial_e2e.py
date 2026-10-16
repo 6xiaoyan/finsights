@@ -207,6 +207,28 @@ def test_verify_numeric_rejects_wrong_period_number():
     assert res[0]["method"] == "model_judged"
 
 
+def test_verify_numeric_rejects_cumulative_vs_quarter():
+    """复审问题 1：FY2026Q1 的数字不得被当成 FY2026 9M 断言的命中。"""
+    c = make_case(nums=[NumericAssertion(metric="gross_margin", company="Lenovo",
+                                         period="FY2026 9M", value=15.0767, unit="pct")])
+    res = verify_numeric(c, "FY2026Q1 毛利率为 15.0767%。")
+    assert res[0]["ok"] is None
+    assert res[0]["method"] == "model_judged"
+    # 明确写出 9M 才认
+    res2 = verify_numeric(c, "FY2026 9M 毛利率为 15.0767%。")
+    assert res2[0]["ok"] is True
+
+
+def test_verify_numeric_requires_matching_unit_word():
+    """复审问题 1：把百分比写成 "15.0767元" 不得算 percentage 命中。"""
+    c = make_case(nums=[NumericAssertion(metric="gross_margin", company="Lenovo",
+                                         period="FY2026Q1", value=15.0767, unit="pct")])
+    res = verify_numeric(c, "FY2026Q1 毛利率为 15.0767元。")
+    assert res[0]["ok"] is None
+    res2 = verify_numeric(c, "FY2026Q1 毛利率为 15.0767%。")
+    assert res2[0]["ok"] is True
+
+
 def test_verify_numeric_flags_unit_conflict():
     c = make_case()   # usd_mn 断言
     res = verify_numeric(c, "FY2026Q1 该数为 18,829.869 人民币百万元。")
@@ -420,6 +442,32 @@ def test_forecast_metrics_point_and_interval():
     fm0 = forecast_metrics(c0, "预测值: 5")
     assert fm0["pct_err"] is None
     assert fm0["pct_err_note"]
+
+
+def test_forecast_heuristic_ignores_fiscal_year():
+    """复审问题 3：启发式不得把 FY2026 的年份当成预测值。"""
+    from eval.financial_e2e.forecast import extract_point
+    val, method = extract_point("联想 FY2026Q2 收入预测约 20000 百万美元", "usd_mn")
+    assert val == 20000.0
+    assert method == "heuristic_masked_period"
+
+
+def test_report_excludes_nonindependent_holdout():
+    """复审问题 2：非独立留出单列，不混入独立留出成绩。"""
+    ind = make_case("C-IND").model_copy(update={
+        "split": "holdout", "data_visibility": {"independent_holdout": True}})
+    non = make_case("C-NON").model_copy(update={
+        "split": "holdout",
+        "data_visibility": {"independent_holdout": False,
+                            "independent_holdout_note": "与开发集共享期间"}})
+    j = CallableJudge(point_fn=lambda q, p, f, a: "met")
+    r_ind = grade_case(ind, "答案", j)
+    r_non = grade_case(non, "答案", j)
+    items = [{"case": ind, "result": r_ind, "run_id": "r", "final_status": "answered"},
+             {"case": non, "result": r_non, "run_id": "r", "final_status": "answered"}]
+    md = summary_report_md(items, "ds", "callable", None, ["r"])
+    assert "holdout(独立)" in md and "holdout(非独立)" in md
+    assert "非独立留出（诊断，不计入留出成绩）" in md
 
 
 def test_forecast_metrics_none_without_truth():

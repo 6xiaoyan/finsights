@@ -12,6 +12,13 @@ _POINT_RE = re.compile(r"预测值[:：]\s*(-?[\d,]+(?:\.\d+)?)")
 _INTERVAL_RE = re.compile(
     r"(?:预测区间|区间)[:：]\s*(-?[\d,]+(?:\.\d+)?)\s*(?:~|～|至|-|—)\s*(-?[\d,]+(?:\.\d+)?)")
 _NUM_RE = re.compile(r"-?\d[\d,]*(?:\.\d+)?")
+# 启发式取数时用来识别"这个数字像不像预测值"的单位词
+_UNIT_TOKENS_FOR_HEURISTIC = {
+    "usd_mn": ("百万美元", "百萬美元", "百万", "百萬", "usd", "美元", "亿美元", "億美元"),
+    "pct": ("%", "％", "百分"),
+    "pct_point": ("百分点", "個百分點", "pp"),
+    "days": ("天",),
+}
 
 
 def _to_float(s: str) -> float:
@@ -28,17 +35,26 @@ def _unit_scale(window: str, unit: str) -> float:
     return 1.0
 
 
+# 财年/季度/年份写法：启发式取数前先屏蔽，避免把 "FY2026" 的年份当成预测值
+_PERIOD_MASK = re.compile(r"FY\s?\d{2,4}\s?(?:Q[1-4])?|\b(?:19|20)\d{2}\s?(?:Q[1-4])?\b")
+
+
 def extract_point(text: str, unit: str) -> tuple[float | None, str]:
     text = text or ""
     m = _POINT_RE.search(text)
     if m:
         val = _to_float(m.group(1))
         return val * _unit_scale(text[max(0, m.start() - 20):m.end() + 20], unit), "contract_line"
-    # 无契约行：取第一个较大的数字作为启发式点预测（标注 method，避免冒充精确抽取）
-    for m in _NUM_RE.finditer(text):
-        v = _to_float(m.group(0))
-        if abs(v) >= 1000:
-            return v * _unit_scale(text[max(0, m.start() - 20):m.end() + 20], unit), "heuristic"
+    # 无契约行：屏蔽期间/年份后，取邻近单位词或量级合理的数字作为启发式点预测
+    masked = _PERIOD_MASK.sub(" ", text)
+    cands = [(mm.start(), _to_float(mm.group(0))) for mm in _NUM_RE.finditer(masked)]
+    unit_tokens = _UNIT_TOKENS_FOR_HEURISTIC.get(unit, ())
+    near_unit = [(pos, v) for pos, v in cands
+                 if any(u in masked[max(0, pos - 20):pos + 20] for u in unit_tokens)]
+    pool = near_unit or [(pos, v) for pos, v in cands if abs(v) >= 1000]
+    if pool:
+        pos, v = pool[0]
+        return v * _unit_scale(masked[max(0, pos - 20):pos + 20], unit), "heuristic_masked_period"
     return None, "not_extracted"
 
 

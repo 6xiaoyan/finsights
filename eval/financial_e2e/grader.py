@@ -51,23 +51,33 @@ def _number_spans(text: str) -> list[tuple[int, float]]:
     return out
 
 
-def _period_tokens(period: str) -> list[str]:
-    """把断言的 period 归一成若干可匹配的期间写法。"""
-    toks: set[str] = set()
-    p = period.replace(" ", "")
-    m = re.match(r"FY(\d{4})(Q[1-4])?$", p)
+def _period_requirement(period: str) -> tuple[list[list[str]], list[str]]:
+    """把断言的 period 归一成 (必须出现的期间 token 组, 禁止出现的期间写法)。
+
+    每个 token 组是"任一命中"；所有组都必须命中。必须区分单季与累计：
+    FY2026Q1 的断言不能只凭窗口里的 "FY2026" 就当作命中，否则 FY2026Q1 的数字
+    会被算成 FY2026 9M 的命中（复审问题 1）。
+    """
+    p = period.replace(" ", "").replace("　", "")
+    m = re.fullmatch(r"FY(\d{4})(Q[1-4])?", p)
     if m:
         fy4, q = m.group(1), m.group(2)
-        toks.update({f"FY{fy4}", f"FY{fy4[2:]}"})
+        short = fy4[2:]
         if q:
-            toks.update({f"FY{fy4}{q}", f"FY{fy4[2:]}{q}", f"{fy4}{q}", f"{fy4[2:]}{q}"})
-    else:
-        for part in re.findall(r"FY\d{4}|Q[1-4]|[0-9]+M|H[12]", period):
-            toks.add(part)
-        fy = re.search(r"FY(\d{4})", period)
-        if fy:
-            toks.add(f"FY{fy.group(1)[2:]}")
-    return sorted(toks, key=len, reverse=True)
+            return [[f"FY{fy4}{q}", f"FY{short}{q}", f"{fy4}{q}", f"{short}{q}"]], []
+        return [[f"FY{fy4}", f"FY{short}"]], []
+    groups: list[list[str]] = []
+    forbidden: list[str] = []
+    if "9M" in p or "9个月" in period or "九个月" in period or "前三季" in period:
+        groups.append(["9M", "9m", "九个月", "9个月", "前三季", "前三季度", "九個"])
+        forbidden += ["Q4", "q4", "第四季"]
+    if "H1" in p.upper() or "上半年" in period or "半财年" in period:
+        groups.append(["H1", "h1", "上半年", "半年度", "半年"])
+        forbidden += ["Q3", "q3", "Q4", "q4", "第三季", "第四季"]
+    fys = re.findall(r"FY(\d{4})", period)
+    if fys:
+        groups.append([t for f in fys for t in (f"FY{f}", f"FY{f[2:]}")])
+    return groups or [[period]], forbidden
 
 
 def _candidate_hits(a, spans, text: str) -> list[tuple[int, float, str]]:
@@ -98,7 +108,8 @@ def verify_numeric(case: CaseRecord, answer_text: str) -> list[dict]:
     spans = _number_spans(text)
     results: list[dict] = []
     for a in case.numeric_assertions:
-        tokens = _period_tokens(a.period)
+        required, forbidden = _period_requirement(a.period)
+        unit_tokens = _UNIT_TOKENS.get(a.unit, ())
         hits = _candidate_hits(a, spans, text)
         base = {"metric": a.metric, "period": a.period, "expected": a.value,
                 "unit": a.unit, "category": a.category}
@@ -106,13 +117,16 @@ def verify_numeric(case: CaseRecord, answer_text: str) -> list[dict]:
         conflict = None
         for pos, n, tag in hits:
             window = text[max(0, pos - _WINDOW):pos + _WINDOW]
-            if tokens and not any(t in window for t in tokens):
-                continue                       # 数字命中但期间不符 → 不算命中
-            unit_tokens = _UNIT_TOKENS.get(a.unit, ())
-            bad = [w for w in _UNIT_CONFLICT.get(a.unit, ()) if w in window]
-            if bad:
+            if any(w in window for w in _UNIT_CONFLICT.get(a.unit, ())):
+                bad = [w for w in _UNIT_CONFLICT.get(a.unit, ()) if w in window]
                 conflict = (n, tag, bad)
                 continue
+            if required and not all(any(t in window for t in grp) for grp in required):
+                continue                       # 期间写法不符（如单季 vs 累计）→ 不算命中
+            if forbidden and any(f in window for f in forbidden):
+                continue                       # 出现超出该口径的期间 → 不算命中
+            if unit_tokens and not any(u in window for u in unit_tokens):
+                continue                       # 正单位词未出现 → 不能确认单位
             measured = (n, tag)
             break
         if measured is not None:
@@ -125,7 +139,8 @@ def verify_numeric(case: CaseRecord, answer_text: str) -> list[dict]:
                             "method": "measured_unit_mismatch",
                             "reason": f"命中数字但单位疑似冲突: {bad}"})
         else:
-            reason = ("命中相近数字但期间不符或缺失" if hits else "未抽取到对应期间的确切数字")
+            reason = ("命中相近数字但期间口径或单位不符/缺失" if hits
+                      else "未抽取到对应期间的确切数字")
             results.append({**base, "found": None, "ok": None, "method": "model_judged",
                             "reason": reason})
     return results

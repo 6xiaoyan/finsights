@@ -185,7 +185,7 @@ def _load_results(path: Path) -> list[dict]:
 
 
 def _score_one(case: CaseRecord, run_dir: Path, judge, results_jsonl: Path,
-               report_dir: Path, dataset_path: Path) -> dict:
+               report_dir: Path, dataset_path: Path, formal: bool = True) -> dict:
     art = load_run_artifact(run_dir, case.case_id)
     answer_text = art.final_answer if art.final_status == "answered" else None
     grading_text = answer_text  # 只有最终提交答案才进入正式评分（PRD §6.1）
@@ -194,7 +194,7 @@ def _score_one(case: CaseRecord, run_dir: Path, judge, results_jsonl: Path,
     rec = {"case_id": case.case_id, "run_id": art.run_id,
            "final_status": art.final_status, "final_answer": answer_text,
            "dataset": str(dataset_path), "dataset_revision": case.case_revision,
-           "code_commit": _git_commit(), "grader_version": GRADER_VERSION,
+           "code_commit": _git_commit(), "grader_version": GRADER_VERSION, "formal": formal,
            "judge": {"name": getattr(judge, "name", "unknown"),
                      "model": getattr(judge, "model", None)},
            "result": {
@@ -222,7 +222,8 @@ def cmd_score_run(args) -> int:
     results_jsonl = Path(args.results) if args.results else Path(args.out) / "results.jsonl"
     results_jsonl.parent.mkdir(parents=True, exist_ok=True)
     rec = _score_one(case, run_dir, judge, results_jsonl,
-                     Path(args.out) / "cases", Path(args.cases))
+                     Path(args.out) / "cases", Path(args.cases),
+                     formal=not args.allow_draft)
     a = rec["result"]["aggregate"]
     print(f"{case.case_id}: status={rec['final_status']} delivered={a['delivered']} "
           f"必答命中={a['required_hit_rate']:.2f} "
@@ -273,23 +274,24 @@ def cmd_run_dataset(args) -> int:
     results_jsonl = Path(args.out) / "results.jsonl"
     if results_jsonl.exists() and args.reset:
         results_jsonl.unlink()
+    formal = not args.allow_draft
     records = []
     for c in cases:
         if c.blocked:
             rec = _record_unscored(c, "blocked", judge, results_jsonl, Path(args.cases),
-                                   reason=c.blocked_reason)
+                                   reason=c.blocked_reason, formal=formal)
             records.append(rec)
             print(f"{c.case_id}: blocked（{c.blocked_reason}），记入分母但不运行")
             continue
         run_dir = _run_agent_cli(c, out_root, args)
         if run_dir is None:
             rec = _record_unscored(c, "run_missing", judge, results_jsonl, Path(args.cases),
-                                   reason="Agent 未产生运行包")
+                                   reason="Agent 未产生运行包", formal=formal)
             records.append(rec)
             print(f"{c.case_id}: 运行包缺失，记入分母（不伪造事件）", file=sys.stderr)
             continue
         rec = _score_one(c, run_dir, judge, results_jsonl, Path(args.out) / "cases",
-                         Path(args.cases))
+                         Path(args.cases), formal=formal)
         records.append(rec)
     scored = sum(1 for r in records if r["final_status"] not in ("blocked", "run_missing"))
     print(f"共 {len(records)} 题入分母（已评分 {scored}）；结果：{results_jsonl}")
@@ -297,14 +299,14 @@ def cmd_run_dataset(args) -> int:
 
 
 def _record_unscored(case, status: str, judge, results_jsonl: Path, dataset_path: Path,
-                     reason: str | None) -> dict:
+                     reason: str | None, formal: bool = True) -> dict:
     """未运行/被阻塞的题也写入结果，保证汇总分母完整（复审问题 3）。"""
     result = grade_case(case, "", judge, run_id="")
     from eval.runner import _git_commit
     rec = {"case_id": case.case_id, "run_id": "", "final_status": status,
            "final_answer": None, "dataset": str(dataset_path),
            "dataset_revision": case.case_revision, "code_commit": _git_commit(),
-           "grader_version": GRADER_VERSION,
+           "grader_version": GRADER_VERSION, "formal": formal,
            "judge": {"name": getattr(judge, "name", "unknown"),
                      "model": getattr(judge, "model", None)},
            "unscored_reason": reason,
@@ -334,7 +336,8 @@ def cmd_report(args) -> int:
         else:
             items.append({"case": case, "result": rec["result"],
                           "run_id": rec.get("run_id", ""),
-                          "final_status": rec.get("final_status", "unknown")})
+                          "final_status": rec.get("final_status", "unknown"),
+                          "formal": rec.get("formal")})
     run_ids = sorted({r["run_id"] for r in results.values() if r.get("run_id")})
     judges = {(r.get("judge") or {}).get("name") for r in results.values()}
     judges.discard(None)
