@@ -89,10 +89,14 @@ def make_judge(mode: str, *, point_fn: Any = None, system: str | None = None) ->
 
 
 def load_samples(path: str | Path) -> list[dict]:
-    """读固定样例（JSONL，忽略空行与 # 注释行）。"""
+    """读固定样例（JSONL，忽略空行与 # 注释行）。
+
+    用 utf-8-sig 读：Windows 上编辑器/PowerShell 很容易给文件加 BOM，
+    否则第一行会被当成非法 JSON。
+    """
     out: list[dict] = []
-    for line in Path(path).read_text(encoding="utf-8").splitlines():
-        line = line.strip()
+    for line in Path(path).read_text(encoding="utf-8-sig").splitlines():
+        line = line.lstrip("﻿").strip()
         if not line or line.startswith("#"):
             continue
         out.append(json.loads(line))

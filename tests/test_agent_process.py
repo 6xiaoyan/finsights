@@ -1391,3 +1391,197 @@ def test_worker_evaluate_sample_runs():
     assert out["sample_id"] == sample["sample_id"]
     assert out["attribution"]["cause"] == sample["annotations"]["cause"]
     assert out["annotation"] == sample["annotations"]
+
+
+# ------------------------------------------------------------------ Task 9：Reviewer
+
+REVIEWER_SAMPLES = Path("eval/agent_process/samples/reviewer.jsonl")
+
+
+def test_precision_recall_on_annotated_sample():
+    from eval.agent_process.roles.reviewer import score_against_annotations
+
+    annotated = [{"category": "wrong_period", "statement": "用了 FY2023Q4"},
+                 {"category": "omission", "statement": "漏了存货"},
+                 {"category": "unit_error", "statement": "单位错"}]
+    detected = [{"category": "wrong_period", "statement": "用了 FY2023Q4"},
+                {"category": "omission", "statement": "漏了收入"}]
+    out = score_against_annotations(detected, annotated)
+
+    assert out["true_positive"] == 1
+    assert out["false_positive"] == 1
+    assert out["false_negative"] == 2
+    assert out["precision"] == 0.5
+    assert out["recall"] == pytest.approx(1 / 3)
+
+
+def test_precision_none_when_nothing_detected():
+    from eval.agent_process.roles.reviewer import score_against_annotations
+
+    out = score_against_annotations([], [{"category": "omission", "statement": "漏了"}])
+    # 一个都没检出：precision 无定义（不填 0 冒充算过），recall 确为 0
+    assert out["precision"] is None
+    assert out["recall"] == 0.0
+    assert out["missed"][0]["category"] == "omission"
+
+
+def test_clean_sample_false_positive_only():
+    from eval.agent_process.roles.reviewer import score_against_annotations
+
+    out = score_against_annotations([{"category": "omission", "statement": "其实没问题"}], [])
+    assert out["true_positive"] == 0
+    assert out["precision"] == 0.0
+    assert out["recall"] is None       # 没有应检出项，recall 无定义
+    assert out["unexpected"][0]["statement"] == "其实没问题"
+
+
+def _reviewer_pkg(tmp_path, *, next_attempt=True, finding_status="open"):
+    """默认包 + 可选的同节点后续产物（用于审查↔版本关联）。"""
+    run = _write_run_package(tmp_path)
+    state_path = run / "analysis" / "analysis_state.json"
+    state = json.loads(state_path.read_text(encoding="utf-8"))
+    state["reviews"]["rev1"]["findings"][0]["response_status"] = finding_status
+    if next_attempt:
+        nxt = json.loads(json.dumps(state["artifacts"]["art1"]))
+        nxt.update({"artifact_id": "art2", "attempt": 2, "summary": "已补基期"})
+        state["artifacts"]["art2"] = nxt
+        state["plans"]["1"]["nodes"][0]["latest_artifact_id"] = "art2"
+    state_path.write_text(json.dumps(state, ensure_ascii=False), encoding="utf-8")
+    return run
+
+
+def _link(tmp_path, **kw):
+    from eval.agent_process.adapt import load_process_package
+    from eval.agent_process.roles.reviewer import link_review_rounds
+
+    return link_review_rounds(load_process_package(_reviewer_pkg(tmp_path, **kw),
+                                                   case_id="LV-T01"))
+
+
+def test_review_round_linked_to_next_version(tmp_path):
+    out = _link(tmp_path)
+
+    rnd = out["rounds"][0]
+    assert rnd["review_id"] == "rev1"
+    assert rnd["target_id"] == "art1"
+    assert rnd["target_version"] == "rev1-attempt1"
+    assert rnd["next_version"] == "rev1-attempt2"
+    assert out["unlinkable"] == []
+
+
+def test_finding_response_status_marks_fixed(tmp_path):
+    out = _link(tmp_path, finding_status="addressed")
+    assert out["rounds"][0]["fixed"] == ["rev1-f1"]
+    assert out["rounds"][0]["not_fixed"] == []
+
+
+def test_open_finding_stays_not_fixed(tmp_path):
+    out = _link(tmp_path, finding_status="open")
+    assert out["rounds"][0]["not_fixed"] == ["rev1-f1"]
+    assert out["rounds"][0]["fixed"] == []
+
+
+def test_declined_finding_reported_separately(tmp_path):
+    out = _link(tmp_path, finding_status="declined")
+    rnd = out["rounds"][0]
+    assert rnd["declined"] == ["rev1-f1"]
+    assert rnd["fixed"] == [] and rnd["not_fixed"] == []
+
+
+def test_unlinkable_review_reported_not_faked(tmp_path):
+    """没有后续产物就无法判断是否修复：不伪造改进率。"""
+    out = _link(tmp_path, next_attempt=False)
+
+    assert out["rounds"][0]["next_version"] is None
+    assert out["unlinkable"][0]["review_id"] == "rev1"
+    blob = json.dumps(out, ensure_ascii=False)
+    assert "improvement_rate" not in blob
+    assert any("无法关联" in n or "不伪造" in n for n in out["notes"])
+
+
+def test_duplicate_findings_deduped_with_rounds_kept(tmp_path):
+    run = _reviewer_pkg(tmp_path)
+    state_path = run / "analysis" / "analysis_state.json"
+    state = json.loads(state_path.read_text(encoding="utf-8"))
+    dup = json.loads(json.dumps(state["reviews"]["rev1"]))
+    dup.update({"review_id": "rev2", "target_id": "art2",
+                "target_version": "rev1-attempt2"})
+    dup["findings"][0]["finding_id"] = "rev2-f1"
+    state["reviews"]["rev2"] = dup
+    state_path.write_text(json.dumps(state, ensure_ascii=False), encoding="utf-8")
+
+    from eval.agent_process.adapt import load_process_package
+    from eval.agent_process.roles.reviewer import link_review_rounds
+
+    out = link_review_rounds(load_process_package(run, case_id="LV-T01"))
+    dupes = [d for d in out["deduped_findings"]
+             if d["statement"] == "同比缺基期"]
+    assert len(dupes) == 1
+    assert len(dupes[0]["rounds"]) == 2          # 轮次保留，不丢
+    assert dupes[0]["occurrences"] == 2
+
+
+def test_reviewer_counts_include_severity_and_verdict(tmp_path):
+    from eval.agent_process.adapt import load_process_package
+    from eval.agent_process.roles.reviewer import evaluate_package
+
+    out = evaluate_package(load_process_package(_reviewer_pkg(tmp_path),
+                                                case_id="LV-T01"))
+    c = out["counts"]
+    assert c["reviews"] == 1
+    assert c["findings"] == 1
+    assert c["must_fix"] == 1
+    assert c["verdicts"] == {"needs_revision": 1}
+
+
+def test_accepted_is_treated_as_tested_output(tmp_path):
+    """accepted 是被测输出，不是标准答案：不据此推断问题已修复。"""
+    from eval.agent_process.adapt import load_process_package
+    from eval.agent_process.roles.reviewer import evaluate_package
+
+    run = _reviewer_pkg(tmp_path, next_attempt=False)
+    state_path = run / "analysis" / "analysis_state.json"
+    state = json.loads(state_path.read_text(encoding="utf-8"))
+    state["reviews"]["rev1"]["verdict"] = "accepted"
+    state["reviews"]["rev1"]["findings"] = []
+    state_path.write_text(json.dumps(state, ensure_ascii=False), encoding="utf-8")
+
+    out = evaluate_package(load_process_package(run, case_id="LV-T01"))
+    assert out["evidence_basis"]["verdict"] == "measured"
+    assert "improvement_rate" not in json.dumps(out, ensure_ascii=False)
+    assert any("accepted" in n and "不是标准答案" in n for n in out["notes"])
+
+
+def test_reviewer_samples_cover_required_categories():
+    """PRD §8.3 的七个场景由 scenario 字段表达，不能只看 annotated_issues。
+
+    `alternative_algorithm_ok` 的正确行为是「不报问题」，它永远不该出现在标注问题里。
+    """
+    from eval.agent_process.roles.common import load_samples
+    from eval.agent_process.roles.reviewer import REVIEW_CATEGORIES
+
+    samples = load_samples(REVIEWER_SAMPLES)
+    assert len(samples) >= 8
+    scenarios = {s["scenario"] for s in samples}
+    assert set(REVIEW_CATEGORIES) <= scenarios, \
+        f"缺场景: {sorted(set(REVIEW_CATEGORIES) - scenarios)}"
+
+    annotated = {i["category"] for s in samples for i in (s.get("annotated_issues") or [])}
+    assert annotated <= set(REVIEW_CATEGORIES)
+    assert "alternative_algorithm_ok" not in annotated, "它是「不算问题」场景，不该被标注为问题"
+
+    clean = [s for s in samples if not (s.get("annotated_issues") or [])]
+    assert len(clean) >= 2, "必须有「无错误样例」才能测误报"
+
+
+def test_reviewer_evaluate_sample_runs():
+    from eval.agent_process.roles.common import load_samples
+    from eval.agent_process.roles.reviewer import evaluate_sample
+
+    samples = load_samples(REVIEWER_SAMPLES)
+    out = evaluate_sample(samples[0])
+
+    assert out["sample_id"] == samples[0]["sample_id"]
+    assert out["evidence_basis"]["precision_recall"] == "measured"
+    assert out["evidence_basis"]["detection"] == "pipeline_check"
+    assert out["annotation"] == samples[0]["annotations"]
