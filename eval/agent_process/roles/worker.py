@@ -279,6 +279,7 @@ def evaluate_sample(sample: dict, judge: Any = None, *,
 
     measured_basis = evidence_basis(True, False)
     judged_basis = evidence_basis(False, judged is not None, judge_is_live=judge_is_live)
+    expected = (sample.get("annotations") or {}).get("cause")
     return {
         "sample_id": sample.get("sample_id"),
         "node_id": (sample.get("node") or {}).get("node_id"),
@@ -296,4 +297,9 @@ def evaluate_sample(sample: dict, judge: Any = None, *,
             "gap_statement": measured_basis,
         },
         "annotation": sample.get("annotations") or {},
+        # 复现情况：程序归因是否与标注一致。不一致时必须显式报出，不能隐藏。
+        "cause_matches_annotation": attribution["cause"] == expected,
+        "expected_cause": expected,
+        # intent_error 只能由 Judge 判 contradicted 得出；离线模拟判必然降级成 unknown
+        "requires_live_judge": expected == "intent_error",
     }

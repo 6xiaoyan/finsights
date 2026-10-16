@@ -1,0 +1,485 @@
+{
+ "version": "process-query-v1",
+ "reason_codes": {
+  "ok": "执行成功并产出结果",
+  "catalog_miss": "目录外取值（未知指标/公司/期间/分组/筛选值）",
+  "ambiguous": "问题与节点任务冲突或多值无法定，需澄清",
+  "no_data": "请求的范围没有数据（空结果不等于 0）",
+  "parse_fail": "提取器协议/格式失败，未产出可执行计划",
+  "exec_fail": "计划已生成但执行失败（SQL/连接等）",
+  "unsupported": "当前能力不支持的组合（如衍生指标 + 明细维度）",
+  "failed_unclassified": "调用失败，但历史包未记录失败类别",
+  "unknown": "状态与结果都缺失，无法判定"
+ },
+ "calls": 11,
+ "by_reason": {
+  "ok": 11
+ },
+ "records": [
+  {
+   "query_trace_id": null,
+   "call_index": 0,
+   "agent_call_id": "worker@2#n1",
+   "node_id": "n1",
+   "role": "worker",
+   "question": "联想集团 FY2025Q1 营业收入（集团合并口径），请给出币种、单位与对应期间",
+   "status": "ok",
+   "call_ok": true,
+   "reason": "ok",
+   "issue_codes": [],
+   "result_ids": [
+    "r2"
+   ],
+   "source": "derived",
+   "conformance": {
+    "periods_requested": [
+     "FY2025Q1"
+    ],
+    "periods_returned": [
+     "FY2025Q1"
+    ],
+    "period_violations": [],
+    "columns_present": [
+     "company",
+     "metric",
+     "period",
+     "period_basis",
+     "unit",
+     "value",
+     "operation",
+     "current",
+     "baseline",
+     "flag"
+    ],
+    "columns_missing": [],
+    "status": "ok"
+   },
+   "derivation_notes": []
+  },
+  {
+   "query_trace_id": null,
+   "call_index": 1,
+   "agent_call_id": "worker@2#n1",
+   "node_id": "n1",
+   "role": "worker",
+   "question": "联想集团 FY2025Q1 与 FY2024Q1 营业收入对比（集团合并口径，usd_mn）",
+   "status": "ok",
+   "call_ok": true,
+   "reason": "ok",
+   "issue_codes": [],
+   "result_ids": [
+    "r3"
+   ],
+   "source": "derived",
+   "conformance": {
+    "periods_requested": [
+     "FY2025Q1",
+     "FY2024Q1"
+    ],
+    "periods_returned": [
+     "FY2024Q1",
+     "FY2025Q1"
+    ],
+    "period_violations": [],
+    "columns_present": [
+     "company",
+     "metric",
+     "period",
+     "period_basis",
+     "unit",
+     "value",
+     "operation",
+     "current",
+     "baseline",
+     "flag"
+    ],
+    "columns_missing": [],
+    "status": "ok"
+   },
+   "derivation_notes": []
+  },
+  {
+   "query_trace_id": null,
+   "call_index": 2,
+   "agent_call_id": "worker@3#n2",
+   "node_id": "n2",
+   "role": "worker",
+   "question": "联想集团 FY2025Q1（2024年4-6月）营业收入是多少？请给出数值、币种、单位",
+   "status": "ok",
+   "call_ok": true,
+   "reason": "ok",
+   "issue_codes": [],
+   "result_ids": [
+    "r2"
+   ],
+   "source": "derived",
+   "conformance": {
+    "periods_requested": [
+     "FY2025Q1"
+    ],
+    "periods_returned": [
+     "FY2025Q1"
+    ],
+    "period_violations": [],
+    "columns_present": [
+     "company",
+     "metric",
+     "period",
+     "period_basis",
+     "unit",
+     "value",
+     "operation",
+     "current",
+     "baseline",
+     "flag"
+    ],
+    "columns_missing": [],
+    "status": "ok"
+   },
+   "derivation_notes": []
+  },
+  {
+   "query_trace_id": null,
+   "call_index": 3,
+   "agent_call_id": "worker@4#n3",
+   "node_id": "n3",
+   "role": "worker",
+   "question": "联想集团（Lenovo）最近几个季度的营业收入、毛利、净利润、营业成本分别是多少？请列出各季度数值",
+   "status": "ok",
+   "call_ok": true,
+   "reason": "ok",
+   "issue_codes": [],
+   "result_ids": [
+    "r4"
+   ],
+   "source": "derived",
+   "conformance": {
+    "periods_requested": [
+     "FY2024Q4",
+     "FY2024Q3",
+     "FY2024Q2",
+     "FY2024Q1"
+    ],
+    "periods_returned": [
+     "FY2024Q1",
+     "FY2024Q2",
+     "FY2024Q3",
+     "FY2024Q4"
+    ],
+    "period_violations": [],
+    "columns_present": [
+     "company",
+     "metric",
+     "period",
+     "period_basis",
+     "unit",
+     "value",
+     "operation",
+     "current",
+     "baseline",
+     "flag"
+    ],
+    "columns_missing": [],
+    "status": "ok"
+   },
+   "derivation_notes": []
+  },
+  {
+   "query_trace_id": null,
+   "call_index": 4,
+   "agent_call_id": "worker@4#n3",
+   "node_id": "n3",
+   "role": "worker",
+   "question": "联想集团 FY2024Q3 营业收入按地区（region）和产品线（product_line）拆分分别是多少？请列出明细",
+   "status": "ok",
+   "call_ok": true,
+   "reason": "ok",
+   "issue_codes": [],
+   "result_ids": [
+    "r5"
+   ],
+   "source": "derived",
+   "conformance": {
+    "periods_requested": [
+     "FY2024Q3"
+    ],
+    "periods_returned": [
+     "FY2024Q3"
+    ],
+    "period_violations": [],
+    "columns_present": [
+     "company",
+     "metric",
+     "period",
+     "period_basis",
+     "unit",
+     "value",
+     "operation",
+     "current",
+     "baseline",
+     "flag",
+     "region",
+     "product_line"
+    ],
+    "columns_missing": [],
+    "status": "ok"
+   },
+   "derivation_notes": []
+  },
+  {
+   "query_trace_id": null,
+   "call_index": 5,
+   "agent_call_id": "worker@4#n3",
+   "node_id": "n3",
+   "role": "worker",
+   "question": "联想集团 FY2024Q3 的营业收入、毛利、营业成本、经营利润、净利润分别是多少？",
+   "status": "ok",
+   "call_ok": true,
+   "reason": "ok",
+   "issue_codes": [],
+   "result_ids": [
+    "r6"
+   ],
+   "source": "derived",
+   "conformance": {
+    "periods_requested": [
+     "FY2024Q3"
+    ],
+    "periods_returned": [
+     "FY2024Q3"
+    ],
+    "period_violations": [],
+    "columns_present": [
+     "company",
+     "metric",
+     "period",
+     "period_basis",
+     "unit",
+     "value",
+     "operation",
+     "current",
+     "baseline",
+     "flag"
+    ],
+    "columns_missing": [],
+    "status": "ok"
+   },
+   "derivation_notes": []
+  },
+  {
+   "query_trace_id": null,
+   "call_index": 6,
+   "agent_call_id": "worker@7#n3",
+   "node_id": "n3",
+   "role": "worker",
+   "question": "联想集团 FY2025Q1 的营业收入、营业成本、毛利、营业利润、净利润分别是多少？",
+   "status": "ok",
+   "call_ok": true,
+   "reason": "ok",
+   "issue_codes": [],
+   "result_ids": [
+    "r8"
+   ],
+   "source": "derived",
+   "conformance": {
+    "periods_requested": [
+     "FY2025Q1"
+    ],
+    "periods_returned": [
+     "FY2025Q1"
+    ],
+    "period_violations": [],
+    "columns_present": [
+     "company",
+     "metric",
+     "period",
+     "period_basis",
+     "unit",
+     "value",
+     "operation",
+     "current",
+     "baseline",
+     "flag"
+    ],
+    "columns_missing": [],
+    "status": "ok"
+   },
+   "derivation_notes": []
+  },
+  {
+   "query_trace_id": null,
+   "call_index": 7,
+   "agent_call_id": "worker@7#n3",
+   "node_id": "n3",
+   "role": "worker",
+   "question": "联想集团 FY2025Q1 按 region 和 product_line 分组的营业收入明细分别是多少？",
+   "status": "ok",
+   "call_ok": true,
+   "reason": "ok",
+   "issue_codes": [],
+   "result_ids": [
+    "r9"
+   ],
+   "source": "derived",
+   "conformance": {
+    "periods_requested": [
+     "FY2025Q1"
+    ],
+    "periods_returned": [
+     "FY2025Q1"
+    ],
+    "period_violations": [],
+    "columns_present": [
+     "company",
+     "metric",
+     "period",
+     "period_basis",
+     "unit",
+     "value",
+     "operation",
+     "current",
+     "baseline",
+     "flag",
+     "region",
+     "product_line"
+    ],
+    "columns_missing": [],
+    "status": "ok"
+   },
+   "derivation_notes": []
+  },
+  {
+   "query_trace_id": null,
+   "call_index": 8,
+   "agent_call_id": "worker@7#n3",
+   "node_id": "n3",
+   "role": "worker",
+   "question": "联想集团 FY2025Q1 与 FY2024Q1 的营业收入、营业成本、毛利、营业利润、净利润分别是多少？",
+   "status": "ok",
+   "call_ok": true,
+   "reason": "ok",
+   "issue_codes": [],
+   "result_ids": [
+    "r10"
+   ],
+   "source": "derived",
+   "conformance": {
+    "periods_requested": [
+     "FY2025Q1",
+     "FY2024Q1"
+    ],
+    "periods_returned": [
+     "FY2024Q1",
+     "FY2025Q1"
+    ],
+    "period_violations": [],
+    "columns_present": [
+     "company",
+     "metric",
+     "period",
+     "period_basis",
+     "unit",
+     "value",
+     "operation",
+     "current",
+     "baseline",
+     "flag"
+    ],
+    "columns_missing": [],
+    "status": "ok"
+   },
+   "derivation_notes": []
+  },
+  {
+   "query_trace_id": null,
+   "call_index": 9,
+   "agent_call_id": "worker@9#n4",
+   "node_id": "n4",
+   "role": "worker",
+   "question": "联想 FY2025Q1 营业收入是多少？",
+   "status": "ok",
+   "call_ok": true,
+   "reason": "ok",
+   "issue_codes": [],
+   "result_ids": [
+    "r2"
+   ],
+   "source": "derived",
+   "conformance": {
+    "periods_requested": [
+     "FY2025Q1"
+    ],
+    "periods_returned": [
+     "FY2025Q1"
+    ],
+    "period_violations": [],
+    "columns_present": [
+     "company",
+     "metric",
+     "period",
+     "period_basis",
+     "unit",
+     "value",
+     "operation",
+     "current",
+     "baseline",
+     "flag"
+    ],
+    "columns_missing": [],
+    "status": "ok"
+   },
+   "derivation_notes": []
+  },
+  {
+   "query_trace_id": null,
+   "call_index": 10,
+   "agent_call_id": "worker@9#n4",
+   "node_id": "n4",
+   "role": "worker",
+   "question": "联想 FY2025Q1 与 FY2024Q1 营业收入及同比变化率",
+   "status": "ok",
+   "call_ok": true,
+   "reason": "ok",
+   "issue_codes": [],
+   "result_ids": [
+    "r15"
+   ],
+   "source": "derived",
+   "conformance": {
+    "periods_requested": [
+     "FY2025Q1",
+     "FY2024Q1"
+    ],
+    "periods_returned": [
+     "FY2024Q1",
+     "FY2025Q1"
+    ],
+    "period_violations": [],
+    "columns_present": [
+     "company",
+     "metric",
+     "period",
+     "period_basis",
+     "unit",
+     "value",
+     "operation",
+     "current",
+     "baseline",
+     "flag"
+    ],
+    "columns_missing": [],
+    "status": "ok"
+   },
+   "derivation_notes": []
+  }
+ ],
+ "coverage": {
+  "has_run_package_records": false,
+  "derived_calls": 11,
+  "unlinked_calls": 0
+ },
+ "notes": [
+  "查询记录派生自 tool_result/results.json，缺少提取明细与调用级 id；派生记录只覆盖成功路径，失败调用在历史包中无记录，分母不完整",
+  "查询次数只作展示，多写或少写都不自动改变质量判断（PRD §7.3）"
+ ]
+}

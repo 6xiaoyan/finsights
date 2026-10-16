@@ -109,8 +109,33 @@ def _roles_samples(args, judge, judge_is_live: bool) -> dict:
         else:
             items = [worker_role.evaluate_sample(s, judge, judge_is_live=judge_is_live)
                      for s in samples]
-        result[role] = {"samples": items, "count": len(items)}
+        result[role] = {"samples": items, "count": len(items),
+                        **_sample_agreement(role, items)}
     return result
+
+
+def _sample_agreement(role: str, items: list[dict]) -> dict:
+    """复现情况汇总：程序结论与样例标注是否一致。
+
+    不一致必须显式报出——尤其 Worker 的 intent_error 只能由 Judge 判 contradicted 得出，
+    离线模拟判必然降级成 unknown；这属于「本阶段拿不到」，不是评测器判错。
+    """
+    if role == "worker":
+        ok = [i for i in items if i.get("cause_matches_annotation")]
+        return {"agreement": len(ok), "total": len(items),
+                "requires_live_judge": [i["sample_id"] for i in items
+                                        if i.get("requires_live_judge")
+                                        and not i.get("cause_matches_annotation")],
+                "mismatched": [i["sample_id"] for i in items
+                               if not i.get("cause_matches_annotation")]}
+    if role == "planner":
+        return {"with_coverage_mapping": sum(1 for i in items
+                                             if i["coverage"]["status"] == "judged"),
+                "total": len(items)}
+    defined = [i for i in items if i["precision"] is not None]
+    return {"with_precision": len(defined), "total": len(items),
+            "mean_precision": (sum(i["precision"] for i in defined) / len(defined)
+                               if defined else None)}
 
 
 def cmd_roles(args) -> int:

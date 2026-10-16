@@ -1,0 +1,521 @@
+{
+ "mode": "samples",
+ "role": "reviewer",
+ "judge": "fake",
+ "is_real_quality_score": false,
+ "not_real_quality_score": true,
+ "note": "固定样例 + 模拟判定：只验证评测流程，不是真实质量评分",
+ "samples": [
+  {
+   "sample_id": "RV-01",
+   "question": "联想 FY2024Q2 存货同比？",
+   "target": {
+    "target_type": "artifact",
+    "target_id": "art1",
+    "target_version": "rev1-attempt1",
+    "content": "存货 FY2024Q2 为 100，同比增长 12%（对比 FY2023Q4）"
+   },
+   "true_positive": 1,
+   "false_positive": 0,
+   "false_negative": 0,
+   "precision": 1.0,
+   "recall": 1.0,
+   "matched": [
+    {
+     "category": "wrong_period",
+     "severity": "must_fix",
+     "statement": "同比用了 FY2023Q4 作为基期，应为 FY2023Q2",
+     "explanation": "FY2024Q2 的同比基期是同财年的 Q2",
+     "suggested_action": "改用 FY2023Q2 重算",
+     "evidence_refs": [
+      "r2"
+     ]
+    }
+   ],
+   "unexpected": [],
+   "missed": [],
+   "severities": {
+    "must_fix": 1
+   },
+   "is_clean_sample": false,
+   "dimensions": [
+    "problem_detection",
+    "misses",
+    "false_positives",
+    "severity",
+    "evidence_basis",
+    "actionability",
+    "fix_linkage"
+   ],
+   "evidence_basis": {
+    "problem_detection": "unknown",
+    "misses": "measured",
+    "false_positives": "measured",
+    "severity": "measured",
+    "evidence_basis": "unknown",
+    "actionability": "unknown",
+    "fix_linkage": "unknown",
+    "detection": "pipeline_check",
+    "annotation": "human_reviewed",
+    "precision_recall": "measured"
+   },
+   "annotation": {
+    "notes": [
+     "检出与标注一致：命中错期间"
+    ]
+   }
+  },
+  {
+   "sample_id": "RV-02",
+   "question": "存货金额多少？",
+   "target": {
+    "target_type": "artifact",
+    "target_id": "art1",
+    "target_version": "rev1-attempt1",
+    "content": "存货 100 亿美元"
+   },
+   "true_positive": 1,
+   "false_positive": 0,
+   "false_negative": 0,
+   "precision": 1.0,
+   "recall": 1.0,
+   "matched": [
+    {
+     "category": "unit_error",
+     "severity": "must_fix",
+     "statement": "把百万美元写成亿美元，量级差 100 倍",
+     "explanation": "工具返回单位是 USD mn",
+     "suggested_action": "改为亿美元或数值除以 100",
+     "evidence_refs": [
+      "r2"
+     ]
+    }
+   ],
+   "unexpected": [],
+   "missed": [],
+   "severities": {
+    "must_fix": 1
+   },
+   "is_clean_sample": false,
+   "dimensions": [
+    "problem_detection",
+    "misses",
+    "false_positives",
+    "severity",
+    "evidence_basis",
+    "actionability",
+    "fix_linkage"
+   ],
+   "evidence_basis": {
+    "problem_detection": "unknown",
+    "misses": "measured",
+    "false_positives": "measured",
+    "severity": "measured",
+    "evidence_basis": "unknown",
+    "actionability": "unknown",
+    "fix_linkage": "unknown",
+    "detection": "pipeline_check",
+    "annotation": "human_reviewed",
+    "precision_recall": "measured"
+   },
+   "annotation": {
+    "notes": [
+     "检出与标注一致：命中单位错误"
+    ]
+   }
+  },
+  {
+   "sample_id": "RV-03",
+   "question": "存货与收入的关系？",
+   "target": {
+    "target_type": "artifact",
+    "target_id": "art1",
+    "target_version": "rev1-attempt1",
+    "content": "存货同比上升 12%"
+   },
+   "true_positive": 1,
+   "false_positive": 1,
+   "false_negative": 0,
+   "precision": 0.5,
+   "recall": 1.0,
+   "matched": [
+    {
+     "category": "omission",
+     "severity": "must_fix",
+     "statement": "节点要求同时给出存货与收入，产物只写了存货",
+     "explanation": "完成标准明确要求两项",
+     "suggested_action": "补收入同比",
+     "evidence_refs": []
+    }
+   ],
+   "unexpected": [
+    {
+     "category": "omission",
+     "severity": "suggestion",
+     "statement": "没有说明数据版本",
+     "explanation": "非必需",
+     "suggested_action": "可选补充",
+     "evidence_refs": []
+    }
+   ],
+   "missed": [],
+   "severities": {
+    "must_fix": 1,
+    "suggestion": 1
+   },
+   "is_clean_sample": false,
+   "dimensions": [
+    "problem_detection",
+    "misses",
+    "false_positives",
+    "severity",
+    "evidence_basis",
+    "actionability",
+    "fix_linkage"
+   ],
+   "evidence_basis": {
+    "problem_detection": "unknown",
+    "misses": "measured",
+    "false_positives": "measured",
+    "severity": "measured",
+    "evidence_basis": "unknown",
+    "actionability": "unknown",
+    "fix_linkage": "unknown",
+    "detection": "pipeline_check",
+    "annotation": "human_reviewed",
+    "precision_recall": "measured"
+   },
+   "annotation": {
+    "notes": [
+     "命中遗漏，另有一条误报（数据版本不属于本次要求）"
+    ]
+   }
+  },
+  {
+   "sample_id": "RV-04",
+   "question": "存货为什么上升？",
+   "target": {
+    "target_type": "artifact",
+    "target_id": "art1",
+    "target_version": "rev1-attempt1",
+    "content": "存货上升是因为供应链备货，面板价格上涨"
+   },
+   "true_positive": 1,
+   "false_positive": 0,
+   "false_negative": 0,
+   "precision": 1.0,
+   "recall": 1.0,
+   "matched": [
+    {
+     "category": "unsupported_attribution",
+     "severity": "must_fix",
+     "statement": "把上升归因为面板价格上涨，但没有任何证据支持该因果",
+     "explanation": "产物里只有存货与收入数据，无价格证据",
+     "suggested_action": "删除该归因或补证据",
+     "evidence_refs": [
+      "r2"
+     ]
+    }
+   ],
+   "unexpected": [],
+   "missed": [],
+   "severities": {
+    "must_fix": 1
+   },
+   "is_clean_sample": false,
+   "dimensions": [
+    "problem_detection",
+    "misses",
+    "false_positives",
+    "severity",
+    "evidence_basis",
+    "actionability",
+    "fix_linkage"
+   ],
+   "evidence_basis": {
+    "problem_detection": "unknown",
+    "misses": "measured",
+    "false_positives": "measured",
+    "severity": "measured",
+    "evidence_basis": "unknown",
+    "actionability": "unknown",
+    "fix_linkage": "unknown",
+    "detection": "pipeline_check",
+    "annotation": "human_reviewed",
+    "precision_recall": "measured"
+   },
+   "annotation": {
+    "notes": [
+     "命中无依据归因"
+    ]
+   }
+  },
+  {
+   "sample_id": "RV-05",
+   "question": "存货同比？",
+   "target": {
+    "target_type": "artifact",
+    "target_id": "art1",
+    "target_version": "rev1-attempt1",
+    "content": "存货同比上升 12%（来源 r9）"
+   },
+   "true_positive": 1,
+   "false_positive": 0,
+   "false_negative": 0,
+   "precision": 1.0,
+   "recall": 1.0,
+   "matched": [
+    {
+     "category": "wrong_citation",
+     "severity": "must_fix",
+     "statement": "引用的 rid r9 在本次运行里不存在",
+     "explanation": "共享结果库里只有 r1/r2",
+     "suggested_action": "改用真实 rid 或写入 missing_inputs",
+     "evidence_refs": []
+    }
+   ],
+   "unexpected": [],
+   "missed": [],
+   "severities": {
+    "must_fix": 1
+   },
+   "is_clean_sample": false,
+   "dimensions": [
+    "problem_detection",
+    "misses",
+    "false_positives",
+    "severity",
+    "evidence_basis",
+    "actionability",
+    "fix_linkage"
+   ],
+   "evidence_basis": {
+    "problem_detection": "unknown",
+    "misses": "measured",
+    "false_positives": "measured",
+    "severity": "measured",
+    "evidence_basis": "unknown",
+    "actionability": "unknown",
+    "fix_linkage": "unknown",
+    "detection": "pipeline_check",
+    "annotation": "human_reviewed",
+    "precision_recall": "measured"
+   },
+   "annotation": {
+    "notes": [
+     "命中错误引用"
+    ]
+   }
+  },
+  {
+   "sample_id": "RV-06",
+   "question": "存货同比怎么算？",
+   "target": {
+    "target_type": "artifact",
+    "target_id": "art1",
+    "target_version": "rev1-attempt1",
+    "content": "用存货净额（扣除跌价准备）计算同比 +11.8%"
+   },
+   "true_positive": 0,
+   "false_positive": 0,
+   "false_negative": 0,
+   "precision": null,
+   "recall": null,
+   "matched": [],
+   "unexpected": [],
+   "missed": [],
+   "severities": {},
+   "is_clean_sample": true,
+   "dimensions": [
+    "problem_detection",
+    "misses",
+    "false_positives",
+    "severity",
+    "evidence_basis",
+    "actionability",
+    "fix_linkage"
+   ],
+   "evidence_basis": {
+    "problem_detection": "unknown",
+    "misses": "measured",
+    "false_positives": "measured",
+    "severity": "measured",
+    "evidence_basis": "unknown",
+    "actionability": "unknown",
+    "fix_linkage": "unknown",
+    "detection": "pipeline_check",
+    "annotation": "human_reviewed",
+    "precision_recall": "measured"
+   },
+   "annotation": {
+    "notes": [
+     "无错误样例：采用净额这一合理替代算法，只要口径说清就不算问题；期望 Reviewer 不报误报"
+    ]
+   }
+  },
+  {
+   "sample_id": "RV-07",
+   "question": "存货同比？",
+   "target": {
+    "target_type": "artifact",
+    "target_id": "art1",
+    "target_version": "rev1-attempt1",
+    "content": "存货同比上升，具体数值待补"
+   },
+   "true_positive": 1,
+   "false_positive": 0,
+   "false_negative": 0,
+   "precision": 1.0,
+   "recall": 1.0,
+   "matched": [
+    {
+     "category": "insufficient_evidence",
+     "severity": "limitation",
+     "statement": "结论没有数值支撑，也没有标注为证据不足",
+     "explanation": "可以保留限制收尾，但需明示",
+     "suggested_action": "在 limitations 里写明缺数值",
+     "evidence_refs": []
+    }
+   ],
+   "unexpected": [],
+   "missed": [],
+   "severities": {
+    "limitation": 1
+   },
+   "is_clean_sample": false,
+   "dimensions": [
+    "problem_detection",
+    "misses",
+    "false_positives",
+    "severity",
+    "evidence_basis",
+    "actionability",
+    "fix_linkage"
+   ],
+   "evidence_basis": {
+    "problem_detection": "unknown",
+    "misses": "measured",
+    "false_positives": "measured",
+    "severity": "measured",
+    "evidence_basis": "unknown",
+    "actionability": "unknown",
+    "fix_linkage": "unknown",
+    "detection": "pipeline_check",
+    "annotation": "human_reviewed",
+    "precision_recall": "measured"
+   },
+   "annotation": {
+    "notes": [
+     "命中证据不足；severity 为 limitation 而非 must_fix"
+    ]
+   }
+  },
+  {
+   "sample_id": "RV-08",
+   "question": "联想 FY2024Q2 存货同比？",
+   "target": {
+    "target_type": "artifact",
+    "target_id": "art1",
+    "target_version": "rev1-attempt1",
+    "content": "存货 FY2024Q2 为 100 百万美元，较 FY2023Q2 的 89 百万美元上升 12%（来源 r2）"
+   },
+   "true_positive": 0,
+   "false_positive": 0,
+   "false_negative": 0,
+   "precision": null,
+   "recall": null,
+   "matched": [],
+   "unexpected": [],
+   "missed": [],
+   "severities": {},
+   "is_clean_sample": true,
+   "dimensions": [
+    "problem_detection",
+    "misses",
+    "false_positives",
+    "severity",
+    "evidence_basis",
+    "actionability",
+    "fix_linkage"
+   ],
+   "evidence_basis": {
+    "problem_detection": "unknown",
+    "misses": "measured",
+    "false_positives": "measured",
+    "severity": "measured",
+    "evidence_basis": "unknown",
+    "actionability": "unknown",
+    "fix_linkage": "unknown",
+    "detection": "pipeline_check",
+    "annotation": "human_reviewed",
+    "precision_recall": "measured"
+   },
+   "annotation": {
+    "notes": [
+     "无错误样例：期间、单位、引用、口径均正确，期望零检出"
+    ]
+   }
+  },
+  {
+   "sample_id": "RV-09",
+   "question": "收入增长质量如何？",
+   "target": {
+    "target_type": "artifact",
+    "target_id": "art1",
+    "target_version": "rev1-attempt1",
+    "content": "收入同比 +8%，应收账款同比 +25%，提示回款压力（来源 r2、r3）"
+   },
+   "true_positive": 0,
+   "false_positive": 1,
+   "false_negative": 0,
+   "precision": 0.0,
+   "recall": null,
+   "matched": [],
+   "unexpected": [
+    {
+     "category": "omission",
+     "severity": "limitation",
+     "statement": "没有给出毛利率",
+     "explanation": "节点未要求毛利率",
+     "suggested_action": "可选补充",
+     "evidence_refs": []
+    }
+   ],
+   "missed": [],
+   "severities": {
+    "limitation": 1
+   },
+   "is_clean_sample": true,
+   "dimensions": [
+    "problem_detection",
+    "misses",
+    "false_positives",
+    "severity",
+    "evidence_basis",
+    "actionability",
+    "fix_linkage"
+   ],
+   "evidence_basis": {
+    "problem_detection": "unknown",
+    "misses": "measured",
+    "false_positives": "measured",
+    "severity": "measured",
+    "evidence_basis": "unknown",
+    "actionability": "unknown",
+    "fix_linkage": "unknown",
+    "detection": "pipeline_check",
+    "annotation": "human_reviewed",
+    "precision_recall": "measured"
+   },
+   "annotation": {
+    "notes": [
+     "无错误样例 + 一条误报：节点未要求毛利率，报出来是过度审查"
+    ]
+   }
+  }
+ ],
+ "count": 9,
+ "with_precision": 7,
+ "total": 9,
+ "mean_precision": 0.7857142857142857
+}

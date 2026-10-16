@@ -1391,6 +1391,54 @@ def test_worker_evaluate_sample_runs():
     assert out["sample_id"] == sample["sample_id"]
     assert out["attribution"]["cause"] == sample["annotations"]["cause"]
     assert out["annotation"] == sample["annotations"]
+    assert out["cause_matches_annotation"] is True
+
+
+def test_worker_samples_reproduce_all_but_intent_error_offline():
+    """离线模拟判下：可程序判定的归因必须全部复现；只有 intent_error 需要真实 Judge。
+
+    这条测试把「本阶段拿不到」与「评测器判错」区分开，避免把前者当后者。
+    """
+    from eval.agent_process.roles.common import load_samples, make_judge
+    from eval.agent_process.roles.worker import evaluate_sample
+
+    judge = make_judge("fake", point_fn=lambda q, p, f, a: {"verdict": "unknown",
+                                                           "reason": "离线"})
+    out = [evaluate_sample(s, judge) for s in load_samples(WORKER_SAMPLES)]
+
+    mismatched = [o for o in out if not o["cause_matches_annotation"]]
+    assert [o["sample_id"] for o in mismatched] == ["WK-02"]
+    assert mismatched[0]["requires_live_judge"] is True
+    assert mismatched[0]["expected_cause"] == "intent_error"
+    assert mismatched[0]["attribution"]["cause"] == "unknown"   # 诚实降级，不猜
+    assert len(out) - len(mismatched) >= 6
+
+
+def test_intent_error_reachable_with_judge_contradicted():
+    from eval.agent_process.roles.common import load_samples, make_judge
+    from eval.agent_process.roles.worker import evaluate_sample
+
+    judge = make_judge("fake", point_fn=lambda q, p, f, a: {"verdict": "contradicted",
+                                                           "reason": "意图不符"})
+    sample = next(s for s in load_samples(WORKER_SAMPLES) if s["sample_id"] == "WK-02")
+    out = evaluate_sample(sample, judge)
+
+    assert out["attribution"]["cause"] == "intent_error"
+    assert out["cause_matches_annotation"] is True
+    # 但仍然是 pipeline_check：模拟判不是真实模型判定
+    assert out["evidence_basis"]["query_intent"] == "pipeline_check"
+
+
+def test_samples_agreement_summary_reports_mismatch(tmp_path):
+    run = _write_run_package(tmp_path)
+    out = tmp_path / "out"
+    assert _cli(["roles", "--run-dir", str(run), "--mode", "samples",
+                 "--out", str(out)]) == 0
+
+    d = json.loads((out / "roles_samples_worker.json").read_text(encoding="utf-8"))
+    assert d["agreement"] == 6 and d["total"] == 7
+    assert d["requires_live_judge"] == ["WK-02"]
+    assert d["mismatched"] == ["WK-02"]
 
 
 # ------------------------------------------------------------------ Task 9：Reviewer
@@ -1870,3 +1918,57 @@ def test_live_judge_not_instantiated_by_default(tmp_path, monkeypatch):
 def test_missing_run_dir_fails_loudly(tmp_path):
     rc = _cli(["metrics", "--run-dir", str(tmp_path / "nope"), "--out", str(tmp_path / "o")])
     assert rc != 0
+
+
+# ------------------------------------------------------------------ Task 12：真实包冒烟
+
+def test_real_package_smoke():
+    """对固定回放包 runs/cli-20261016-134035 的端到端断言。
+
+    运行包本身在 .gitignore 里（runs/），缺失时跳过；数值来自 PRD §2 的实测记录。
+    """
+    if not REFERENCE_RUN.is_dir():
+        pytest.skip(f"固定回放包不存在：{REFERENCE_RUN}（runs/ 不入库）")
+
+    from eval.agent_process.adapt import load_process_package
+    from eval.agent_process.metrics import compute_metrics
+    from eval.agent_process.query import diagnose_queries
+
+    pkg = load_process_package(REFERENCE_RUN)
+    m = compute_metrics(pkg)
+
+    # 终态：未交付，且不因节点 completed / 审查 accepted 改记成功
+    assert pkg.final_status == "refuse"
+    assert pkg.final_answer is None
+    assert pkg.verified is False
+
+    # 与 run_meta 自报值一致（重算不上报假差异）
+    assert m["role_calls"]["by_role"] == {"planner": 1, "reviewer": 7, "worker": 5}
+    assert m["role_calls"]["total"] == 13
+    assert m["tokens"]["prompt_tokens"] == 383994
+    assert m["tokens"]["completion_tokens"] == 22438
+    assert m["rounds"]["subagent_child_steps"] == 52
+    assert m["discrepancies"] == []
+
+    # 同计划复用 rid：11 次调用只有 9 个结果 → 必须按调用计
+    q = diagnose_queries(pkg)
+    assert q["calls"] == 11
+    assert m["queries"]["unique_result_ids"] == 9
+    assert m["queries"]["rid_reuse_calls"] == 2
+    assert q["by_reason"]
+
+    # 历史包缺新埋点：记 unknown，不填 0
+    assert "analysis/query_trace.jsonl" in pkg.unknown_fields
+    assert "analysis/visible_context.jsonl" in pkg.unknown_fields
+    assert all(r.query_trace_id is None for r in pkg.query_records)
+    assert m["extraction"]["attempts_seen"] is None
+    for rec in pkg.query_records:
+        assert rec.sql_chars is not None      # 可从 results.json 真测到的必须照实填
+        assert rec.linkage == "tool_result_parent"
+        assert rec.node_id                          # 老包也能做节点归属
+
+    # 跳过不进成功
+    assert m["tool_calls"]["skipped"] == 1
+    assert (m["tool_calls"]["ok"] + m["tool_calls"]["error"]
+            + m["tool_calls"]["skipped"]
+            + m["tool_calls"]["unknown_status"]) == m["tool_calls"]["total"]
