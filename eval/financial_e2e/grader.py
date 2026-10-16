@@ -65,7 +65,13 @@ def _period_requirement(period: str) -> tuple[list[list[str]], list[str]]:
         short = fy4[2:]
         if q:
             return [[f"FY{fy4}{q}", f"FY{short}{q}", f"{fy4}{q}", f"{short}{q}"]], []
-        return [[f"FY{fy4}", f"FY{short}"]], []
+        # 年度断言：窗口内出现季度或累计标记时不算命中，避免 FY2026Q1 的数字
+        # 被当成 FY2026 年度值（复审阻断项）。
+        return [[f"FY{fy4}", f"FY{short}"]], [
+            "Q1", "Q2", "Q3", "Q4", "q1", "q2", "q3", "q4",
+            "9M", "9m", "9个月", "九个月", "前三季", "前三季度",
+            "H1", "h1", "上半年", "半年度", "半财年",
+        ]
     groups: list[list[str]] = []
     forbidden: list[str] = []
     if "9M" in p or "9个月" in period or "九个月" in period or "前三季" in period:

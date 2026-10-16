@@ -219,6 +219,18 @@ def test_verify_numeric_rejects_cumulative_vs_quarter():
     assert res2[0]["ok"] is True
 
 
+def test_verify_numeric_annual_not_matched_by_quarter():
+    """复审阻断项：年度断言 FY2026 不得由 FY2026Q1 的数值命中。"""
+    c = make_case(nums=[NumericAssertion(metric="revenue", company="Lenovo",
+                                         period="FY2026", value=18829.869, unit="usd_mn")])
+    res = verify_numeric(c, "FY2026Q1 收入为 18,829.869 百万美元。")
+    assert res[0]["ok"] is None
+    assert res[0]["method"] == "model_judged"
+    # 明确年度口径才认
+    res2 = verify_numeric(c, "FY2026 全年收入为 18,829.869 百万美元。")
+    assert res2[0]["ok"] is True
+
+
 def test_verify_numeric_requires_matching_unit_word():
     """复审问题 1：把百分比写成 "15.0767元" 不得算 percentage 命中。"""
     c = make_case(nums=[NumericAssertion(metric="gross_margin", company="Lenovo",
