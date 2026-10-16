@@ -81,6 +81,58 @@ def cmd_validate(args) -> int:
     return 0
 
 
+def cmd_verify_sources(args) -> int:
+    """核验来源：每个数值断言应能在该题引用的某个来源页面上找到（千美元形态）。
+
+    不是完整审计：只检查"数值是否出现在引用页"，不代替人工核对行列与期间。
+    """
+    from eval.financial_e2e.pageindex import thousands
+    cases = load_dataset(args.cases)
+    reported_miss: list[str] = []
+    derived = 0
+    reported = 0
+    for c in cases:
+        for a in c.numeric_assertions:
+            if _is_derived(a.metric, a.formula):
+                derived += 1               # 派生值（增速/比率/天数）由已披露项计算，不要求逐字命中
+                continue
+            reported += 1
+            if not any(_source_contains(s, thousands(a.value)) for s in c.sources):
+                reported_miss.append(
+                    f"{c.case_id}: {a.metric} {a.period} 值 {a.value} 未在任何来源页命中")
+    print(f"已披露项 {reported} 条命中 {reported - len(reported_miss)} 条；派生值 {derived} 条（由已披露项计算）")
+    for p in reported_miss:
+        print(f"  - {p}")
+    if reported_miss and args.strict:
+        return 1
+    return 0
+
+
+_DERIVED_SUFFIXES = ("_pct", "_delta", "_growth", "_days", "_ratio", "_margin", "margin")
+
+
+def _is_derived(metric: str, formula: str | None = None) -> bool:
+    """增速/比率/天数/差额/由累计推出的单季等派生值不需要在公告原文逐字出现。"""
+    return (metric.endswith(_DERIVED_SUFFIXES) or metric == "operating_expense"
+            or metric.endswith("expense") or bool(formula))
+
+
+def _source_contains(source, needle: str) -> bool:
+    """在 SourceRef 指向的 PDF 页面上查找 needle（按 URL→本地文件名映射）。"""
+    from eval.financial_e2e.pageindex import find_pages, page_texts
+    from eval.financial_e2e.sources import load_manifest
+    man = load_manifest()
+    url_to_file = {d["url"]: d["file"] for d in man.values()}
+    fname = url_to_file.get(source.url)
+    if not fname:
+        return False
+    if source.page:
+        pages = page_texts(str(Path("data/raw/lenovo") / fname))
+        if 1 <= source.page <= len(pages):
+            return needle in pages[source.page - 1]
+    return bool(find_pages(fname, needle))
+
+
 def cmd_generate_points(args) -> int:
     cases = load_dataset(args.cases)
     keep = set(args.ids.split(",")) if args.ids else None
@@ -258,6 +310,11 @@ def build_parser() -> argparse.ArgumentParser:
     v.add_argument("--cases", default=str(DEFAULT_CASES))
     v.add_argument("--require-approved", action="store_true")
     v.set_defaults(func=cmd_validate)
+
+    vs = sub.add_parser("verify-sources", help="核验数值断言能在来源页命中")
+    vs.add_argument("--cases", default=str(DEFAULT_CASES))
+    vs.add_argument("--strict", action="store_true", help="有未命中时返回码 1")
+    vs.set_defaults(func=cmd_verify_sources)
 
     g = sub.add_parser("generate-points", help="生成得分点候选（draft）")
     g.add_argument("--cases", default=str(DEFAULT_CASES))

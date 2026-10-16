@@ -65,14 +65,54 @@ def test_sample_dataset_is_valid():
     assert {"multi_period", "attribution", "judgment", "forecast"} <= types
 
 
+def test_dataset_30_composition_and_no_autapprove():
+    cases = load_dataset("eval/datasets/financial_real_v1/cases.jsonl")
+    assert len(cases) == 30
+    from collections import Counter
+    comp = Counter(c.question_type for c in cases)
+    assert comp == {"multi_period": 6, "attribution": 10, "judgment": 8, "forecast": 6}
+    assert all(c.review_status != "approved" for c in cases)   # 生成器不得自批
+    assert all(c.sources for c in cases if not c.blocked)      # 可答题必须有来源
+    # 至少 24 题需要多步推理（PRD §5.1）
+    multi = sum(1 for c in cases if len(c.reasoning_requirements) >= 2)
+    assert multi >= 24
+    # 每题有原子得分点与稳定 point_id
+    for c in cases:
+        ids = [p.point_id for p in c.scoring_points]
+        assert ids and len(ids) == len(set(ids)), c.case_id
+
+
+def test_reused_cases_keep_history():
+    cases = {c.case_id: c for c in load_dataset("eval/datasets/financial_real_v1/cases.jsonl")}
+    reused = [c for c in cases.values() if c.origin == "reused"]
+    assert len(reused) >= 5
+    assert all(c.selected_id for c in reused)                  # 保留审核历史来源
+
+
+def test_verify_sources_reported_hits():
+    """已披露项应能在引用来源页命中（派生值由已披露项计算，不计入）。"""
+    from eval.financial_e2e.cli import _is_derived
+    from eval.financial_e2e.cli import _source_contains
+    from eval.financial_e2e.pageindex import thousands
+    cases = load_dataset("eval/datasets/financial_real_v1/cases.jsonl")
+    misses = []
+    for c in cases:
+        for a in c.numeric_assertions:
+            if _is_derived(a.metric, a.formula):
+                continue
+            if not any(_source_contains(s, thousands(a.value)) for s in c.sources):
+                misses.append(f"{c.case_id}:{a.metric}:{a.period}")
+    assert not misses, f"已披露项未命中来源页: {misses}"
+
+
 def test_forecast_case_has_as_of_and_truth_isolated():
     cases = {c.case_id: c for c in load_dataset("eval/datasets/financial_real_v1/cases.jsonl")}
     fc = [c for c in cases.values() if c.question_type == "forecast"]
     assert fc, "缺少预测题"
     for c in fc:
         assert c.as_of, "预测题必须指定 as_of"
-        assert c.forecast_truth, "预测题应有评测侧真实实绩"
-        # 真实实绩不得进入准入 Agent 的内容
+        # forecast_truth（真实实绩）可缺失：目标期间尚未披露时留空，不伪造
+        # 不得进入准入 Agent 的内容
         assert "forecast_truth" not in c.to_input().model_dump()
 
 
