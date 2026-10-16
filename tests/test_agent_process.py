@@ -1585,3 +1585,154 @@ def test_reviewer_evaluate_sample_runs():
     assert out["evidence_basis"]["precision_recall"] == "measured"
     assert out["evidence_basis"]["detection"] == "pipeline_check"
     assert out["annotation"] == samples[0]["annotations"]
+
+
+# ------------------------------------------------------------------ Task 10：报告
+
+def _bundle(pkg):
+    from eval.agent_process.metrics import compute_metrics
+    from eval.agent_process.query import diagnose_queries
+    from eval.agent_process.roles import planner, reviewer, worker
+
+    return {
+        "metrics": compute_metrics(pkg),
+        "roles": {"planner": planner.evaluate_package(pkg),
+                  "worker": worker.evaluate_package(pkg),
+                  "reviewer": reviewer.evaluate_package(pkg)},
+        "queries": diagnose_queries(pkg),
+    }
+
+
+def _record(tmp_path, **kw):
+    from eval.agent_process.adapt import load_process_package
+    from eval.agent_process.report import build_record
+
+    pkg = load_process_package(_write_run_package(tmp_path, **kw), case_id="LV-T01")
+    return build_record(pkg, **_bundle(pkg))
+
+
+def _report(tmp_path, **kw):
+    from eval.agent_process.adapt import load_process_package
+    from eval.agent_process.report import case_report_md
+
+    e2e = kw.pop("e2e", None)
+    pkg = load_process_package(_write_run_package(tmp_path, **kw), case_id="LV-T01")
+    return case_report_md(pkg, e2e=e2e, **_bundle(pkg))
+
+
+def test_case_report_has_required_sections(tmp_path):
+    md = _report(tmp_path)
+
+    for section in ("# 过程评测报告", "## 最终状态与答案", "## 运行监控",
+                    "## 中观角色评测", "## 微观查询诊断", "## 依据与未知项",
+                    "## 字段兼容表"):
+        assert section in md, f"缺章节: {section}"
+
+
+def test_case_report_shows_nodes_completed_and_final_undelivered(tmp_path):
+    """PRD §9.3 回放验收：节点完成/审查 accepted 与「最终未交付」必须同时呈现。"""
+    md = _report(tmp_path)
+
+    assert "completed" in md
+    assert "accepted" in md
+    assert "最终未提交" in md or "未交付" in md
+    assert "主循环轮数用尽" in md              # 终止原因
+    assert "final_answer" in md               # 校验被打回
+    assert "都不代表" in md or "不代表" in md
+
+
+def test_case_report_labels_evidence_basis(tmp_path):
+    md = _report(tmp_path)
+
+    assert "pipeline_check" in md or "measured" in md
+    assert "不是真实质量评分" in md
+
+
+def test_case_report_no_single_total_score(tmp_path):
+    """不得出现被拼出来的总分；同时必须**显式声明**不做拼分，而不是悄悄没有。"""
+    md = _report(tmp_path)
+
+    for bad in ("总分：", "总分:", "| 总分", "## 总分", "综合得分"):
+        assert bad not in md, f"报告里出现了单一总分: {bad}"
+    assert "不拼成单一总分" in md
+    # 质量、监控、查询分区呈现
+    assert "## 运行监控" in md and "## 中观角色评测" in md and "## 微观查询诊断" in md
+
+
+def test_blocked_or_undelivered_not_dropped(tmp_path):
+    from eval.agent_process.report import summary_report_md
+
+    rec = _record(tmp_path)
+    md = summary_report_md([rec], run_ids=[rec["run_id"]], dataset_name=None)
+
+    assert "未交付" in md
+    assert rec["case_id"] in md
+
+
+def test_unknown_fields_section_lists_unknown_fields(tmp_path):
+    md = _report(tmp_path)          # 默认包没有新埋点
+    assert "analysis/query_trace.jsonl" in md
+    assert "历史包" in md or "unknown" in md
+
+
+def test_summary_groups_by_type_and_split(tmp_path):
+    from eval.agent_process.report import summary_report_md
+
+    a = _record(tmp_path / "a")
+    a.update({"question_type": "归因", "split_group": "dev"})
+    b = _record(tmp_path / "b")
+    b.update({"case_id": "LV-T02", "question_type": "预测", "split_group": "holdout"})
+
+    md = summary_report_md([a, b], run_ids=[a["run_id"]], dataset_name="demo")
+    assert "归因" in md and "预测" in md
+    assert "dev" in md and "holdout" in md
+
+
+def test_summary_reports_sample_counts(tmp_path):
+    from eval.agent_process.report import summary_report_md
+
+    rec = _record(tmp_path)
+    md = summary_report_md([rec], run_ids=[rec["run_id"]], dataset_name=None)
+
+    for col in ("样本数", "完成数", "失败数", "评分错误数"):
+        assert col in md, f"缺列: {col}"
+
+
+def test_join_with_e2e_results_by_case_and_run(tmp_path):
+    from eval.agent_process.report import join_e2e
+
+    rec = _record(tmp_path)
+    e2e = [{"case_id": "LV-T01", "run_id": rec["run_id"],
+            "result": {"aggregate": {"required_hit_rate": 0.75}}}]
+    hit = join_e2e(rec, e2e)
+    assert hit["result"]["aggregate"]["required_hit_rate"] == 0.75
+
+    # run_id 不同的那条不该被错配
+    assert join_e2e(rec, [{"case_id": "LV-T01", "run_id": "other"}]) is None
+
+
+def test_case_report_shows_e2e_when_joined(tmp_path):
+    e2e = {"case_id": "LV-T01", "run_id": "20261016-134035",
+           "result": {"aggregate": {"required_hit_rate": 0.75,
+                                    "required_total": 4, "required_met": 3}}}
+    md = _report(tmp_path, e2e=e2e)
+
+    assert "宏观" in md
+    assert "0.75" in md or "75" in md
+
+
+def test_case_report_marks_e2e_absent_honestly(tmp_path):
+    md = _report(tmp_path, e2e=None)
+    assert "未提供" in md
+
+
+def test_compat_table_lists_unknown_legacy_fields():
+    from eval.agent_process.report import compat_table_md
+
+    md = compat_table_md()
+    assert "unknown_legacy" in md
+    assert "new_instrumentation" in md
+    assert "query_trace_id" in md
+    # 两套同名不同义的 id 必须在兼容表里说明
+    assert "plan_digest" in md
+    assert "同名不同义" in md or "内容寻址" in md
