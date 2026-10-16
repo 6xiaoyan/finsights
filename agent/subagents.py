@@ -152,6 +152,10 @@ class SubAgentRunner:
         from agent.tools.data import ToolContext
         allowed = self._allowed_tools()
         parent_tool_ctx = getattr(self.parent, "tool_ctx", None)
+        # 父级 stats 必须复用同一引用；缺省时初始化到父对象上，避免另建新字典导致事件/计数丢失。
+        if parent_tool_ctx is not None and getattr(parent_tool_ctx, "stats", None) is None:
+            parent_tool_ctx.stats = {}
+        parent_stats = getattr(parent_tool_ctx, "stats", {}) if parent_tool_ctx is not None else {}
         # 受控查询路径：子上下文必须继承提取模型与业务目录，否则 text2sql Worker
         # 的 query_financial_data 会因缺注入而报"运行配置错误"。stats 与父共享，使
         # 提取调用次数在运行包里统一计数。
@@ -162,7 +166,7 @@ class SubAgentRunner:
                            catalog=getattr(parent_tool_ctx, "catalog", None),
                            query_backend=getattr(self.parent, "query_backend", None) or "metric",
                            query_cfg=getattr(parent_tool_ctx, "query_cfg", None) or {},
-                           stats=getattr(parent_tool_ctx, "stats", None) or {})
+                           stats=parent_stats)
 
     def run(self, user_content: str, resume_messages: list[dict] | None = None) -> SubResult:
         """执行一个阶段。`resume_messages` 非空时续接同一上下文（PRD §4.5）。
