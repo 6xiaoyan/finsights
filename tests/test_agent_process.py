@@ -769,3 +769,179 @@ def test_metrics_has_no_single_total_score(tmp_path):
     m = _metrics(tmp_path)
     assert "total_score" not in m
     assert "score" not in m
+
+
+# ------------------------------------------------------------------ Task 6
+
+def _diag(tmp_path, **kw):
+    from eval.agent_process.adapt import load_process_package
+    from eval.agent_process.query import diagnose_queries
+
+    return diagnose_queries(load_process_package(_write_run_package(tmp_path, **kw),
+                                                 case_id="LV-T01"))
+
+
+def _rec(**kw):
+    from eval.agent_process.schema import QueryRecord
+
+    return QueryRecord(**kw)
+
+
+def test_classify_ok_and_empty_and_failures():
+    from eval.agent_process.query import classify_query
+
+    assert classify_query(_rec(status="ok")) == "ok"
+    assert classify_query(_rec(status="empty")) == "no_data"
+    assert classify_query(_rec(status="needs_clarification")) == "ambiguous"
+    assert classify_query(_rec(status="unknown_value")) == "catalog_miss"
+    assert classify_query(_rec(status="error")) == "exec_fail"
+
+
+def test_classify_unsupported_keeps_its_own_code():
+    """unsupported 是「不支持的组合」，不能塌成 unknown —— PRD §7.3 要求目录外与它分开。"""
+    from eval.agent_process.query import classify_query
+
+    assert classify_query(_rec(status="unsupported")) == "unsupported"
+    assert classify_query(_rec(status="unsupported",
+                               issue_codes=["unsupported_detail"])) == "unsupported"
+
+
+def test_classify_parse_fail_from_extractor_protocol():
+    """提取器协议失败要单独成码，不能被 unsupported 吞掉。"""
+    from eval.agent_process.query import classify_query
+
+    assert classify_query(_rec(status="unsupported",
+                               issue_codes=["extractor_protocol"])) == "parse_fail"
+
+
+def test_classify_no_data_from_issue_code():
+    from eval.agent_process.query import classify_query
+
+    assert classify_query(_rec(status="empty", issue_codes=["empty_filter"])) == "no_data"
+    assert classify_query(_rec(status="empty", issue_codes=["no_data"])) == "no_data"
+
+
+def test_classify_failed_unclassified():
+    """历史包只知道失败，不知道失败类别 —— 单独一个码，不猜。"""
+    from eval.agent_process.query import classify_query
+
+    assert classify_query(_rec(status=None, call_ok=False)) == "failed_unclassified"
+
+
+def test_classify_unknown_when_status_and_ok_both_missing():
+    from eval.agent_process.query import classify_query
+
+    assert classify_query(_rec(status=None, call_ok=None)) == "unknown"
+
+
+def test_catalog_miss_stays_distinct_from_unsupported(tmp_path):
+    """同一次运行里两类失败必须分别计数。"""
+    specs = [
+        {"ok": False, "rid": None, "args": {"question": "目录外指标"},
+         "result_head": "[查询状态] unknown_value"},
+        {"ok": True, "rid": "r2", "args": {"question": "正常查询"}},
+    ]
+    diag = _diag(tmp_path, query_specs=specs)
+
+    assert diag["by_reason"]["failed_unclassified"] == 1     # 老包不带状态，只知失败
+    assert diag["by_reason"]["ok"] == 1
+    assert diag["by_reason"].get("catalog_miss", 0) == 0
+
+
+def test_new_package_reason_codes_from_status(tmp_path):
+    specs = [
+        {"ok": True, "rid": "r2", "status": "ok"},
+        {"ok": True, "rid": None, "status": "empty"},
+        {"ok": False, "rid": None, "status": "unknown_value",
+         "issue_codes": ["unknown_metric"]},
+        {"ok": False, "rid": None, "status": "unsupported",
+         "issue_codes": ["extractor_protocol"]},
+    ]
+    diag = _diag(tmp_path, with_instrumentation=True, query_specs=specs)
+
+    assert diag["by_reason"] == {"ok": 1, "no_data": 1, "catalog_miss": 1, "parse_fail": 1}
+
+
+def test_empty_status_has_no_result_ids_and_not_counted_ok(tmp_path):
+    """empty 的 ok=True、rid=None：不能因为 ok 就当作取到数。"""
+    specs = [{"ok": True, "rid": None, "args": {"question": "无数据"},
+              "result_head": "[查询状态] empty"}]
+    diag = _diag(tmp_path, query_specs=specs)
+
+    assert diag["by_reason"] == {"no_data": 1}
+    assert diag["records"][0]["result_ids"] == []
+
+
+def test_counts_are_per_call_not_per_rid(tmp_path):
+    """同计划复用 rid：按调用计。"""
+    diag = _diag(tmp_path)
+
+    assert diag["calls"] == 2
+    assert sum(diag["by_reason"].values()) == 2
+
+
+def test_periods_returned_outside_requested_flagged():
+    from eval.agent_process.query import plan_conformance
+
+    rec = _rec(plan={"periods": ["FY2024Q1", "FY2024Q3"], "metrics": ["inventory"],
+                     "group_by": []})
+    rows = [{"period": "FY2024Q1", "value": 1.0}, {"period": "FY2024Q2", "value": 2.0}]
+
+    out = plan_conformance(rec, rows)
+    assert out["periods_requested"] == ["FY2024Q1", "FY2024Q3"]
+    assert out["period_violations"] == ["FY2024Q2"]
+    assert out["status"] == "mismatch"
+
+
+def test_columns_missing_detected():
+    from eval.agent_process.query import plan_conformance
+
+    rec = _rec(plan={"periods": ["FY2024Q2"], "metrics": ["inventory"],
+                     "group_by": ["region"]})
+    out = plan_conformance(rec, [{"company": "Lenovo", "value": 1.0}])
+
+    assert out["columns_missing"] == ["region"]
+    assert "company" in out["columns_present"]
+    assert out["status"] == "mismatch"
+
+
+def test_conformance_ok_when_periods_and_columns_match():
+    from eval.agent_process.query import plan_conformance
+
+    rec = _rec(plan={"periods": ["FY2024Q2"], "metrics": ["inventory"],
+                     "group_by": ["region"]})
+    out = plan_conformance(rec, [{"period": "FY2024Q2", "region": "APAC", "value": 1.0}])
+
+    assert out["status"] == "ok"
+    assert out["period_violations"] == []
+    assert out["columns_missing"] == []
+
+
+def test_conformance_unknown_without_plan_or_rows():
+    from eval.agent_process.query import plan_conformance
+
+    assert plan_conformance(_rec(plan=None), [{"value": 1.0}])["status"] == "unknown"
+    assert plan_conformance(_rec(plan={"periods": ["FY2024Q2"]}), [])["status"] == "unknown"
+
+
+def test_derived_records_marked_low_confidence(tmp_path):
+    """派生记录只覆盖成功路径，必须在诊断里说明，避免把分母当完整。"""
+    diag = _diag(tmp_path)
+
+    rec = diag["records"][0]
+    assert rec["source"] == "derived"
+    assert any("派生" in n for n in diag["notes"])
+    assert diag["coverage"]["has_run_package_records"] is False
+
+
+def test_run_package_records_marked_full_confidence(tmp_path):
+    diag = _diag(tmp_path, with_instrumentation=True)
+    assert diag["coverage"]["has_run_package_records"] is True
+
+
+def test_query_count_not_scored_by_volume(tmp_path):
+    """多写查询次数不自动加分（PRD §7.3）：诊断只给计数，不给质量分。"""
+    diag = _diag(tmp_path)
+
+    assert "calls" in diag
+    assert "score" not in diag and "quality" not in diag
