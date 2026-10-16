@@ -41,6 +41,23 @@ COMPANIES_ALIASES_VALUES = ["Lenovo", "HP", "Dell"]
 SECRET_RE = re.compile(r"key|token|secret|password|quota", re.I)
 MAX_EXPORT_ROWS = 2000  # 导出防御上限：正常工具返回远小于此值，超出记 truncated
 
+# ---- 受控查询路径（PRD §7）：--query-backend metric|text2sql 显式启用统一工具白名单 ----
+# 缺省（None）保持历史大工具集；query_financial_data 只在 text2sql 路径暴露。
+CONTROLLED_COMMON = {"todo_write", "final_answer", "load_skill"}
+CONTROLLED_METRIC = {"list_metrics", "query_metric", "calc", "recall"}
+CONTROLLED_TEXT2SQL = {"query_financial_data", "list_metrics", "calc", "recall"}
+
+
+def enabled_tools_for(query_backend: str | None) -> list[str]:
+    """按受控运行路径给出工具白名单。None = 历史行为（不含 text2sql 工具）。"""
+    if query_backend is None:
+        return sorted(set(DESCRIPTIONS) - set(DISABLED_TOOLS) - {"query_financial_data"})
+    if query_backend == "metric":
+        return sorted(CONTROLLED_COMMON | CONTROLLED_METRIC)
+    if query_backend == "text2sql":
+        return sorted(CONTROLLED_COMMON | CONTROLLED_TEXT2SQL)
+    raise ValueError(f"未知 query_backend: {query_backend}")
+
 
 def _sanitize(obj):
     if isinstance(obj, dict):
@@ -88,6 +105,8 @@ def _export_package(out_dir: Path, question: str, as_of, db_path: Path, client,
         "parsed_scope": getattr(ctx, "_parsed_scope", None),
         "initial_packet_rule": getattr(ctx, "_initial_rule", None),
         "tools_disabled": DISABLED_TOOLS,
+        "query_backend": getattr(ctx, "query_backend", None),
+        "enabled_tools": sorted(getattr(ctx, "enabled_tools", None) or []),
         "note": ("时点快照：数据/披露已按 available_date 过滤" if as_of
                  else "未提供 --as-of：使用当前库，非历史回测"),
     }, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -138,6 +157,14 @@ def _export_package(out_dir: Path, question: str, as_of, db_path: Path, client,
                    "rate_limit_rpm": _effective_rpm(ctx)},
         "tools_disabled": DISABLED_TOOLS,
         "agent_mode": getattr(ctx, "agent_mode", "single_agent"),
+        "query_backend": getattr(ctx, "query_backend", None),
+        "enabled_tools": sorted(getattr(ctx, "enabled_tools", None) or []),
+        "catalog_version": (ctx.tool_ctx.catalog.catalog_version()
+                            if getattr(getattr(ctx, "tool_ctx", None), "catalog", None)
+                            is not None else None),
+        "extraction_prompt_version": _prompt_version(),
+        "extraction_calls": getattr(getattr(ctx, "tool_ctx", None), "stats", {}).get(
+            "extraction_calls", 0),
         "dictionary_version": _dict_version(),
         "dev_model_note": "开发执行模型与项目运行模型（client.model）是不同配置；详见交付说明",
         "usage": {k: info.get(k) for k in ("steps", "prompt_tokens", "completion_tokens",
@@ -313,13 +340,18 @@ def _dict_version() -> str:
     return concepts.version()
 
 
+def _prompt_version() -> str:
+    from agent.query.prompt import PROMPT_VERSION
+    return PROMPT_VERSION
+
+
 def _is_dirty() -> bool:
     """git 工作区状态探测放在 eval 侧实现（agent/ 禁起进程，G7），这里只转调。"""
     from eval.runner import git_dirty  # noqa: PLC0415
     return git_dirty()
 
 
-def main(argv: list[str] | None = None) -> int:
+def build_parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(prog="python -m agent.cli")
     ap.add_argument("--question", required=True)
     ap.add_argument("--as-of", default=None, help="YYYY-MM-DD；走时点快照库")
@@ -331,7 +363,15 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--agent-mode", default="single_agent",
                     choices=["single_agent", "multi_agent"],
                     help="multi_agent：主 Agent 调度规划/执行/审核子 Agent")
+    ap.add_argument("--query-backend", default=None, choices=["metric", "text2sql"],
+                    help="受控查询路径：metric=语义层取数；text2sql=自然语言查询工具"
+                         "（query_financial_data）。缺省保持历史大工具集")
     ap.add_argument("--out-root", default="runs")
+    return ap
+
+
+def main(argv: list[str] | None = None) -> int:
+    ap = build_parser()
     args = ap.parse_args(argv)
 
     as_of = date.fromisoformat(args.as_of) if args.as_of else None
@@ -354,11 +394,18 @@ def main(argv: list[str] | None = None) -> int:
     rule = cfg_full.get("initial_packet") or {}
     parsed = parse_scope(args.question)
     # 第一阶段（PRD 3.2）：披露正文/附注检索在工具暴露层禁用
-    enabled_tools = sorted(set(DESCRIPTIONS) - set(DISABLED_TOOLS))
+    enabled_tools = enabled_tools_for(args.query_backend)
     ctx = make_run_ctx(str(db_path), Paced(client, limiter), run_id=f"cli-{run_id}",
                        as_of=as_of, config_path=args.config, enabled_tools=enabled_tools,
                        max_steps=args.max_steps)
     ctx.agent_mode = args.agent_mode
+    ctx.query_backend = args.query_backend
+    # 受控查询路径注入提取模型与业务目录（缺省路径不构建目录，保持历史行为不变）
+    ctx.tool_ctx.llm = ctx.llm
+    ctx.tool_ctx.query_backend = args.query_backend or "metric"
+    if args.query_backend is not None:
+        from agent.query.catalog import BusinessCatalog
+        ctx.tool_ctx.catalog = BusinessCatalog.build(str(db_path))
 
     # ---- 初始数据包（固定规则，step=0，先于 Agent 自主取数）----
     pk_metrics = list(rule.get("metrics") or [])
