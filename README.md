@@ -42,6 +42,23 @@ API key 只从 `.env` 读取，严禁进入仓库或运行包。
 失败/争议案例按 `docs/badcase_card_template.md` 填卡，连同运行包供人工与强模型讨论
 （人工自行发送，不做自动外发）。
 
+## 自建财务 Agent + Text2SQL 查询（受控运行路径）
+
+在已有多 Agent 编排上，用一句自然语言取数，**模型不写 SQL**（SQL 由代码生成、数字由代码计算）：
+
+```powershell
+.venv\Scripts\python -m agent.cli --question "联想 FY2024Q2 与 FY2024Q1 存货差额与变化率" `
+    --agent-mode multi_agent --query-backend text2sql
+```
+
+- `--query-backend text2sql`：Worker 通过 `query_financial_data` 取数（自然语言 → 结构化计划 →
+  业务目录严格校验 → 确定性 SQL → 只读执行 → 离散期间精确过滤 → 比较/排序 → 落库并分配 rid）。
+- `--query-backend metric`：Worker 走语义层 `query_metric`（对照通道）。
+- 不传 `--query-backend`：**保持历史行为**，不暴露 `query_financial_data`，工具集与改动前一致。
+
+受控模式按角色发放统一白名单（`run_sql`/`variance`/`peer_compare` 等旁路不可用，防止绕过提取）；
+协议的完整说明、执行语义、受控白名单与"已实现/未实现"清单见 `docs/query_financial_data.md`。
+
 ## 批量评测
 
 ```powershell
@@ -72,3 +89,4 @@ live 验收脚本在 `scripts/live/<ID>_*.py`，取证输出到 `docs/evidence/<
 - 需求/计划/验收：`prd.md`、`plan.md`（含 §12 变更记录与 MVP 范围收敛公告）、`verify.md`
 - 进展与证据：`docs/verification_log.md`、`docs/evidence/`
 - 人工裁定：`docs/questions.md`（Q8/Q9/Q10/Q12、V5.12 等待办在案）
+- Text2SQL 查询工具：`docs/query_financial_data.md`
