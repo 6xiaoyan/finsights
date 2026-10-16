@@ -25,6 +25,24 @@ ROLE_TOOLS = {
 }
 SUB_MAX_STEPS = {"planner": 4, "worker": 6, "reviewer": 4}
 
+# PRD §7 受控运行模式：--query-backend 显式选择取数通道时，按角色发放统一白名单。
+# - metric：Worker 只能走语义层 query_metric；text2sql：Worker 只能走 query_financial_data。
+# - 两条受控路径都不再暴露 run_sql / variance / peer_compare 等取数旁路，避免"进错通道"。
+# - Reviewer 一律只保留证据查证工具（recall + read_analysis_object），不能自行取新数。
+# - planner 不取数，保持空列表。
+CONTROLLED_ROLE_TOOLS: dict[str, dict[str, list[str]]] = {
+    "metric": {
+        "planner": [],
+        "worker": ["list_metrics", "query_metric", "calc", "recall"],
+        "reviewer": ["recall", "read_analysis_object"],
+    },
+    "text2sql": {
+        "planner": [],
+        "worker": ["query_financial_data", "list_metrics", "calc", "recall"],
+        "reviewer": ["recall", "read_analysis_object"],
+    },
+}
+
 
 @dataclass
 class SubResult:
@@ -106,6 +124,14 @@ class SubAgentRunner:
         self.extra_tools = dict(extra_tools or {})
         self.child = self._child_ctx()
 
+    def _role_tools(self) -> list[str]:
+        """本角色的基础工具清单：受控 backend（metric/text2sql）用统一白名单，否则历史清单。"""
+        backend = getattr(self.parent, "query_backend", None)
+        controlled = CONTROLLED_ROLE_TOOLS.get(backend)
+        if controlled is not None:
+            return list(controlled.get(self.role, []))
+        return list(ROLE_TOOLS[self.role])
+
     def _allowed_tools(self) -> list[str]:
         """角色白名单 ∩ 父运行配置的工具暴露集（§5：继承相同 DB/as_of/禁用配置）。
 
@@ -116,7 +142,7 @@ class SubAgentRunner:
         DESCRIPTIONS 里的数据工具套用父配置；角色专属通道不受该开关影响。
         """
         from agent.tools.base import DESCRIPTIONS
-        base = [t for t in ROLE_TOOLS[self.role] if t in DESCRIPTIONS or t in self.extra_tools]
+        base = [t for t in self._role_tools() if t in DESCRIPTIONS or t in self.extra_tools]
         enabled = getattr(self.parent, "enabled_tools", None)
         if enabled is None:
             return base
@@ -125,9 +151,17 @@ class SubAgentRunner:
     def _child_ctx(self) -> Any:
         from agent.tools.data import ToolContext
         allowed = self._allowed_tools()
+        parent_tool_ctx = getattr(self.parent, "tool_ctx", None)
+        # 受控查询路径：子上下文必须继承提取模型与业务目录，否则 text2sql Worker
+        # 的 query_financial_data 会因缺注入而报"运行配置错误"。stats 与父共享，使
+        # 提取调用次数在运行包里统一计数。
         return ToolContext(db_path=self.parent.db_path, store=self.parent.store,
                            cfg=self.parent.cfg, as_of=self.parent.as_of,
-                           enabled_tools=allowed)
+                           enabled_tools=allowed,
+                           llm=getattr(self.parent, "llm", None),
+                           catalog=getattr(parent_tool_ctx, "catalog", None),
+                           query_backend=getattr(self.parent, "query_backend", None) or "metric",
+                           stats=getattr(parent_tool_ctx, "stats", None) or {})
 
     def run(self, user_content: str, resume_messages: list[dict] | None = None) -> SubResult:
         """执行一个阶段。`resume_messages` 非空时续接同一上下文（PRD §4.5）。
