@@ -39,7 +39,7 @@
 .venv\Scripts\python -m eval.financial_e2e generate-points --cases eval/datasets/financial_real_v1/cases.jsonl --ids LV-E2E-... --write
 
 # 对已有运行包评分（只读原包，不重新请求 Agent）
-.venv\Scripts\python -m eval.financial_e2e score-run --run-dir runs/cli-20261016-134035 --case-id LV-E2E-FY2026Q1-MARGIN-OI-001 --out eval/reports/e2e
+.venv\Scripts\python -m eval.financial_e2e score-run --run-dir runs/cli-20261016-134035 --case-id LV-E2E-FY2026Q1-CONFLICT-001 --out eval/reports/e2e
 
 # 按固定数据集调用当前 Agent（子进程 agent.cli）并评分
 .venv\Scripts\python -m eval.financial_e2e run-dataset --cases eval/datasets/financial_real_v1/cases.jsonl --agent-mode multi_agent --query-backend text2sql --out eval/reports/e2e --reset
@@ -66,9 +66,9 @@
 | 证据边界与综合判断 | 8 | 单季 vs 累计、证据冲突、数据缺口、合成明细、列/期间误用 |
 | 历史时点预测 | 6 | 固定 as_of、点/区间、方法、不确定性 |
 
-- 复用已审开发题 6 题（S01×2、S03、S04×2、S05；另 R02 作为 blocked 题）：`origin=reused`，
-  保留 `selected_id`。
-- 新构造 24 题：`origin=new`。
+- 复用已审开发题 9 条（S01、S02、S03、S04×2、S05、S06、S07；另 R02 作为 blocked 题）：
+  `origin=reused`，保留 `selected_id` 与审核历史。S01–S07 全部覆盖。
+- 新构造 21 题：`origin=new`。
 - 全部 `review_status=draft`（生成器不得自批）。
 - `blocked=1`：`LV-E2E-FY2027Q1-SEGMENT-GAP-001`（结构化库无分部收入/抵销项）。
 - 预测题真实实绩仅在评测侧 `forecast_truth`，不进入 `CaseInput`；`LV-E2E-FY2027Q2-...`
@@ -79,7 +79,7 @@
 - 来源限定为 `data/manual/lenovo_manifest.json`（港交所公告清单：标题/URL/发布日期/sha256）
   与 `data/raw/lenovo/*.pdf` 本地原文。
 - 每题 `sources` 记录公告标题、港交所 URL、发布日期、报告期、PDF 页码、行/列与备注。
-- `verify-sources --strict`：**20/20 已披露项全部在引用页命中**；28 条为派生值（增速/比率/
+- `verify-sources --strict`：**22/22 已披露项全部在引用页命中**；36 条为派生值（增速/比率/
   天数/由累计推出的单季），由已披露项计算，不要求逐字出现。
 
 ## 4. 评分方法
@@ -99,9 +99,9 @@
 
 ```
 $ .venv\Scripts\python -m eval.financial_e2e score-run --run-dir runs/cli-20261016-134035 \
-    --case-id LV-E2E-FY2026Q1-MARGIN-OI-001 --out eval/reports/e2e_dev --judge-fake
-LV-E2E-FY2026Q1-MARGIN-OI-001: status=refuse delivered=False 必答命中=0.00 \
-  missing=5 contradicted=0 unknown=0
+    --case-id LV-E2E-FY2026Q1-CONFLICT-001 --out eval/reports/e2e_dev --judge-fake
+LV-E2E-FY2026Q1-CONFLICT-001: status=refuse delivered=False 必答命中=0.00 \
+  missing=4 contradicted=0 unknown=0
 ```
 
 该包在 `run_meta.json` 中 semantic_review_status=accepted、节点 completed，但最终 status=refuse，
@@ -116,7 +116,7 @@ LV-E2E-FY2026Q1-MARGIN-OI-001: status=refuse delivered=False 必答命中=0.00 \
 | `LV-E2E-FY2027Q1-SEGMENT-GAP-001` | **blocked** | 无分部收入/抵销项结构化数据，需补数 |
 | 预测题真实实绩 | 仅评测侧 | FY2026Q1/Q2/Q3/Q4 有实绩；FY2027Q2 待披露 |
 | 真实模型运行 | **未执行** | 需 API key/网络；命令已给出，属 live 检查，不伪造结果 |
-| 已审 S01–S07 复用 | 6 题 | 已按新协议重写得分点与来源锚点 |
+| 已审 S01–S07 复用 | 9 条（覆盖 S01–S07） | 已按新协议重写得分点与来源锚点，保留 `selected_id` |
 
 ## 7. 已实现 / 仅定义协议 / 未实现
 

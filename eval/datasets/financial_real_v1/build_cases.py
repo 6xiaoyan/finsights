@@ -533,30 +533,48 @@ add(
     data_visibility={"basis": "current_retrospective"},
 )
 
-# A8：FY2025 收入增速 > 毛利增速 → 毛利率下降
+# A8：S02 全年 收入→毛利→经营费用→经营溢利 桥
+_r25, _r26 = ysum("revenue", 2025), ysum("revenue", 2026)
+_gp25, _gp26 = ysum("gross_profit", 2025), ysum("gross_profit", 2026)
+_oi25, _oi26 = ysum("operating_income", 2025), ysum("operating_income", 2026)
 add(
-    case_id="LV-E2E-FY2025-ANNUAL-GM-001",
-    question=("联想集团 FY2025 全年收入同比大幅增长，但毛利率同比下降。"
-              "请量化收入与毛利的同比增速差，并说明毛利率下降的算术原因。"),
+    case_id="LV-E2E-FY2026-ANNUAL-BRIDGE-001",
+    question=("联想集团 FY2026 全年毛利率同比下降 0.7 个百分点至 15.4%，但全年经营溢利"
+              "同比 +51%。毛利率下滑与盈利大增是否矛盾？请沿 收入→毛利→经营费用→经营溢利"
+              "做全年口径的增速分解，指出各层同比金额变化，并说明管理层给出的组合与 ISG"
+              "低利润率解释能否被这些数字证实。"),
     scope=SCOPE, data_refs=["data/finsights.duckdb"], case_revision=1,
-    reference_answer="见核算：收入增速高于毛利增速导致毛利率下降。",
-    sources=[src(2025, 4, IS(2025, 4), "收入/毛利", period="FY2025 全年")],
+    reference_answer=(
+        f"FY2026 全年收入 {f2(_r26)}（同比 {( _r26/_r25-1)*100:+.2f}%），毛利 {f2(_gp26)}"
+        f"（同比 {(_gp26/_gp25-1)*100:+.2f}%），经营费用（毛利−经营溢利）{f2(_gp26-_oi26)}"
+        f"（同比 {d2((_gp26-_oi26)-(_gp25-_oi25))}），经营溢利 {f2(_oi26)}"
+        f"（同比 {(_oi26/_oi25-1)*100:+.2f}%）。不矛盾：毛利增速低于收入增速导致毛利率"
+        "下降，但费用增速更低使经营溢利增速高于毛利增速。管理层的组合/ISG 解释属公司说明，"
+        "不能仅凭这些报表数字证实为独立因果。"),
+    sources=[src(2026, 4, 17, "收入/毛利/经营溢利（全年欄）", period="FY2026 全年")],
     scoring_points=[
-        sp("p1", "给出 FY2025 收入同比增速", ev=["收入"]),
-        sp("p2", "给出 FY2025 毛利同比增速", ev=["毛利"]),
-        sp("p3", "指出毛利增速低于收入增速即毛利率下降的算术原因", prereq=["p1", "p2"]),
+        sp("p1", "给出全年收入同比约 +20.3%", ev=["收入"]),
+        sp("p2", "给出全年毛利同比约 +15.4%", ev=["毛利"]),
+        sp("p3", "给出毛利率同比下降约 0.7pp", ev=["毛利率"], contra=["称毛利率上升"]),
+        sp("p4", "给出经营溢利同比约 +50.7%", ev=["经营溢利"]),
+        sp("p5", "指出毛利增速低于收入、费用增速更低，二者可同时成立", prereq=["p2", "p4"]),
+        sp("p6", "管理层组合/ISG 解释需报表数字之外证据，不能据报表断定因果", ev=["证据边界"],
+           contra=["声称报表已证明组合/ISG 是唯一成因"]),
     ],
     numeric_assertions=[
-        na("revenue_growth_pct", "FY2025", (ysum("revenue", 2025) / ysum("revenue", 2024) - 1) * 100,
-           "pct", baseline="FY2024", direction="up"),
-        na("gross_profit_growth_pct", "FY2025",
-           (ysum("gross_profit", 2025) / ysum("gross_profit", 2024) - 1) * 100, "pct",
-           baseline="FY2024", direction="up"),
+        na("revenue_growth_pct", "FY2026", (_r26 / _r25 - 1) * 100, "pct", baseline="FY2025",
+           direction="up"),
+        na("gross_profit_growth_pct", "FY2026", (_gp26 / _gp25 - 1) * 100, "pct",
+           baseline="FY2025", direction="up"),
+        na("operating_income_growth_pct", "FY2026", (_oi26 / _oi25 - 1) * 100, "pct",
+           baseline="FY2025", direction="up"),
+        na("operating_income", "FY2026", _oi26, "usd_mn", direction="up"),
     ],
-    forbidden_claims=["把收入增长等同于毛利率改善"],
-    reasoning_requirements=["同比", "比率与金额"],
-    question_type="attribution", origin="new", split_group="FY2025",
-    event_family="LV-FY2025-annual-gm",
+    forbidden_claims=["声称报表数字已证实业务组合是毛利率变化的唯一成因",
+                      "把管理层解释当作独立证实的因果事实"],
+    reasoning_requirements=["多期求和", "逐层增速分解", "矛盾解释", "证据边界"],
+    question_type="attribution", origin="reused", selected_id="S02",
+    event_family="LV-FY2026Q4-annual-mix", split_group="FY2026",
     data_visibility={"basis": "current_retrospective"},
 )
 
@@ -585,28 +603,74 @@ add(
     data_visibility={"basis": "current_retrospective"},
 )
 
-# A10：FY2026Q2 经营费用率下降但费用金额未必收缩
+# A10：S06 营运资金 DSO/DIO/DPO 与 CCC
+_dso_c = (g("accounts_receivable", 2026, 4) + g("accounts_receivable", 2027, 1)) / 2 / g("revenue", 2027, 1) * 91
+_dso_p = (g("accounts_receivable", 2025, 4) + g("accounts_receivable", 2026, 1)) / 2 / g("revenue", 2026, 1) * 91
+_dio_c = (g("inventory", 2026, 4) + g("inventory", 2027, 1)) / 2 / g("cogs", 2027, 1) * 91
+_dio_p = (g("inventory", 2025, 4) + g("inventory", 2026, 1)) / 2 / g("cogs", 2026, 1) * 91
+_dpo_c = (g("accounts_payable", 2026, 4) + g("accounts_payable", 2027, 1)) / 2 / g("cogs", 2027, 1) * 91
+_dpo_p = (g("accounts_payable", 2025, 4) + g("accounts_payable", 2026, 1)) / 2 / g("cogs", 2026, 1) * 91
+_ccc_c, _ccc_p = _dso_c + _dio_c - _dpo_c, _dso_p + _dio_p - _dpo_p
+_nwc = ((g("inventory", 2027, 1) - g("inventory", 2026, 1))
+        + (g("accounts_receivable", 2027, 1) - g("accounts_receivable", 2026, 1))
+        - (g("accounts_payable", 2027, 1) - g("accounts_payable", 2026, 1)))
 add(
-    case_id="LV-E2E-FY2026Q2-OPEX-RATIO-001",
-    question=("联想集团 FY2026Q2 经营费用率同比下降，请用量化数据说明该下降是来自费用金额"
-              "收缩还是收入增长更快，并说明区分这两者为什么重要。"),
+    case_id="LV-E2E-FY2027Q1-WORKING-CAPITAL-CCC-001",
+    question=("联想集团 FY2027Q1 存货、应收、应付同季均大幅增长。请按同比 DSO、DIO、DPO 与"
+              "现金转换周期 CCC（天数均取 91；流量用单季收入/营业成本，余额用（期初+期末)/2）"
+              "量化这轮营运资金扩张，判断主要由存货/应收占用还是应付融资支撑，"
+              "并用现金余额说明能否据此判断现金压力。"),
     scope=SCOPE, data_refs=["data/finsights.duckdb"], case_revision=1,
-    reference_answer="见核算：费用率下降但费用金额变化方向需单独看。",
-    sources=[src(2026, 2, IS(2026, 2), "收入/毛利/经营溢利", period="FY2026Q2")],
+    reference_answer=(
+        f"FY2027Q1 同比：DSO {_dso_p:.2f}→{_dso_c:.2f} 天（{_dso_c-_dso_p:+.2f}）；"
+        f"DIO {_dio_p:.2f}→{_dio_c:.2f} 天；DPO {_dpo_p:.2f}→{_dpo_c:.2f} 天"
+        f"（{_dpo_c-_dpo_p:+.2f}）。CCC = DSO+DIO−DPO：本期 {_ccc_c:.2f} 天，上年同期 "
+        f"{_ccc_p:.2f} 天，基本持平。选定存货+应收−应付净占用同比 "
+        f"{d2(_nwc)} 百万美元（存货 {d2(g('inventory',2027,1)-g('inventory',2026,1))}、"
+        f"应收 {d2(g('accounts_receivable',2027,1)-g('accounts_receivable',2026,1))}、"
+        f"应付 {d2(g('accounts_payable',2027,1)-g('accounts_payable',2026,1))}）。"
+        f"应付融资增加幅度大于存货/应收占用，使 CCC 基本不变；现金余额由 "
+        f"{f2(g('cash',2026,1))} 升至 {f2(g('cash',2027,1))}。但选定三科目净变化不等于"
+        "全口径营运资金或经营现金流，现金压力判断仍缺现金流量表口径证据。"),
+    sources=[src(2027, 1, IS(2027, 1), "收入/營業成本", period="FY2027Q1"),
+             src(2027, 1, 14, "存貨/應收賬款", period="FY2027Q1"),
+             src(2027, 1, 15, "應付賬款", period="FY2027Q1"),
+             src(2026, 4, 19, "存貨/應收賬款（期初）", period="FY2026Q4"),
+             src(2026, 1, 15, "存貨/應收賬款（上年同）", period="FY2026Q1"),
+             src(2026, 1, 16, "應付賬款（上年同）", period="FY2026Q1")],
     scoring_points=[
-        sp("p1", "给出 FY2026Q2 经营费用金额同比变化", ev=["费用金额"]),
-        sp("p2", "给出 FY2026Q2 费用率同比变化", ev=["费用率"]),
-        sp("p3", "说明费用率下降与费用金额收缩是两回事", prereq=["p1", "p2"]),
+        sp("p1", f"给出 DSO 同比上升约 {_dso_c-_dso_p:.1f} 天（{_dso_p:.1f}→{_dso_c:.1f}）",
+           ev=["DSO"]),
+        sp("p2", f"给出 DIO 由约 {_dio_p:.1f} 升至约 {_dio_c:.1f} 天", ev=["DIO"], prereq=["p1"]),
+        sp("p3", f"给出 DPO 同比上升约 {_dpo_c-_dpo_p:.1f} 天（{_dpo_p:.1f}→{_dpo_c:.1f}）",
+           ev=["DPO"]),
+        sp("p4", f"给出 CCC 本期约 {_ccc_c:.1f} 天、同比基本持平（上年约 {_ccc_p:.1f}）",
+           prereq=["p1", "p2", "p3"], ev=["CCC"]),
+        sp("p5", f"给出选定三科目净占用同比约 {d2(_nwc)} 百万美元", ev=["净占用"],
+           eq=["约 +52.6 亿美元"]),
+        sp("p6", "结论：应付融资增长抵消了存货/应收占用，CCC 基本不变；现金余额上升",
+           prereq=["p3", "p4"]),
+        sp("p7", "说明三科目净变化不等于全口径营运资金/经营现金流，现金压力判断仍缺证据",
+           ev=["证据边界"], contra=["把三科目净变化等同于经营现金流"]),
     ],
     numeric_assertions=[
-        na("operating_expense", "FY2026Q2",
-           g("gross_profit", 2026, 2) - g("operating_income", 2026, 2), "usd_mn",
-           formula="毛利-经营利润", direction="unknown", cat="supporting"),
+        na("dso_days", "FY2027Q1", _dso_c, "days", direction="up", tol_abs=0.1),
+        na("dso_days", "FY2026Q1", _dso_p, "days", direction="up", tol_abs=0.1, cat="supporting"),
+        na("dio_days", "FY2027Q1", _dio_c, "days", direction="up", tol_abs=0.1),
+        na("dpo_days", "FY2027Q1", _dpo_c, "days", direction="up", tol_abs=0.1),
+        na("dpo_days", "FY2026Q1", _dpo_p, "days", direction="up", tol_abs=0.1, cat="supporting"),
+        na("ccc_days", "FY2027Q1", _ccc_c, "days", direction="flat", tol_abs=0.2),
+        na("ccc_days", "FY2026Q1", _ccc_p, "days", direction="flat", tol_abs=0.2, cat="supporting"),
+        na("net_working_capital_delta", "FY2027Q1", _nwc, "usd_mn", baseline="FY2026Q1",
+           formula="Δ存货+Δ应收−Δ应付", direction="up"),
+        na("cash", "FY2027Q1", g("cash", 2027, 1), "usd_mn", direction="up", cat="supporting"),
     ],
-    forbidden_claims=["把费用率下降等同于费用金额收缩"],
-    reasoning_requirements=["比率 vs 金额", "同比"],
-    question_type="attribution", origin="new", split_group="FY2026",
-    event_family="LV-FY2026Q2-opex-ratio",
+    forbidden_claims=["把选定三科目净变化等同于全口径营运资金或经营现金流",
+                      "仅凭资产负债表断定存在或不存在现金压力"],
+    reasoning_requirements=["平均余额", "天数换算", "多科目联动", "现金检验", "证据边界"],
+    question_type="attribution", origin="reused", selected_id="S06",
+    event_family="LV-FY2027Q1-working-capital", split_group="FY2027Q1",
+    notes="复用已审 S06；净占用采用修订版 5,258.727。",
     data_visibility={"basis": "current_retrospective"},
 )
 
@@ -692,8 +756,9 @@ add(
     ],
     forbidden_claims=["用单一'变好/变差'结论掩盖不同利润层的相反信号"],
     reasoning_requirements=["利润层", "证据冲突", "结论表述"],
-    question_type="judgment", origin="new", split_group="FY2026",
-    event_family="LV-FY2026Q1-ratio-conflict",
+    question_type="judgment", origin="reused", selected_id="S07", split_group="FY2026",
+    event_family="LV-FY2026Q1-margin-vs-expense-divergence",
+    notes="复用已审 S07 事件，按新协议重写；解题步骤移至评测侧。",
     data_visibility={"basis": "current_retrospective"},
 )
 
