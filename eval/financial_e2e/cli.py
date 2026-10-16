@@ -22,7 +22,7 @@ from pathlib import Path
 
 from eval.financial_e2e.adapter import load_run_artifact, run_question
 from eval.financial_e2e.generate import apply_candidate, generate_points
-from eval.financial_e2e.grader import grade_case
+from eval.financial_e2e.grader import GRADER_VERSION, grade_case
 from eval.financial_e2e.judge import CallableJudge, LLMJudge
 from eval.financial_e2e.report import summary_report_md, write_case_report
 from eval.financial_e2e.schema import CaseRecord, load_dataset, save_dataset
@@ -177,9 +177,13 @@ def _score_one(case: CaseRecord, run_dir: Path, judge, results_jsonl: Path,
     answer_text = art.final_answer if art.final_status == "answered" else None
     grading_text = answer_text  # 只有最终提交答案才进入正式评分（PRD §6.1）
     result = grade_case(case, grading_text or "", judge, run_id=art.run_id)
+    from eval.runner import _git_commit
     rec = {"case_id": case.case_id, "run_id": art.run_id,
            "final_status": art.final_status, "final_answer": answer_text,
-           "dataset": str(dataset_path),
+           "dataset": str(dataset_path), "dataset_revision": case.case_revision,
+           "code_commit": _git_commit(), "grader_version": GRADER_VERSION,
+           "judge": {"name": getattr(judge, "name", "unknown"),
+                     "model": getattr(judge, "model", None)},
            "result": {
                "points": [g.model_dump() for g in result["points"]],
                "whole": result["whole"].model_dump(),
