@@ -62,6 +62,9 @@ class Outcome:
     rid: str | None = None
     ok: bool = True
     stored: StoredResult | None = None
+    # 调用级查询 id（仅 query_financial_data 产生）：把工具调用事件与运行包里的
+    # analysis/query_trace.jsonl 记录关联起来。纯观测字段，不参与 text 渲染。
+    query_trace_id: str | None = None
 
 
 # ---------------------------------------------------------------- 渲染
@@ -431,6 +434,59 @@ def _render_query_result(result, ctx: ToolContext) -> str:
     return "\n".join(lines)
 
 
+def _record_query_call(ctx: ToolContext, *, query_trace_id: str, call_index: int, step: int,
+                       question: str, node_task: str, extraction: Any,
+                       events: list[dict], result: Any = None) -> dict:
+    """把一次 query_financial_data 调用记进 ctx.stats["query_trace"]（PRD §7.1）。
+
+    只记运行包里没有/难恢复的东西：调用级 id、提取明细、非 ok 路径的计划。
+    rows/SQL 全文仍留在 results.json，这里只留引用（result_ids）与 sql 长度。
+    返回值就是落进 stats 的那条记录，测试可直接断言。
+    """
+    rid = result.result_ids[0] if (result and result.result_ids) else None
+    sql = ""
+    if rid:
+        stored = ctx.store.get(rid)
+        sql = getattr(stored, "sql", "") or ""
+    provenance = getattr(result, "provenance", {}) or {}
+    plan = getattr(extraction, "plan", None)
+    if plan is None and result is not None:
+        plan = getattr(result, "plan", None)
+
+    calls = [e for e in events if e.get("type") == "extractor_call"]
+    prompt_version = next((e.get("prompt_version") for e in reversed(calls)
+                           if e.get("prompt_version")), None)
+    issues = getattr(extraction, "issues", None) or []
+    if result is not None and getattr(result, "issues", None):
+        issues = result.issues
+
+    rec = {
+        "query_trace_id": query_trace_id,
+        "call_index": call_index,
+        "step": step,
+        "question": question,
+        "node_task": node_task,
+        # 终结状态：提取失败时是提取状态，否则是执行结果状态
+        "status": (extraction.status if (result is None) else result.status),
+        "issue_codes": [i.code for i in issues],
+        "plan": plan.model_dump() if plan is not None else None,
+        # executor 的内容寻址 id（sha256(sql+plan)[:12]），非 ok 路径为 None
+        "plan_digest": provenance.get("query_trace_id") or None,
+        "attempts": len(calls),
+        "extractor_events": list(events),
+        "prompt_version": prompt_version,
+        "catalog_version": (provenance.get("catalog_version")
+                            or ctx.catalog.catalog_version()),
+        "data_version": ctx.data_version,
+        "result_ids": list(result.result_ids) if result else [],
+        "sql_chars": len(sql) if sql else None,
+        "total_rows": getattr(result, "total_rows", None) if result else None,
+        "truncated": getattr(result, "truncated", None) if result else None,
+    }
+    ctx.stats.setdefault("query_trace", []).append(rec)
+    return rec
+
+
 def _h_query_financial_data(args, ctx: ToolContext, step: int) -> Outcome:
     from agent.query.executor import execute_plan
     from agent.query.extractor import extract_plan
@@ -438,17 +494,28 @@ def _h_query_financial_data(args, ctx: ToolContext, step: int) -> Outcome:
         raise ValueError("query_financial_data 需要注入目录与模型（运行配置错误）")
     node_task = getattr(args, "node_task", "") or ""
     qcfg = getattr(ctx, "query_cfg", None) or {}
+    # 调用级 id：本次运行内唯一，每次调用必有（不能拿 rid 顶替——同计划会复用 rid）
+    call_index = len(ctx.stats.setdefault("query_trace", []))
+    query_trace_id = f"q{call_index + 1}"
     extraction, events = extract_plan(args.question, node_task, ctx.catalog, ctx.llm, ctx=ctx,
                                       temperature=qcfg.get("extraction_temperature"),
                                       max_format_repairs=int(qcfg.get("max_format_repairs", 1)))
     ctx.stats.setdefault("extractor_events", []).extend(events)
     if extraction.status != "ok" or extraction.plan is None:
-        return Outcome(_render_query_result(extraction, ctx), ok=False, rid=None)
+        _record_query_call(ctx, query_trace_id=query_trace_id, call_index=call_index, step=step,
+                           question=args.question, node_task=node_task,
+                           extraction=extraction, events=events)
+        return Outcome(_render_query_result(extraction, ctx), ok=False, rid=None,
+                       query_trace_id=query_trace_id)
     result = execute_plan(extraction.plan, ctx.catalog, ctx.store, ctx.db_path,
                           preview_rows=int(ctx.cfg.get("result_max_rows", 50)))
     ok = result.status in ("ok", "empty")
     rid = result.result_ids[0] if result.result_ids else None
-    return Outcome(_render_query_result(result, ctx), rid=rid, ok=ok)
+    _record_query_call(ctx, query_trace_id=query_trace_id, call_index=call_index, step=step,
+                       question=args.question, node_task=node_task,
+                       extraction=extraction, events=events, result=result)
+    return Outcome(_render_query_result(result, ctx), rid=rid, ok=ok,
+                   query_trace_id=query_trace_id)
 
 
 def _h_recall(args, ctx: ToolContext, step: int) -> Outcome:
