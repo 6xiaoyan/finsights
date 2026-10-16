@@ -232,3 +232,210 @@ def test_child_context_shares_parent_stats(query_db, metrics_path):
 
     assert runner.child.stats is ctx.stats
     assert len(ctx.stats["query_trace"]) == 1
+
+
+# ------------------------------------------------------------- Task 4：可见上下文埋点
+
+class FakeTrace:
+    def __init__(self):
+        self.events = []
+
+    def event(self, **kw):
+        self.events.append(kw)
+
+
+def _run_ctx(query_db, metrics_path, llm):
+    """带 trace 的运行上下文：形状对齐 agent.multi.run_multi 里的 ctx。"""
+    ctx = _ctx(query_db, metrics_path, llm)
+    ctx.trace = FakeTrace()
+    ctx.stats = {"prompt_tokens": 0, "completion_tokens": 0}
+    return ctx
+
+
+def test_subagent_context_event_emitted_per_role_call(query_db, metrics_path):
+    from agent import multi
+
+    llm = MockLLM([_resp({"revision_reason": "初始", "nodes": []})])
+    ctx = _run_ctx(query_db, metrics_path, llm)
+
+    multi._run_role("planner", "你是 Planner", "TaskContract：{...}", llm, ctx, 1, 2)
+
+    starts = [e for e in ctx.trace.events if e["type"] == "subagent_start"]
+    ctxs = [e for e in ctx.trace.events if e["type"] == "subagent_context"]
+    assert len(ctxs) == 1
+    assert ctxs[0]["role"] == "planner"
+    assert ctxs[0]["agent_call_id"] == starts[0]["agent_call_id"]
+    assert ctxs[0]["system_prompt_sha256_12"]
+
+
+def test_subagent_context_event_per_role_carries_ident(query_db, metrics_path):
+    from agent import multi
+
+    llm = MockLLM([_resp({"verdict": "accepted", "findings": []})])
+    ctx = _run_ctx(query_db, metrics_path, llm)
+    # Reviewer 实际收到的正文形如 multi._tool_review 拼的那段
+    user = ("审查对象（artifact，art1，版本 rev1-attempt1）完整内容摘要：\n"
+            "facts: [{rid: r2, ...}]")
+
+    multi._run_role("reviewer", "你是 Reviewer", user, llm, ctx, 6, 2,
+                    target_type="artifact", target_id="art1",
+                    target_version="rev1-attempt1")
+
+    ev = next(e for e in ctx.trace.events if e["type"] == "subagent_context")
+    assert ev["target_type"] == "artifact"
+    assert ev["target_id"] == "art1"
+    assert ev["target_version"] == "rev1-attempt1"
+    refs = ev["context_refs"]
+    # ident 派生的显式审查对象
+    assert refs["target_id"] == "art1"
+    assert refs["target_version"] == "rev1-attempt1"
+    # 正文派生的「这次看得见哪些上游产物」
+    assert refs["artifact_ids"] == ["art1"]
+    assert refs["rids"] == ["r2"]
+
+
+def test_context_refs_extract_rids_and_artifacts():
+    from agent.multi import _context_refs
+
+    refs = _context_refs("看 r2 和 r15，还有 art3、answer-cand7，节点 n1 与 n2", {})
+
+    assert refs["rids"] == ["r2", "r15"]
+    assert refs["artifact_ids"] == ["art3"]
+    assert refs["answer_candidate_ids"] == ["answer-cand7"]
+    assert refs["node_ids"] == ["n1", "n2"]
+
+
+def test_context_refs_dedupe_preserves_first_occurrence():
+    from agent.multi import _context_refs
+
+    refs = _context_refs("r2 先出现，r15 其次，r2 又来一次", {})
+    assert refs["rids"] == ["r2", "r15"]
+
+
+def test_context_refs_do_not_match_node_ids_inside_words():
+    from agent.multi import _context_refs
+
+    # "plan1" 里的 "n1" 不算节点；"attempt1" 同理
+    refs = _context_refs("plan1 与 attempt1 里的 n1 才算", {})
+    assert refs["node_ids"] == ["n1"]
+
+
+def test_context_refs_carry_contract_data_version():
+    from agent.multi import _context_refs
+
+    refs = _context_refs('TaskContract：{"data_version": "2633728-abc"}', {})
+    assert refs["contract_data_version"] == "2633728-abc"
+
+
+def test_redact_masks_secrets():
+    from agent.multi import _redact_text
+
+    out = _redact_text('key sk-abcdefgh12345678 and Bearer abc.def\napi_key: secret123')
+
+    assert "sk-abcdefgh12345678" not in out
+    assert "abc.def" not in out
+    assert "secret123" not in out
+    assert "***REDACTED***" in out
+
+
+def test_redact_leaves_normal_financial_text_alone():
+    from agent.multi import _redact_text
+
+    text = "联想 FY2024Q2 存货 100.5 百万美元，同比上升 12%。rid r2 来自 art1。"
+    assert _redact_text(text) == text
+
+
+def test_context_event_does_not_change_model_input(query_db, metrics_path):
+    """埋点不得改变模型输入：messages 必须恰好是 [system=sys_prompt, user=...]。"""
+    from agent import multi
+
+    llm = MockLLM([_resp({"revision_reason": "初始", "nodes": []})])
+    ctx = _run_ctx(query_db, metrics_path, llm)
+    user = "TaskContract：{...}\n当前状态：{...}"
+
+    multi._run_role("planner", "你是 Planner", user, llm, ctx, 1, 2)
+
+    sent = llm.calls[0]["messages"]
+    assert sent[0] == {"role": "system", "content": "你是 Planner"}
+    assert sent[1] == {"role": "user", "content": user}
+
+
+def test_context_event_preview_is_bounded(query_db, metrics_path):
+    from agent import multi
+
+    llm = MockLLM([_resp({"revision_reason": "初始", "nodes": []})])
+    ctx = _run_ctx(query_db, metrics_path, llm)
+    long_user = "x" * 5000
+
+    multi._run_role("planner", "你是 Planner", long_user, llm, ctx, 1, 2)
+
+    ev = next(e for e in ctx.trace.events if e["type"] == "subagent_context")
+    assert len(ev["user_preview"]) <= 1200
+    assert ev["user_truncated"] is False      # 5000 < 64000，整份仍留存
+    assert ev["user_chars"] == 5000
+
+
+def test_visible_context_stats_holds_full_redacted_content(query_db, metrics_path):
+    """整份实际内容只存 stats（导出处），trace 事件只带预览，两处不重复。"""
+    from agent import multi
+
+    llm = MockLLM([_resp({"revision_reason": "初始", "nodes": []})])
+    ctx = _run_ctx(query_db, metrics_path, llm)
+    user = "TaskContract：{...}\n密钥 sk-abcdefgh12345678 不应落盘"
+
+    multi._run_role("planner", "你是 Planner", user, llm, ctx, 1, 2)
+
+    recs = ctx.stats["visible_context"]
+    assert len(recs) == 1
+    assert "sk-abcdefgh12345678" not in recs[0]["user_content"]
+    # user_chars 是模型实际收到的长度；user_content_chars 是落盘长度（脱敏后）
+    assert recs[0]["user_chars"] == len(user)
+    assert recs[0]["user_content_chars"] == len(recs[0]["user_content"])
+    ev = next(e for e in ctx.trace.events if e["type"] == "subagent_context")
+    assert len(ev["user_preview"]) <= 1200
+    assert "user_content" not in ev          # 不在 trace 里再存一份
+
+
+def test_visible_context_truncates_very_long_content(query_db, metrics_path):
+    from agent import multi
+
+    llm = MockLLM([_resp({"revision_reason": "初始", "nodes": []})])
+    ctx = _run_ctx(query_db, metrics_path, llm)
+
+    multi._run_role("planner", "你是 Planner", "y" * 70000, llm, ctx, 1, 2)
+
+    rec = ctx.stats["visible_context"][0]
+    assert rec["user_truncated"] is True
+    assert rec["user_chars"] == 70000            # 模型确实收到了这么多
+    assert rec["user_content_chars"] == 64000    # 但落盘只留这么多
+    assert len(rec["user_content"]) == 64000
+
+
+def test_visible_context_marks_resumed_calls(query_db, metrics_path):
+    """续接调用时模型还看得到历史 messages，记录必须说明它是片面的。"""
+    from agent import multi
+
+    llm = MockLLM([_resp({"facts": [], "summary": "done"})])
+    ctx = _run_ctx(query_db, metrics_path, llm)
+    prior = [{"role": "system", "content": "你是 Worker"},
+             {"role": "user", "content": "旧任务"}, {"role": "assistant", "content": "旧回复"}]
+
+    multi._run_role("worker", "你是 Worker", "继续", llm, ctx, 3, 2,
+                    resume_messages=prior, node_id="n1", plan_revision=1, attempt=2)
+
+    rec = ctx.stats["visible_context"][0]
+    assert rec["resumed"] is True
+    assert rec["resume_message_count"] == 3
+    ev = next(e for e in ctx.trace.events if e["type"] == "subagent_context")
+    assert ev["resumed"] is True
+
+
+def test_system_prompt_hash_matches_run_package_convention():
+    """system_prompt_sha256_12 必须与 run_meta.role_prompt_sha256_12 同一算法。"""
+    import hashlib
+    from pathlib import Path
+
+    text = Path("agent/prompts/multi/planner.md").read_text(encoding="utf-8")
+    digest = hashlib.sha256(text.encode("utf-8")).hexdigest()[:12]
+    # 该值来自 runs/cli-20261016-134035 的 run_meta.json
+    assert digest == "ce0422809738"

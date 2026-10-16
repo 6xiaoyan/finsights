@@ -6,6 +6,7 @@
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import time
@@ -612,6 +613,110 @@ def _dispatch_tool(state: AnalysisState, name: str, args: dict, args_json: str, 
     return result_text, published
 
 
+#: 可见上下文快照上限（字符）。超过则截断并置 user_truncated=true。
+VISIBLE_CONTEXT_MAX_CHARS = 64000
+#: trace 事件里只放有限预览；整份内容存 ctx.stats["visible_context"]，两处不重复。
+VISIBLE_CONTEXT_PREVIEW_CHARS = 1200
+
+#: 从交给子 Agent 的文本里提取结构化引用清单——用来回答
+#: 「这次调用到底看得见哪些上游产物」（PRD §7.1），而不是把正文再存一遍。
+_CONTEXT_REF_PATTERNS = {
+    "rids": re.compile(r"\br\d+\b"),
+    "artifact_ids": re.compile(r"\bart\d+\b"),
+    "answer_candidate_ids": re.compile(r"\banswer-cand\d+\b"),
+    "node_ids": re.compile(r"\bn\d+\b"),
+}
+_DATA_VERSION_RE = re.compile(r'"data_version"\s*:\s*"([^"]+)"')
+
+#: 落盘前脱敏（只作用于快照，不改发给模型的内容）。
+_SECRET_PATTERNS = (
+    re.compile(r"sk-[A-Za-z0-9_\-]{8,}"),
+    re.compile(r"(?i)\bbearer\s+\S+"),
+    re.compile(r"(?i)\b(?:api[_-]?key|auth[_-]?token|authorization|access[_-]?token|token)"
+               r"\b\"?\s*[:=]\s*\"?[^\s\",}]+"),
+)
+_REDACTED = "***REDACTED***"
+
+
+def _redact_text(text: str) -> str:
+    """把密钥类内容替换掉。只在写快照时调用，不影响模型输入。"""
+    out = text
+    for rx in _SECRET_PATTERNS:
+        out = rx.sub(_REDACTED, out)
+    return out
+
+
+def _dedup(seq: list[str]) -> list[str]:
+    seen: set[str] = set()
+    out: list[str] = []
+    for x in seq:
+        if x not in seen:
+            seen.add(x)
+            out.append(x)
+    return out
+
+
+def _context_refs(user: str, ident: dict) -> dict:
+    """从本次调用实际收到的文本 + ident 里抽出可核对的引用清单。
+
+    文本派生的列表说明「正文里提到了哪些上游产物」；ident 派生的 target_* 是显式的
+    审查对象——即使摘要被截断，也能知道这次调用审的是哪个版本。
+    """
+    refs = {k: _dedup(rx.findall(user)) for k, rx in _CONTEXT_REF_PATTERNS.items()}
+    m = _DATA_VERSION_RE.search(user)
+    refs["target_type"] = ident.get("target_type")
+    refs["target_id"] = ident.get("target_id")
+    refs["target_version"] = ident.get("target_version")
+    refs["contract_data_version"] = m.group(1) if m else None
+    return refs
+
+
+def _emit_subagent_context(ctx: Any, *, agent_call_id: str, role: str, step: int,
+                           ident: dict, sys_prompt: str, user: str,
+                           resume_messages: list[dict] | None) -> None:
+    """记录这次子 Agent 调用**实际看到**的内容（PRD §7.1）。
+
+    整份（脱敏、有界）内容进 `ctx.stats["visible_context"]`，由运行包导出到
+    `analysis/visible_context.jsonl`；trace 事件只带哈希、引用清单与有限预览，
+    因此同一份正文不会存两遍。纯观测：不改 messages，不改工具返回，不改调度。
+    """
+    sent_len = len(user)                       # 真正发给模型的长度（截断前、脱敏前）
+    redacted = _redact_text(user)
+    truncated = len(redacted) > VISIBLE_CONTEXT_MAX_CHARS
+    body = redacted[:VISIBLE_CONTEXT_MAX_CHARS] if truncated else redacted
+    refs = _context_refs(body, ident)
+    sha12 = lambda s: hashlib.sha256(s.encode("utf-8")).hexdigest()[:12]  # noqa: E731
+    resumed = bool(resume_messages)
+    resume_n = len(resume_messages or [])
+
+    ctx.stats.setdefault("visible_context", []).append({
+        "agent_call_id": agent_call_id, "role": role, "main_step": step,
+        "plan_revision": ident.get("plan_revision"),
+        "node_id": ident.get("node_id"),
+        "target_id": ident.get("target_id"),
+        "target_version": ident.get("target_version"),
+        "system_prompt_sha256_12": sha12(sys_prompt),
+        "user_content": body,
+        "user_chars": sent_len,                # 模型实际收到多少
+        "user_content_chars": len(body),       # 落盘了多少
+        "user_truncated": truncated,
+        "resumed": resumed,
+        "resume_message_count": resume_n,
+    })
+    ctx.trace.event(
+        type="subagent_context", role=role, step=step, agent_call_id=agent_call_id,
+        **ident,
+        system_prompt_sha256_12=sha12(sys_prompt),
+        user_sha256_12=sha12(body),
+        user_chars=sent_len,
+        context_refs=refs,
+        user_preview=redacted[:VISIBLE_CONTEXT_PREVIEW_CHARS],
+        user_truncated=truncated,
+        resumed=resumed,
+        resume_message_count=resume_n,
+    )
+
+
 def _run_role(role: str, sys_prompt: str, user: str, llm, ctx: Any, step: int,
               max_steps: int, ma: dict | None = None, *,
               resume_messages: list[dict] | None = None,
@@ -631,6 +736,9 @@ def _run_role(role: str, sys_prompt: str, user: str, llm, ctx: Any, step: int,
     agent_call_id = f"{role}@{step}#{ident.get('node_id') or ident.get('target_id') or 'plan'}"
     ctx.trace.event(type="subagent_start", role=role, step=step,
                     agent_call_id=agent_call_id, **ident)
+    _emit_subagent_context(ctx, agent_call_id=agent_call_id, role=role, step=step,
+                           ident=ident, sys_prompt=sys_prompt, user=user,
+                           resume_messages=resume_messages)
     t0 = time.perf_counter()
     sub = subagents.SubAgentRunner(llm, ctx, role, sys_prompt, max_steps,
                                    extra_tools=extra_tools)
