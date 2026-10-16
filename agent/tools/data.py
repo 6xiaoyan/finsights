@@ -6,6 +6,7 @@
 """
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass, field
 from typing import Any, Callable
@@ -44,6 +45,10 @@ class ToolContext:
     as_of: Any = None       # datetime.date | None：披露检索的时点截止（运行注入，非工具参数，V4.5）
     enabled_tools: list[str] | None = None  # 第一阶段工具白名单
     comp: Any = None        # agent.context.CompState：A2 活动证据保护（loop 注入同一实例）
+    llm: Any = None         # agent.llm.LLMClient：query_financial_data 的提取模型（运行时注入）
+    catalog: Any = None     # agent.query.catalog.BusinessCatalog：查询目录（运行时注入）
+    query_backend: str = "metric"   # 受控运行路径：metric | text2sql（历史 = metric）
+    stats: dict = field(default_factory=dict)  # 运行统计：extraction_calls 等
 
     @property
     def data_version(self) -> str:
@@ -387,6 +392,46 @@ def _h_forecast(args, ctx: ToolContext, step: int) -> Outcome:
                    _metric_unit(args.metric))
 
 
+def _render_query_result(result, ctx: ToolContext) -> str:
+    """把查询/提取结果渲染成模型可读文本；成功时给出 rid 头行供 claims 引用。"""
+    lines = [f"[查询状态] {result.status}"]
+    if result.issues:
+        lines.append("问题: " + "; ".join(f"{i.code}: {i.message}" for i in result.issues))
+    if result.status == "ok" and result.result_ids:
+        rid = result.result_ids[0]
+        cols = ", ".join(map(str, result.columns))
+        lines.append(f"[{rid}] query_financial_data(rows={result.total_rows} cols=[{cols}])")
+        if result.truncated:
+            lines.append(f"（结果共 {result.total_rows} 行，此处只显示前 {len(result.rows)} 行；"
+                         f'完整结果可用 recall("{rid}") 查看）')
+        lines.append(_table(pd.DataFrame(result.rows)))
+    if result.plan is not None:
+        lines.append("查询计划: " + json.dumps(result.plan.model_dump(), ensure_ascii=False))
+    if getattr(result, "provenance", None):
+        lines.append("provenance: " + json.dumps(result.provenance, ensure_ascii=False))
+    if result.issues and result.status != "ok":
+        lines.append("提示：以上状态表示未取到可用数据，不要编造数值；"
+                     "按需修正问题（公司/期间/指标/口径）后重试，或把缺失写入 missing_inputs。")
+    return "\n".join(lines)
+
+
+def _h_query_financial_data(args, ctx: ToolContext, step: int) -> Outcome:
+    from agent.query.executor import execute_plan
+    from agent.query.extractor import extract_plan
+    if ctx.catalog is None or ctx.llm is None:
+        raise ValueError("query_financial_data 需要注入目录与模型（运行配置错误）")
+    node_task = getattr(args, "node_task", "") or ""
+    extraction, events = extract_plan(args.question, node_task, ctx.catalog, ctx.llm, ctx=ctx)
+    ctx.stats.setdefault("extractor_events", []).extend(events)
+    if extraction.status != "ok" or extraction.plan is None:
+        return Outcome(_render_query_result(extraction, ctx), ok=False, rid=None)
+    result = execute_plan(extraction.plan, ctx.catalog, ctx.store, ctx.db_path,
+                          preview_rows=int(ctx.cfg.get("result_max_rows", 50)))
+    ok = result.status in ("ok", "empty")
+    rid = result.result_ids[0] if result.result_ids else None
+    return Outcome(_render_query_result(result, ctx), rid=rid, ok=ok)
+
+
 def _h_recall(args, ctx: ToolContext, step: int) -> Outcome:
     res = ctx.store.get(args.result_id)
     if res is None:
@@ -431,6 +476,7 @@ _HANDLERS: dict[str, Callable] = {
     "search_disclosure": _h_search_disclosure,
     "forecast": _h_forecast,
     "recall": _h_recall,
+    "query_financial_data": _h_query_financial_data,
 }
 
 

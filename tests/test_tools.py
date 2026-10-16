@@ -125,7 +125,8 @@ def test_v4_3_small_result_not_truncated(ctx):
 
 # ---------------- V4.4 / V4.5 schema
 
-PLAN_TOOLS_P4 = set(STORED_TOOLS) | {"recall", "todo_write", "final_answer", "load_skill"}  # forecast P6
+PLAN_TOOLS_P4 = set(STORED_TOOLS) | {"recall", "todo_write", "final_answer", "load_skill",
+                                     "query_financial_data"}  # forecast P6 + text2sql 受控工具
 
 
 def test_tool_schemas_have_no_dangling_refs():

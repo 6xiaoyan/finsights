@@ -84,6 +84,18 @@ class EmptyArgs(BaseModel):
     """list_metrics 无参数。"""
 
 
+class QueryFinancialDataArgs(BaseModel):
+    """自然语言财务查询（内部：结构化提取 → 确定性 SQL → 只读执行 → 比较/排序）。
+
+    模型只给自然语言，不给 SQL、db、as_of；周期口径与单位由目录和执行器决定。
+    """
+    question: str = Field(
+        description="要查询的财务问题/任务的自然语言描述，写明公司、期间、指标与比较口径"
+                    "（如：联想 FY2024Q2 与 FY2024Q1 存货差额与变化率）")
+    node_task: str = Field(
+        default="", description="multi_agent 模式下当前节点目标的原文（可留空）")
+
+
 # ---- 主循环工具（不进 Result Store）：plan 6.4 的终止/状态类 ----
 
 class TodoItem(BaseModel):
@@ -259,6 +271,10 @@ DESCRIPTIONS: dict[str, str] = {
                     "status=clarify 时 answer_md 写澄清问题；无法回答用 refuse。",
     "load_skill": "读取一个 skill 的全文（步骤/判断规则/输出要求）。何时使用：问题命中某个"
                   "skill 的描述场景时，先加载再按其流程做。何时不用：简单取数不需要流程指导。",
+    "query_financial_data": "自然语言财务查询：用一句中文问题取数，内部完成结构化提取→严格校验→"
+                            "确定性 SQL→只读执行→比较/排序，结果进结果库并获得 rid。何时使用："
+                            "text2sql 受控路径下的取数（含多公司、多期间、同比/环比、地区/产品线明细、"
+                            "排序 TopN）。何时不用：需要直接控制 SQL 或自定义币种/单位换算（本工具不支持）。",
 }
 
 # 产生 rid 并进入 store 的工具（L3 可压缩白名单，plan 6.6.3）
@@ -267,7 +283,8 @@ STORED_TOOLS = ["list_metrics", "query_metric", "run_sql", "calc", "variance",
                 "get_filing_notes", "search_disclosure", "forecast"]
 READ_ONLY_TOOLS = ["list_metrics", "recall", "query_metric", "variance", "seasonal_check",
                    "peer_compare", "working_capital", "check_identities", "get_filing_notes",
-                   "calc", "run_sql", "search_disclosure", "forecast"]  # 主循环可并发执行（V4.12）
+                   "calc", "run_sql", "search_disclosure", "forecast",
+                   "query_financial_data"]  # 主循环可并发执行（V4.12）
 
 ARGS_MODELS: dict[str, type[BaseModel]] = {
     "list_metrics": EmptyArgs,
@@ -283,6 +300,7 @@ ARGS_MODELS: dict[str, type[BaseModel]] = {
     "recall": RecallArgs,
     "search_disclosure": SearchDisclosureArgs,
     "forecast": ForecastArgs,
+    "query_financial_data": QueryFinancialDataArgs,
 }
 
 
