@@ -568,3 +568,46 @@ def test_query_log_read_from_tool_ctx_and_context_log_from_run_ctx(query_db, tmp
                     str(CONFIG_PATH), ctx, out, {"trace": []}, "t2")
     (out_dir / "analysis" / "query_trace.jsonl").read_text(encoding="utf-8")
     (out_dir / "analysis" / "visible_context.jsonl").read_text(encoding="utf-8")
+
+
+# --------------------------------------------- 复审 F5：并发调用下 id 必须唯一
+
+def test_parallel_query_calls_get_unique_trace_ids(query_db, metrics_path, monkeypatch):
+    """主循环对只读工具走线程池（agent/loop.py 的 ThreadPoolExecutor），两个
+    query_financial_data 并发时会同时读到同一个 len(stats) 而撞 id。
+    调用级 id 必须唯一，否则适配器会把第二条记录挂到第一次调用上。"""
+    import threading
+
+    from agent.query.executor import QueryToolResult
+    from agent.query.schema import ExtractionResult, QueryPlan
+    import agent.query.executor as ex
+    import agent.query.extractor as extr
+
+    plan = QueryPlan(**OK_PLAN["plan"])
+    ctx = _ctx(query_db, metrics_path, MockLLM([]))
+    # call_index 在调用 extract_plan **之前**算出；用栅栏保证两个线程都算完了才继续，
+    # 这样「先算后写」的竞态必然发生。
+    gate = threading.Barrier(2, timeout=15)
+
+    def _extract(*a, **k):
+        gate.wait()
+        return (ExtractionResult(status="ok", issues=[], plan=plan),
+                [{"type": "extractor_result", "status": "ok"}])
+
+    monkeypatch.setattr(extr, "extract_plan", _extract)
+    monkeypatch.setattr(ex, "execute_plan",
+                        lambda *a, **k: QueryToolResult(status="ok", result_ids=[],
+                                                        provenance={}))
+
+    threads = [threading.Thread(
+        target=execute, args=("query_financial_data", {"question": "并发查询"}, ctx))
+        for _ in range(2)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join(timeout=20)
+
+    log = ctx.stats["query_trace"]
+    assert len(log) == 2
+    ids = sorted(r["query_trace_id"] for r in log)
+    assert ids == ["q1", "q2"], f"调用级 id 撞车或缺失: {ids}"

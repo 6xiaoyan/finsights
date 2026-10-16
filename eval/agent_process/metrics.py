@@ -41,12 +41,14 @@ def _tool_calls(trace: list[dict]) -> dict:
             continue
         if etype != "tool_result":
             continue
-        key = (ev.get("parent_call_id") or "main", ev.get("call_id") or "")
-        if key[1] and key in seen:
+        # 去重键优先用 call_id：它是模型调用级的唯一 id。若用 (parent, call_id)，
+        # 一张丢了 parent_call_id 的转发副本就会被重复计数（PRD §7.2 要求防转发重复）。
+        cid = ev.get("call_id") or ""
+        key = ("call", cid) if cid else ("nokey", f"{ev.get('tool')}|{ev.get('rid')}")
+        if key in seen:
             dupes += 1
             continue
-        if key[1]:
-            seen.add(key)
+        seen.add(key)
         total += 1
         bucket = by_tool.setdefault(tool, Counter())
         flag = ev.get("ok")
@@ -115,12 +117,15 @@ def _role_calls(pkg: ProcessPackage) -> dict:
 def _rounds(pkg: ProcessPackage, trace: list[dict]) -> dict:
     multi = (pkg.run_meta.get("multi_agent") or {})
     usage = pkg.usage or {}
+    complete = all(c.child_steps is not None for c in pkg.role_calls)
     child = sum(c.child_steps or 0 for c in pkg.role_calls)
     return {
         "main_assistant_events": sum(1 for e in trace if e.get("type") == "assistant"),
         "main_steps_reported": usage.get("steps"),
         "subagent_child_steps": child,
         "subagent_child_steps_reported": multi.get("subagent_child_steps"),
+        # 有子调用没有 end 时，求和只是下界——必须标明，不能让人读成精确值
+        "child_steps_complete": complete,
     }
 
 
@@ -169,25 +174,43 @@ def _retries(trace: list[dict]) -> dict:
 
 def _latency(pkg: ProcessPackage) -> dict:
     by_call: dict[str, int] = {}
+    missing: list[str] = []
     for c in pkg.role_calls:
         if c.latency_ms is not None:
             by_call[c.agent_call_id] = c.latency_ms
-    return {"roles_total": sum(by_call.values()), "by_role_call": by_call}
+        else:
+            missing.append(c.agent_call_id)
+    return {"roles_total": sum(by_call.values()), "by_role_call": by_call,
+            # 有子调用没跑完就没有耗时：总计是下界，不是「0 秒」
+            "complete": not missing, "missing_latency_calls": missing}
 
 
 def _tokens(pkg: ProcessPackage) -> dict:
     usage = pkg.usage or {}
+    has_in = "prompt_tokens" in usage
+    has_out = "completion_tokens" in usage
+    sub_complete = all(c.prompt_tokens is not None and c.completion_tokens is not None
+                       for c in pkg.role_calls)
     sub_p = sum(c.prompt_tokens or 0 for c in pkg.role_calls)
     sub_c = sum(c.completion_tokens or 0 for c in pkg.role_calls)
-    has = "prompt_tokens" in usage or "completion_tokens" in usage
+    if has_in and has_out:
+        source = "run_meta"
+    elif has_in or has_out:
+        source = "run_meta_partial"      # 只报了一项，不能当作完整用量
+    else:
+        source = "missing"
     return {
         "prompt_tokens": usage.get("prompt_tokens"),
         "completion_tokens": usage.get("completion_tokens"),
-        "source": "run_meta" if has else "missing",
+        "source": source,
         "subagent_prompt_tokens": sub_p,
         "subagent_completion_tokens": sub_c,
+        "subagent_complete": sub_complete,
         "notes": (["run_meta.usage 是整次运行的用量；子 Agent token 是其中的子集，不相加"]
-                  if has else ["运行包未记录 usage，token 记未知（不填 0）"]),
+                  if source == "run_meta"
+                  else ([f"run_meta.usage 只记录了部分用量（source={source}），"
+                         "缺失项记未知（不填 0）"] if source == "run_meta_partial"
+                        else ["运行包未记录 usage，token 记未知（不填 0）"])),
     }
 
 
@@ -203,26 +226,43 @@ def _cost(pkg: ProcessPackage, tokens: dict) -> float | None:
 
 
 def _discrepancies(pkg: ProcessPackage, tool_calls: dict, role_calls: dict,
-                   rounds: dict, queries: dict) -> list[dict]:
-    """原包自报值与重算值不一致时同时报告并标记差异（PRD §7.2）。"""
+                   rounds: dict, queries: dict, extraction: dict) -> tuple[list[dict], list[str]]:
+    """原包自报值与重算值不一致时同时报告并标记差异（PRD §7.2）。
+
+    **只比较同量纲的计数**：`extraction_calls` 是提取模型**请求**次数，
+    一次工具调用在格式修复时会发多次请求，所以它既不能跟工具调用次数比，
+    也不能直接跟查询调用数比 —— 有逐次明细时比 `attempts_seen`，没有就不比。
+    """
     multi = (pkg.run_meta.get("multi_agent") or {})
     pairs = [
         ("subagent_calls", multi.get("subagent_calls"), role_calls["total"]),
         ("subagent_child_steps", multi.get("subagent_child_steps"),
          rounds["subagent_child_steps"]),
-        ("extraction_calls", pkg.run_meta.get("extraction_calls"), queries["calls"]),
     ]
     out: list[dict] = []
+    notes: list[str] = []
     for field, reported, recomputed in pairs:
         if reported is None:
             continue
         if reported != recomputed:
             out.append({"field": field, "reported": reported, "recomputed": recomputed})
+
+    reported_extraction = pkg.run_meta.get("extraction_calls")
+    if reported_extraction is None:
+        pass
+    elif extraction["attempts_seen"] is None:
+        # 历史包没有提取明细：不可比，只说明，不报差异
+        notes.append(f"extraction_calls 自报 {reported_extraction} 次，但该包没有逐次提取明细，"
+                     "无法重算，不参与差异比较")
+    elif reported_extraction != extraction["attempts_seen"]:
+        out.append({"field": "extraction_calls", "reported": reported_extraction,
+                    "recomputed": extraction["attempts_seen"]})
+
     reported_roles = multi.get("subagent_role_calls")
     if isinstance(reported_roles, dict) and reported_roles != role_calls["by_role"]:
         out.append({"field": "subagent_role_calls", "reported": reported_roles,
                     "recomputed": role_calls["by_role"]})
-    return out
+    return out, notes
 
 
 def compute_metrics(pkg: ProcessPackage) -> dict:
@@ -234,6 +274,17 @@ def compute_metrics(pkg: ProcessPackage) -> dict:
     rounds = _rounds(pkg, trace)
     queries = _queries(pkg)
     tokens = _tokens(pkg)
+    extraction = _extraction(pkg)
+    discrepancies, discrepancy_notes = _discrepancies(
+        pkg, tool_calls, role_calls, rounds, queries, extraction)
+
+    notes = ["工具调用成功只描述程序运行状态，不表示取数业务正确（PRD §7.2）",
+             "metrics 是运行状态，与质量评分分列展示，不合并为总分",
+             *discrepancy_notes]
+    if role_calls["pairs_missing_end"]:
+        notes.append(f"{role_calls['pairs_missing_end']} 个子调用没有结束事件"
+                     "（崩溃/超时/被中断）：耗时、子循环步数与子 Agent token 只是**下界**，"
+                     "不是精确值")
 
     return {
         "metrics_version": METRICS_VERSION,
@@ -242,7 +293,7 @@ def compute_metrics(pkg: ProcessPackage) -> dict:
         "retries": _retries(trace),
         "role_calls": role_calls,
         "rounds": rounds,
-        "extraction": _extraction(pkg),
+        "extraction": extraction,
         "queries": queries,
         "result_reads": _result_reads(trace),
         "latency_ms": _latency(pkg),
@@ -258,7 +309,6 @@ def compute_metrics(pkg: ProcessPackage) -> dict:
             "role_calls_total": role_calls["total"],
             "produced_by_calls": queries["calls"],
         },
-        "discrepancies": _discrepancies(pkg, tool_calls, role_calls, rounds, queries),
-        "notes": ["工具调用成功只描述程序运行状态，不表示取数业务正确（PRD §7.2）",
-                  "metrics 是运行状态，与质量评分分列展示，不合并为总分"],
+        "discrepancies": discrepancies,
+        "notes": notes,
     }

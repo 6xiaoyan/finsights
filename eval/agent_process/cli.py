@@ -150,14 +150,23 @@ def cmd_roles(args) -> int:
 
     if args.mode in ("trajectory", "both"):
         points = None
+        gold_unbound = False
         if gold:
             pts = {g.get("case_id"): g.get("scoring_points")
                    for g in gold if isinstance(g, dict)}
-            points = pts.get(pkg.case_id) or []
+            if pkg.case_id:
+                points = pts.get(pkg.case_id) or []
+            else:
+                # 有 gold 但没给 --case-id，绑不上：如实标出，别显得像"没有 gold"
+                gold_unbound = True
+        if gold_unbound:
+            print("提示：已提供 --gold，但未传 --case-id，无法绑定参考点 → "
+                  "Planner 覆盖映射保持 unknown", file=sys.stderr)
         roles_out: dict = {}
         if "planner" in wanted:
             roles_out["planner"] = planner_role.evaluate_package(
-                pkg, judge=judge, points=points, judge_is_live=judge_is_live)
+                pkg, judge=judge, points=points, judge_is_live=judge_is_live,
+                gold_unbound=gold_unbound)
         if "worker" in wanted:
             roles_out["worker"] = worker_role.evaluate_package(
                 pkg, judge=judge, judge_is_live=judge_is_live)
@@ -250,7 +259,8 @@ def cmd_replay(args) -> int:
            case_report_md(pkg, metrics=rec["process"]["metrics"],
                           roles=rec["process"]["roles"],
                           queries=rec["process"]["queries"], e2e=e2e))
-    write_reports(out, [rec], run_ids=[pkg.run_id], dataset_name=None)
+    write_reports(out, [rec], run_ids=[pkg.run_id], dataset_name=None,
+                  pkgs={pkg.case_id or pkg.run_id: pkg})
     print(f"replay: 全部产物在 {out}/")
     return 0
 

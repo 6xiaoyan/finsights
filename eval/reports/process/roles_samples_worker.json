@@ -28,6 +28,15 @@
     "required_missing_inputs": [],
     "limitations": []
    },
+   "self_reported": {
+    "task_completion": {
+     "source": "artifact.completion_report",
+     "criteria_covered": 1,
+     "criteria_uncovered": 0,
+     "declared_status": "",
+     "note": "由产物自报，评测侧未独立核验"
+    }
+   },
    "attribution": {
     "cause": "unknown",
     "reason": "证据不足",
@@ -44,17 +53,19 @@
     "data_completeness",
     "result_structure",
     "calculation",
+    "reference_integrity",
     "evidence_support",
     "task_completion",
     "gap_statement"
    ],
    "evidence_basis": {
-    "query_intent": "pipeline_check",
+    "query_intent": "unknown",
     "data_completeness": "measured",
     "result_structure": "measured",
-    "calculation": "pipeline_check",
-    "evidence_support": "measured",
-    "task_completion": "measured",
+    "calculation": "unknown",
+    "reference_integrity": "measured",
+    "evidence_support": "unknown",
+    "task_completion": "unknown",
     "gap_statement": "measured"
    },
    "annotation": {
@@ -89,6 +100,15 @@
     "required_missing_inputs": [],
     "limitations": []
    },
+   "self_reported": {
+    "task_completion": {
+     "source": "artifact.completion_report",
+     "criteria_covered": 1,
+     "criteria_uncovered": 0,
+     "declared_status": "",
+     "note": "由产物自报，评测侧未独立核验"
+    }
+   },
    "attribution": {
     "cause": "unknown",
     "reason": "证据不足",
@@ -105,17 +125,19 @@
     "data_completeness",
     "result_structure",
     "calculation",
+    "reference_integrity",
     "evidence_support",
     "task_completion",
     "gap_statement"
    ],
    "evidence_basis": {
-    "query_intent": "pipeline_check",
+    "query_intent": "unknown",
     "data_completeness": "measured",
     "result_structure": "measured",
-    "calculation": "pipeline_check",
-    "evidence_support": "measured",
-    "task_completion": "measured",
+    "calculation": "unknown",
+    "reference_integrity": "measured",
+    "evidence_support": "unknown",
+    "task_completion": "unknown",
     "gap_statement": "measured"
    },
    "annotation": {
@@ -152,6 +174,15 @@
     ],
     "limitations": []
    },
+   "self_reported": {
+    "task_completion": {
+     "source": "artifact.completion_report",
+     "criteria_covered": 0,
+     "criteria_uncovered": 0,
+     "declared_status": "",
+     "note": "由产物自报，评测侧未独立核验"
+    }
+   },
    "attribution": {
     "cause": "handoff_omission",
     "reason": "上游节点未完成：['n1']",
@@ -172,17 +203,19 @@
     "data_completeness",
     "result_structure",
     "calculation",
+    "reference_integrity",
     "evidence_support",
     "task_completion",
     "gap_statement"
    ],
    "evidence_basis": {
-    "query_intent": "pipeline_check",
+    "query_intent": "unknown",
     "data_completeness": "measured",
     "result_structure": "measured",
-    "calculation": "pipeline_check",
-    "evidence_support": "measured",
-    "task_completion": "measured",
+    "calculation": "unknown",
+    "reference_integrity": "measured",
+    "evidence_support": "unknown",
+    "task_completion": "unknown",
     "gap_statement": "measured"
    },
    "annotation": {
@@ -217,6 +250,15 @@
     "required_missing_inputs": [],
     "limitations": []
    },
+   "self_reported": {
+    "task_completion": {
+     "source": "artifact.completion_report",
+     "criteria_covered": 0,
+     "criteria_uncovered": 0,
+     "declared_status": "",
+     "note": "由产物自报，评测侧未独立核验"
+    }
+   },
    "attribution": {
     "cause": "text2sql_parse_error",
     "reason": "查询原因码 parse_fail",
@@ -237,17 +279,19 @@
     "data_completeness",
     "result_structure",
     "calculation",
+    "reference_integrity",
     "evidence_support",
     "task_completion",
     "gap_statement"
    ],
    "evidence_basis": {
-    "query_intent": "pipeline_check",
+    "query_intent": "unknown",
     "data_completeness": "measured",
     "result_structure": "measured",
-    "calculation": "pipeline_check",
-    "evidence_support": "measured",
-    "task_completion": "measured",
+    "calculation": "unknown",
+    "reference_integrity": "measured",
+    "evidence_support": "unknown",
+    "task_completion": "unknown",
     "gap_statement": "measured"
    },
    "annotation": {
@@ -282,6 +326,15 @@
     "required_missing_inputs": [],
     "limitations": []
    },
+   "self_reported": {
+    "task_completion": {
+     "source": "artifact.completion_report",
+     "criteria_covered": 0,
+     "criteria_uncovered": 0,
+     "declared_status": "",
+     "note": "由产物自报，评测侧未独立核验"
+    }
+   },
    "attribution": {
     "cause": "executor_error",
     "reason": "查询原因码 exec_fail",
@@ -302,17 +355,19 @@
     "data_completeness",
     "result_structure",
     "calculation",
+    "reference_integrity",
     "evidence_support",
     "task_completion",
     "gap_statement"
    ],
    "evidence_basis": {
-    "query_intent": "pipeline_check",
+    "query_intent": "unknown",
     "data_completeness": "measured",
     "result_structure": "measured",
-    "calculation": "pipeline_check",
-    "evidence_support": "measured",
-    "task_completion": "measured",
+    "calculation": "unknown",
+    "reference_integrity": "measured",
+    "evidence_support": "unknown",
+    "task_completion": "unknown",
     "gap_statement": "measured"
    },
    "annotation": {
@@ -349,6 +404,15 @@
     ],
     "limitations": []
    },
+   "self_reported": {
+    "task_completion": {
+     "source": "artifact.completion_report",
+     "criteria_covered": 0,
+     "criteria_uncovered": 1,
+     "declared_status": "",
+     "note": "由产物自报，评测侧未独立核验"
+    }
+   },
    "attribution": {
     "cause": "data_unavailable",
     "reason": "查询原因码 no_data",
@@ -369,17 +433,19 @@
     "data_completeness",
     "result_structure",
     "calculation",
+    "reference_integrity",
     "evidence_support",
     "task_completion",
     "gap_statement"
    ],
    "evidence_basis": {
-    "query_intent": "pipeline_check",
+    "query_intent": "unknown",
     "data_completeness": "measured",
     "result_structure": "measured",
-    "calculation": "pipeline_check",
-    "evidence_support": "measured",
-    "task_completion": "measured",
+    "calculation": "unknown",
+    "reference_integrity": "measured",
+    "evidence_support": "unknown",
+    "task_completion": "unknown",
     "gap_statement": "measured"
    },
    "annotation": {
@@ -414,6 +480,15 @@
     "required_missing_inputs": [],
     "limitations": []
    },
+   "self_reported": {
+    "task_completion": {
+     "source": "artifact.completion_report",
+     "criteria_covered": 0,
+     "criteria_uncovered": 1,
+     "declared_status": "",
+     "note": "由产物自报，评测侧未独立核验"
+    }
+   },
    "attribution": {
     "cause": "upstream_goal_error",
     "reason": "上游产物自带必需输入缺口：['art9']",
@@ -434,17 +509,19 @@
     "data_completeness",
     "result_structure",
     "calculation",
+    "reference_integrity",
     "evidence_support",
     "task_completion",
     "gap_statement"
    ],
    "evidence_basis": {
-    "query_intent": "pipeline_check",
+    "query_intent": "unknown",
     "data_completeness": "measured",
     "result_structure": "measured",
-    "calculation": "pipeline_check",
-    "evidence_support": "measured",
-    "task_completion": "measured",
+    "calculation": "unknown",
+    "reference_integrity": "measured",
+    "evidence_support": "unknown",
+    "task_completion": "unknown",
     "gap_statement": "measured"
    },
    "annotation": {

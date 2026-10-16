@@ -116,6 +116,7 @@ def case_report_md(pkg: ProcessPackage, *, metrics: dict, roles: dict, queries: 
     status = _STATUS_LABEL.get(pkg.final_status, pkg.final_status)
     multi = (pkg.run_meta.get("multi_agent") or {})
     plan = pkg.plans[-1] if pkg.plans else None
+    cand = pkg.answer_candidate or None
 
     out: list[str] = [
         f"# 过程评测报告：{pkg.case_id or pkg.run_id}（run={pkg.run_id}）",
@@ -221,17 +222,25 @@ def case_report_md(pkg: ProcessPackage, *, metrics: dict, roles: dict, queries: 
     for nid, node in (wk.get("nodes") or {}).items():
         c = node.get("counts") or {}
         out += [f"- 节点 `{nid}`（{node.get('execution_status')}）："
-                f"查询 {c.get('query_calls')} 次、重试 {c.get('llm_retry')}、"
-                f"读取 {c.get('recall_reads')}、冗余调用 {c.get('redundant_same_tool')}",
+                f"查询 {c.get('query_calls')} 次（失败 {c.get('failed_query_calls')}、"
+                f"其中已恢复 {c.get('recovered_failed_query_calls')}）、"
+                f"重试 {c.get('llm_retry')}、"
+                f"读取 {c.get('recall_reads')}、"
+                f"同工具重复调用 {c.get('redundant_same_tool')}（重复≠冗余，仅供参考）",
                 f"  归因：**{node['attribution']['cause']}** — "
                 f"{_esc(node['attribution']['reason'])}"]
         am = node.get("measured") or {}
         if am:
-            out.append(f"  证据：有 rid 的 fact {am.get('facts_with_rid')} / "
-                       f"缺 rid {am.get('facts_missing_rid')}；"
+            out.append(f"  引用完整性（程序实测）：有 rid 的 fact "
+                       f"{am.get('facts_with_rid')} / 缺 rid {am.get('facts_missing_rid')}；"
                        f"引用了不存在的 rid：{am.get('rids_not_in_store') or '（无）'}；"
-                       f"完成标准覆盖 {am.get('criteria_covered')} / "
-                       f"未覆盖 {am.get('criteria_uncovered')}")
+                       f"证据引用不在库：{am.get('evidence_refs_not_in_store') or '（无）'}")
+        sr = (node.get("self_reported") or {}).get("task_completion") or {}
+        if sr:
+            out.append(f"  **产物自报**完成情况（{sr.get('source')}，"
+                       f"评测侧未独立核验）：达标 {sr.get('criteria_covered')} / "
+                       f"未达标 {sr.get('criteria_uncovered')}；"
+                       f"自报状态 {sr.get('declared_status')}")
     if not (wk.get("nodes") or {}):
         out.append("- 没有节点可评（无计划对象）")
     out.append("")
@@ -244,9 +253,15 @@ def case_report_md(pkg: ProcessPackage, *, metrics: dict, roles: dict, queries: 
         out.append(f"- `{rnd['review_id']}` 审查 {rnd['target_id']}@"
                    f"{rnd['target_version']} → {rnd['verdict']}；"
                    f"后续版本：{rnd['next_version'] or '（无，无法关联）'}；"
-                   f"已修复 {rnd['fixed']}，未修复 {rnd['not_fixed']}，"
-                   f"被驳回 {rnd['declined']}")
-    if rv["deduped_findings"]:
+                   f"新版本内容变化：{rnd['next_content_changed']}；"
+                   f"是否修好：{rnd['fix_verified'] or '未核验'}")
+        if rnd.get("response_status_is_default"):
+            out.append("  > 产物声明的处理状态全是默认值 `open`（当前 agent 从不写 "
+                       "addressed/declined），该栏不含信息，**不能读作「未修复」**")
+    out.append("")
+    if rv.get("fix_linkage_scope"):
+        out += [f"> {rv['fix_linkage_scope']}", ""]
+    if rv.get("deduped_findings"):
         out += ["", "| 类别 | 问题 | 严重性 | 出现轮次 |", "|---|---|---|---|"]
         for d in rv["deduped_findings"]:
             out.append(f"| {d['category']} | {_esc(d['statement'])} | {d['severity']} | "
@@ -273,8 +288,17 @@ def case_report_md(pkg: ProcessPackage, *, metrics: dict, roles: dict, queries: 
     out += ["## 依据与未知项", "",
             "- 依据来源：`measured` 程序实测 / `model_judged` 真实模型判定 / "
             "`pipeline_check` 模拟判定（**只验证流程，不是真实质量评分**）/ "
-            "`human_reviewed` 人工标注 / `unknown` 无依据。",
+            "`human_reviewed` 人工标注 / `unknown` 无依据 / "
+            "`mixed` 各节点依据不同。",
+            "- 程序实测的只有**结构与引用**（rid 是否存在、列与期间、计数）；"
+            "「证据是否支持结论」「任务是否真的完成」属语义判断，"
+            "无 Judge 时记 `unknown`。产物**自报**的完成情况单列，不当作独立核验。",
             ""]
+    if cand:
+        out += [f"- 答案候选：`{cand.get('artifact_id')}`"
+                f"（来源产物 {cand.get('source_artifact_ids')}，"
+                f"claims {len(cand.get('claims') or [])} 条）"
+                "—— 候选是诊断对象，不替代最终交付成绩。", ""]
     all_basis: dict[str, list[str]] = {}
     for role, payload in roles.items():
         for dim, basis in (payload.get("evidence_basis") or {}).items():
@@ -293,8 +317,12 @@ def case_report_md(pkg: ProcessPackage, *, metrics: dict, roles: dict, queries: 
 
     if pkg.diagnostics.get("result_lines", 0) > 1:
         out.append(f"> trace.jsonl 里有 {pkg.diagnostics['result_lines']} 行 `result` 事件"
-                   f"（multi 与 cli 各写一行）；本报告取**末行**为终态："
-                   f"{pkg.diagnostics.get('terminal_result_status')}。")
+                   f"（multi 与 cli 各写一行）。终态以 `run_meta.status` 为准"
+                   f"（{pkg.final_status}）；trace 末行是 "
+                   f"{pkg.diagnostics.get('terminal_result_status')}，仅作交叉核对。")
+        if pkg.diagnostics.get("status_mismatch"):
+            out.append(f"> ⚠ 两者不一致：{pkg.diagnostics['status_mismatch']}，"
+                       "该包可能被人工改动过。")
         out.append("")
 
     defects = _known_defects(pkg)
@@ -330,22 +358,27 @@ def summary_report_md(records: list[dict], *, run_ids: list[str],
         groups.setdefault(key, []).append(r)
 
     out += ["## 分组统计", "",
-            "| 题型 | 真实/合成 | split | 审核 | 样本数 | 完成数 | 失败数 | 评分错误数 |",
+            "| 题型 | 真实/合成 | split | 审核 | 样本数 | 交付数 | 未交付数 | 计数差异数 |",
             "|---|---|---|---|---|---|---|---|"]
     for (qt, rs, sp, st), items in sorted(groups.items(), key=lambda kv: str(kv[0])):
         done = sum(1 for r in items if r.get("delivered"))
         out.append(f"| {_esc(qt)} | {_esc(rs)} | {_esc(sp)} | {_esc(st)} | "
                    f"{len(items)} | {done} | {len(items) - done} | "
                    f"{sum(1 for r in items if r in errors)} |")
-    out.append("")
+    out += ["",
+            "> 「未交付数」不等于「答错」：其中包含合法的澄清/拒答。"
+            "某题是预期拒答还是失败，需要该题的预期行为才能判定（PRD §6.1），"
+            "本表不做这个判断。",
+            "> 「计数差异数」是**自报值与重算值不一致**的运行数（PRD §7.2），"
+            "不是评分器错误数。",
+            ""]
 
     out += ["## 未交付与阻塞", "",
             "未交付的题不从分母消失：它们仍出现在上面的计数与下面的明细里。", ""]
     if undelivered:
         for r in undelivered:
-            stop = (r.get("process", {}).get("roles") and "") or ""
             out.append(f"- `{r['case_id'] or r['run_id']}`：final_status="
-                       f"{r['final_status']}{stop}")
+                       f"{r['final_status']}（未交付；是否为预期行为需按题判定）")
     else:
         out.append("- （无）")
     out.append("")
@@ -366,14 +399,27 @@ def summary_report_md(records: list[dict], *, run_ids: list[str],
 
 
 def write_reports(outdir: Path, records: list[dict], *, run_ids: list[str],
-                  dataset_name: str | None) -> dict[str, Path]:
+                  dataset_name: str | None, pkgs: dict | None = None) -> dict[str, Path]:
+    """写逐题报告、汇总报告、兼容表与 results.jsonl。
+
+    `pkgs`（sid → ProcessPackage）给了就渲染**完整**逐题报告；没给才退回精简版。
+    之前无论如何都只写精简版，导致按 case 打开的报告缺角色评测与查询诊断。
+    """
     outdir.mkdir(parents=True, exist_ok=True)
     paths: dict[str, Path] = {}
     for r in records:
         sid = r.get("case_id") or r.get("run_id") or "unknown"
         p = outdir / "cases" / f"{sid}.md"
         p.parent.mkdir(parents=True, exist_ok=True)
-        p.write_text(case_report_md_from_record(r), encoding="utf-8")
+        proc = r.get("process") or {}
+        pkg = (pkgs or {}).get(sid)
+        if pkg is not None:
+            p.write_text(case_report_md(pkg, metrics=proc.get("metrics") or {},
+                                        roles=proc.get("roles") or {},
+                                        queries=proc.get("queries") or {},
+                                        e2e=r.get("e2e")), encoding="utf-8")
+        else:
+            p.write_text(case_report_md_from_record(r), encoding="utf-8")
         paths[sid] = p
     summary = outdir / "summary.md"
     summary.write_text(summary_report_md(records, run_ids=run_ids,

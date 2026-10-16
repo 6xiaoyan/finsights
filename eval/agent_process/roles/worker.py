@@ -9,6 +9,7 @@
 """
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any
 
@@ -18,14 +19,23 @@ from eval.agent_process.roles.common import evidence_basis
 from eval.agent_process.schema import ArtifactView, ProcessPackage
 
 WORKER_DIMENSIONS = ("query_intent", "data_completeness", "result_structure",
-                     "calculation", "evidence_support", "task_completion",
-                     "gap_statement")
+                     "calculation", "reference_integrity", "evidence_support",
+                     "task_completion", "gap_statement")
 
 #: 归因码（PRD §8.2）：区分上游目标错误 / 上下文交接遗漏 / Worker 意图错误 /
 #: Text2SQL 解析错误 / 执行器错误 / 数据不可用。
 ATTRIBUTION_CAUSES = ("upstream_goal_error", "handoff_omission", "intent_error",
                       "text2sql_parse_error", "executor_error", "data_unavailable",
                       "unknown")
+
+#: 查询原因码 → 归因码。只映射证据明确的三种；catalog_miss 等留给缺口检查，
+#: 不硬凑成某个根因。
+_CAUSE_BY_REASON = {
+    "parse_fail": "text2sql_parse_error",
+    "exec_fail": "executor_error",
+    "no_data": "data_unavailable",
+}
+_INCONCLUSIVE_REASONS = ("unknown",)
 
 
 def result_ids_in_store(run_dir: str | Path) -> set[str]:
@@ -79,16 +89,109 @@ def _count_node_activity(pkg: ProcessPackage, node_id: str, trace: list[dict]) -
     for e in child:
         by_tool[e.get("tool") or ""] = by_tool.get(e.get("tool") or "", 0) + 1
     queries = _node_query_records(pkg, node_id)
+    reasons, last, recovered, recovered_failed = _query_outcomes(queries)
     return {
         "role_calls": len(calls),
         "child_steps": sum(c.child_steps or 0 for c in calls),
         "llm_retry": retries,
         "recall_reads": by_tool.get("recall", 0),
         "query_calls": len(queries),
+        "failed_query_calls": sum(1 for r in reasons if r != "ok"),
+        "recovered_failed_query_calls": recovered_failed,
         # 同节点内对同一工具的重复调用：冗余调用，仅计数，不自动扣分
         "redundant_same_tool": sum(n - 1 for n in by_tool.values() if n > 1),
         "tool_calls_by_tool": by_tool,
     }
+
+
+def _judge_inputs(pkg: ProcessPackage, node: Any, latest: Any,
+                  queries: list[Any]) -> tuple[dict, str]:
+    """构造 Judge 的输入：**必须包含 Worker 实际发出的查询与结果**（PRD §8.2）。
+
+    只给节点目标和产物摘要是判不了「查询意图准确性」的——那正是这次要判的东西。
+    """
+    rows_by_rid: dict[str, dict] = {}
+    results = _read_json(Path(pkg.run_dir) / "results.json") or {}
+    for r in (results.get("results") or []):
+        if r.get("id"):
+            rows_by_rid[r["id"]] = r
+
+    query_view = []
+    for q in queries:
+        tables = []
+        for rid in q.result_ids:
+            rec = rows_by_rid.get(rid) or {}
+            rows = rec.get("rows") or []
+            tables.append({"rid": rid, "columns": list(rows[0].keys()) if rows else [],
+                           "total_rows": len(rows)})
+        query_view.append({
+            "query_trace_id": q.query_trace_id,
+            "question": q.question,
+            "node_task": q.node_task,
+            "status": q.status,
+            "reason": classify_query(q),
+            "issue_codes": list(q.issue_codes),
+            "result_ids": list(q.result_ids),
+            "results": tables,
+        })
+
+    point = {"node_goal": node.goal, "completion_criteria": node.completion_criteria,
+             "tool_capability": "query_financial_data（自然语言取数，只读）"}
+    material = {
+        "queries": query_view,
+        "artifact_summary": (latest.summary if latest else ""),
+        "artifact_evidence_refs": list(latest.evidence_refs) if latest else [],
+        "artifact_self_reported_completion": (latest.completion_report if latest else []),
+        "artifact_limitations": list(latest.limitations) if latest else [],
+    }
+    return point, json.dumps(material, ensure_ascii=False, indent=1)
+
+
+def _work_basis(judged: bool, measured: bool, judge_is_live: bool) -> dict:
+    """依据等级必须与程序**实际检查到的东西**一致。
+
+    - reference_integrity：程序真的测了（引用的 rid 是否存在）→ measured
+    - data_completeness / result_structure / gap_statement：结构可数 → measured
+    - query_intent / calculation / evidence_support / task_completion：需要判断语义，
+      程序没做独立核验 → 只有 Judge **给出实质判定**才算 judged，否则 unknown。
+      **不能因为「产物自己写了完成报告」就标 measured** —— 那是被测方自报。
+
+    调用方传进来的 `judged` 必须是「Judge 给了实质结论」；判成 unknown 等于没判。
+    """
+    m = evidence_basis(measured, False)
+    j = evidence_basis(False, judged, judge_is_live=judge_is_live)
+    return {
+        "query_intent": j,
+        "data_completeness": m,
+        "result_structure": m,
+        "calculation": j,
+        "reference_integrity": m,
+        "evidence_support": j,
+        "task_completion": j,
+        "gap_statement": m,
+    }
+
+
+def _judge_gave_verdict(judged: dict | None) -> bool:
+    """Judge 是否给了实质结论。`unknown` 等于没判，不能拿来标依据等级。"""
+    if not judged:
+        return False
+    verdict = ((judged.get("query_intent") or {}).get("verdict") or "unknown")
+    return verdict != "unknown"
+
+
+def _query_outcomes(queries: list[Any]) -> tuple[list[str], str | None, bool, int]:
+    """返回（全部原因码，最后一个有结论的原因码，是否已恢复，被恢复的失败数）。
+
+    恢复判定的关键是**最后一次有结论的查询**：先失败后成功=已恢复（失败只是观察，
+    不是根因）；先成功后失败=未恢复（照旧归因）。
+    """
+    reasons = [classify_query(q) for q in queries]
+    conclusive = [r for r in reasons if r not in _INCONCLUSIVE_REASONS]
+    last = conclusive[-1] if conclusive else None
+    recovered = last == "ok"
+    failed = sum(1 for r in reasons if r != "ok")
+    return reasons, last, recovered, (failed if recovered else 0)
 
 
 def _attribute(pkg: ProcessPackage, node: Any, measured: dict,
@@ -105,14 +208,17 @@ def _attribute(pkg: ProcessPackage, node: Any, measured: dict,
                 "reason": f"上游节点未完成：{incomplete}，本节点拿不到上游产物",
                 "evidence": {"incomplete_upstream": incomplete}}
 
-    # 2) 查询链路给出的确定证据
-    reasons = [classify_query(r) for r in queries]
-    for reason, cause in (("parse_fail", "text2sql_parse_error"),
-                          ("exec_fail", "executor_error"),
-                          ("no_data", "data_unavailable")):
-        if reason in reasons:
-            return {"cause": cause, "reason": f"查询原因码 {reason}",
-                    "evidence": {"reasons": reasons}}
+    # 2) 查询链路给出的确定证据 —— 只在**未被后续成功查询补救**时才算根因
+    reasons, last, recovered, recovered_failed = _query_outcomes(queries)
+    if last is not None and not recovered:
+        cause = _CAUSE_BY_REASON.get(last)
+        if cause:
+            return {"cause": cause,
+                    "reason": f"最后一次查询原因码 {last}"
+                              + (f"（此前 {recovered_failed} 次失败已恢复）"
+                                 if recovered_failed else ""),
+                    "evidence": {"reasons": reasons, "last_reason": last,
+                                 "recovered_failures": recovered_failed}}
 
     # 3) 产物自报缺必需输入
     if measured.get("required_missing_inputs"):
@@ -129,6 +235,12 @@ def _attribute(pkg: ProcessPackage, node: Any, measured: dict,
                     return {"cause": "upstream_goal_error",
                             "reason": f"上游产物 {src} 自带必需输入缺口",
                             "evidence": {"upstream_artifact": src}}
+
+    if recovered and recovered_failed:
+        return {"cause": "unknown",
+                "reason": f"{recovered_failed} 次查询失败后重试成功并完成，"
+                          "失败已恢复，不构成根因",
+                "evidence": {"reasons": reasons, "recovered_failures": recovered_failed}}
 
     status = (node.execution_status if node else "") or measured.get("execution_status")
     if status in ("failed", "blocked") or measured.get("facts_missing_rid"):
@@ -167,10 +279,8 @@ def evaluate_node(pkg: ProcessPackage, node_id: str, *, judge: Any = None,
     judged = None
     if judge is not None:
         question = (pkg.contract or {}).get("query") or ""
-        material = (latest.summary if latest else "") or ""
-        res = judge.score_point(question, {"node_goal": node.goal,
-                                           "completion_criteria": node.completion_criteria},
-                                "", material) or {}
+        point, material = _judge_inputs(pkg, node, latest, queries)
+        res = judge.score_point(question, point, "", material) or {}
         judged = {"query_intent": {"verdict": res.get("verdict", "unknown"),
                                    "reason": res.get("reason", "")}}
         if judged["query_intent"]["verdict"] == "contradicted":
@@ -178,8 +288,16 @@ def evaluate_node(pkg: ProcessPackage, node_id: str, *, judge: Any = None,
                            "reason": "判定：查询意图与节点目标不符",
                            "evidence": {"verdict": "contradicted"}}
 
-    measured_basis = evidence_basis(True, False) if latest else "unknown"
-    judged_basis = evidence_basis(False, judged is not None, judge_is_live=judge_is_live)
+    measured_ok = latest is not None
+    basis = _work_basis(_judge_gave_verdict(judged), measured_ok, judge_is_live)
+    notes = ["节点声明 completed 不等于任务成功；本评测只看证据是否站得住",
+             "轮数/重试/冗余调用只计数，不自动影响质量判断（PRD §8.2）",
+             "`reference_integrity` 只说明引用的 rid 是否存在；"
+             "「证据是否支持结论」属语义判断，无 Judge 时为 unknown"]
+    if counts.get("recovered_failed_query_calls"):
+        notes.append(f"{counts['recovered_failed_query_calls']} 次查询失败后重试成功，"
+                     "失败已恢复，不计入根因")
+
     return {
         "node_id": node_id,
         "goal": node.goal,
@@ -187,6 +305,16 @@ def evaluate_node(pkg: ProcessPackage, node_id: str, *, judge: Any = None,
         "execution_status": node.execution_status,
         "attempt": node.attempt,
         "measured": measured,
+        # 被测产物**自己写的**完成情况：如实转述，但标明来源，不当作独立核验
+        "self_reported": {
+            "task_completion": {
+                "source": "artifact.completion_report",
+                "criteria_covered": measured.get("criteria_covered"),
+                "criteria_uncovered": measured.get("criteria_uncovered"),
+                "declared_status": measured.get("declared_status"),
+                "note": "由产物自报，评测侧未独立核验",
+            },
+        },
         "counts": counts,
         "queries": [{"query_trace_id": q.query_trace_id, "question": q.question,
                      "status": q.status, "reason": classify_query(q),
@@ -194,17 +322,8 @@ def evaluate_node(pkg: ProcessPackage, node_id: str, *, judge: Any = None,
         "attribution": attribution,
         "judged": judged,
         "dimensions": list(WORKER_DIMENSIONS),
-        "evidence_basis": {
-            "query_intent": judged_basis,
-            "data_completeness": measured_basis,
-            "result_structure": measured_basis,
-            "calculation": judged_basis,
-            "evidence_support": measured_basis,
-            "task_completion": measured_basis,
-            "gap_statement": measured_basis,
-        },
-        "notes": ["节点声明 completed 不等于任务成功；本评测只看证据是否站得住",
-                  "轮数/重试/冗余调用只计数，不自动影响质量判断（PRD §8.2）"],
+        "evidence_basis": basis,
+        "notes": notes,
     }
 
 
@@ -212,11 +331,30 @@ def evaluate_package(pkg: ProcessPackage, *, judge: Any = None,
                      judge_is_live: bool = False) -> dict:
     plan = pkg.plans[-1] if pkg.plans else None
     node_ids = [n.node_id for n in (plan.nodes if plan else [])]
+    nodes = {nid: evaluate_node(pkg, nid, judge=judge, judge_is_live=judge_is_live)
+             for nid in node_ids}
     return {
-        "nodes": {nid: evaluate_node(pkg, nid, judge=judge, judge_is_live=judge_is_live)
-                  for nid in node_ids},
+        "nodes": nodes,
         "dimensions": list(WORKER_DIMENSIONS),
+        # 顶层依据：报告要按角色汇总依据，Worker 不能只在节点里才有
+        "evidence_basis": _aggregate_basis(nodes),
+        "basis_scope": "trajectory",
     }
+
+
+def _aggregate_basis(nodes: dict[str, dict]) -> dict:
+    """把各节点的依据等级汇总到角色级：一致就取该值，不一致标 mixed。"""
+    out: dict[str, str] = {}
+    for dim in WORKER_DIMENSIONS:
+        seen = {(n.get("evidence_basis") or {}).get(dim) for n in nodes.values()}
+        seen.discard(None)
+        if not seen:
+            out[dim] = "unknown"
+        elif len(seen) == 1:
+            out[dim] = seen.pop()
+        else:
+            out[dim] = "mixed"
+    return out
 
 
 def evaluate_sample(sample: dict, judge: Any = None, *,
@@ -278,12 +416,22 @@ def evaluate_sample(sample: dict, judge: Any = None, *,
                            "evidence": {"verdict": "contradicted"}}
 
     measured_basis = evidence_basis(True, False)
-    judged_basis = evidence_basis(False, judged is not None, judge_is_live=judge_is_live)
+    judged_basis = evidence_basis(False, _judge_gave_verdict(judged),
+                                  judge_is_live=judge_is_live)
     expected = (sample.get("annotations") or {}).get("cause")
     return {
         "sample_id": sample.get("sample_id"),
         "node_id": (sample.get("node") or {}).get("node_id"),
         "measured": measured,
+        "self_reported": {
+            "task_completion": {
+                "source": "artifact.completion_report",
+                "criteria_covered": measured.get("criteria_covered"),
+                "criteria_uncovered": measured.get("criteria_uncovered"),
+                "declared_status": measured.get("declared_status"),
+                "note": "由产物自报，评测侧未独立核验",
+            },
+        },
         "attribution": attribution,
         "judged": judged,
         "dimensions": list(WORKER_DIMENSIONS),
@@ -292,8 +440,9 @@ def evaluate_sample(sample: dict, judge: Any = None, *,
             "data_completeness": measured_basis,
             "result_structure": measured_basis,
             "calculation": judged_basis,
-            "evidence_support": measured_basis,
-            "task_completion": measured_basis,
+            "reference_integrity": measured_basis,
+            "evidence_support": judged_basis,
+            "task_completion": judged_basis,
             "gap_statement": measured_basis,
         },
         "annotation": sample.get("annotations") or {},

@@ -366,7 +366,8 @@ def _fallback_from_results(results: dict | None) -> list[QueryRecord]:
             data_version=rec.get("data_version"),
             result_ids=[rec["id"]] if rec.get("id") else [],
             sql_chars=len(sql) if sql else None,
-            total_rows=len(rec.get("rows") or []),
+            # 缺 rows 键（不是空表）时记未知，不能因为求和变成 0 行
+            total_rows=len(rec["rows"]) if isinstance(rec.get("rows"), list) else None,
             truncated=rec.get("truncated"), source="derived",
             columns=_columns_of(rec), linkage="unknown",
             derivation_notes=["trace 中无 query_financial_data 事件，只能按 results.json "

@@ -118,7 +118,8 @@ def _map_coverage(question: str, points: list[dict], plan: PlanView,
 
 def evaluate_package(pkg: ProcessPackage, *, judge: Any = None,
                      points: list[dict] | None = None,
-                     judge_is_live: bool = False) -> dict:
+                     judge_is_live: bool = False,
+                     gold_unbound: bool = False) -> dict:
     plans = list(pkg.plans)
     latest = plans[-1] if plans else None
     measured = evaluate_plan_measured(latest, pkg.contract) if latest else {}
@@ -131,6 +132,11 @@ def evaluate_package(pkg: ProcessPackage, *, judge: Any = None,
     elif not latest:
         coverage = {"status": "unknown", "mapping": [],
                     "reason": "该运行包没有计划对象"}
+    elif gold_unbound:
+        # 给了参考点却绑不上：理由必须是真实的那一个，不能笼统说「gold 未就绪」
+        coverage = {"status": "unknown", "mapping": [],
+                    "reason": "已提供评测侧参考点，但未传入 --case-id，"
+                              "无法把 gold 绑定到本运行包"}
     else:
         coverage = {"status": "unknown", "mapping": [],
                     "reason": "未提供评测侧参考点（gold 未就绪），不推断覆盖情况"}

@@ -52,30 +52,44 @@
 
 ### Worker
 
-- 节点 `n1`（completed）：查询 2 次、重试 0、读取 0、冗余调用 1
+- 节点 `n1`（completed）：查询 2 次（失败 0、其中已恢复 0）、重试 0、读取 0、同工具重复调用 1（重复≠冗余，仅供参考）
   归因：**unknown** — 证据不足，未发现可归因的失败证据
-  证据：有 rid 的 fact 4 / 缺 rid 0；引用了不存在的 rid：（无）；完成标准覆盖 3 / 未覆盖 0
-- 节点 `n2`（completed）：查询 1 次、重试 0、读取 0、冗余调用 0
+  引用完整性（程序实测）：有 rid 的 fact 4 / 缺 rid 0；引用了不存在的 rid：（无）；证据引用不在库：（无）
+  **产物自报**完成情况（artifact.completion_report，评测侧未独立核验）：达标 3 / 未达标 0；自报状态 completed
+- 节点 `n2`（completed）：查询 1 次（失败 0、其中已恢复 0）、重试 0、读取 0、同工具重复调用 0（重复≠冗余，仅供参考）
   归因：**unknown** — 证据不足，未发现可归因的失败证据
-  证据：有 rid 的 fact 1 / 缺 rid 0；引用了不存在的 rid：（无）；完成标准覆盖 1 / 未覆盖 0
-- 节点 `n3`（completed）：查询 6 次、重试 0、读取 1、冗余调用 11
+  引用完整性（程序实测）：有 rid 的 fact 1 / 缺 rid 0；引用了不存在的 rid：（无）；证据引用不在库：（无）
+  **产物自报**完成情况（artifact.completion_report，评测侧未独立核验）：达标 1 / 未达标 0；自报状态 completed
+- 节点 `n3`（completed）：查询 6 次（失败 0、其中已恢复 0）、重试 0、读取 1、同工具重复调用 11（重复≠冗余，仅供参考）
   归因：**unknown** — 证据不足，未发现可归因的失败证据
-  证据：有 rid 的 fact 12 / 缺 rid 0；引用了不存在的 rid：（无）；完成标准覆盖 1 / 未覆盖 0
-- 节点 `n4`（completed）：查询 2 次、重试 0、读取 1、冗余调用 2
+  引用完整性（程序实测）：有 rid 的 fact 12 / 缺 rid 0；引用了不存在的 rid：（无）；证据引用不在库：（无）
+  **产物自报**完成情况（artifact.completion_report，评测侧未独立核验）：达标 1 / 未达标 0；自报状态 completed
+- 节点 `n4`（completed）：查询 2 次（失败 0、其中已恢复 0）、重试 0、读取 1、同工具重复调用 2（重复≠冗余，仅供参考）
   归因：**unknown** — 证据不足，未发现可归因的失败证据
-  证据：有 rid 的 fact 3 / 缺 rid 0；引用了不存在的 rid：（无）；完成标准覆盖 3 / 未覆盖 0
+  引用完整性（程序实测）：有 rid 的 fact 3 / 缺 rid 0；引用了不存在的 rid：（无）；证据引用不在库：（无）
+  **产物自报**完成情况（artifact.completion_report，评测侧未独立核验）：达标 3 / 未达标 0；自报状态 completed
 
 ### Reviewer
 
 - 审查次数：7，意见 22 条（must_fix 2）
 - 判定分布：{'accepted': 4, 'inconclusive': 2, 'needs_revision': 1}
-- `rev1` 审查 art3@rev1-attempt1 → needs_revision；后续版本：rev1-attempt2；已修复 []，未修复 ['rev1-f1', 'rev1-f2', 'rev1-f3', 'rev1-f4', 'rev1-f5']，被驳回 []
-- `rev2` 审查 art2@rev1-attempt1 → accepted；后续版本：（无，无法关联）；已修复 []，未修复 ['rev2-f1', 'rev2-f2']，被驳回 []
-- `rev3` 审查 art4@rev1-attempt2 → accepted；后续版本：（无，无法关联）；已修复 []，未修复 ['rev3-f1', 'rev3-f2', 'rev3-f3', 'rev3-f4']，被驳回 []
-- `rev4` 审查 art5@rev1-attempt1 → accepted；后续版本：（无，无法关联）；已修复 []，未修复 ['rev4-f1', 'rev4-f2', 'rev4-f3']，被驳回 []
-- `rev5` 审查 answer-cand6@334248eb96273f56 → inconclusive；后续版本：（无，无法关联）；已修复 []，未修复 ['rev5-f1', 'rev5-f2', 'rev5-f3']，被驳回 []
-- `rev6` 审查 answer-cand7@b019dac60fea0e29 → inconclusive；后续版本：（无，无法关联）；已修复 []，未修复 ['rev6-f1', 'rev6-f2', 'rev6-f3']，被驳回 []
-- `rev7` 审查 answer-cand7@b019dac60fea0e29 → accepted；后续版本：（无，无法关联）；已修复 []，未修复 ['rev7-f1', 'rev7-f2']，被驳回 []
+- `rev1` 审查 art3@rev1-attempt1 → needs_revision；后续版本：rev1-attempt2；新版本内容变化：True；是否修好：未核验
+  > 产物声明的处理状态全是默认值 `open`（当前 agent 从不写 addressed/declined），该栏不含信息，**不能读作「未修复」**
+- `rev2` 审查 art2@rev1-attempt1 → accepted；后续版本：（无，无法关联）；新版本内容变化：None；是否修好：未核验
+  > 产物声明的处理状态全是默认值 `open`（当前 agent 从不写 addressed/declined），该栏不含信息，**不能读作「未修复」**
+- `rev3` 审查 art4@rev1-attempt2 → accepted；后续版本：（无，无法关联）；新版本内容变化：None；是否修好：未核验
+  > 产物声明的处理状态全是默认值 `open`（当前 agent 从不写 addressed/declined），该栏不含信息，**不能读作「未修复」**
+- `rev4` 审查 art5@rev1-attempt1 → accepted；后续版本：（无，无法关联）；新版本内容变化：None；是否修好：未核验
+  > 产物声明的处理状态全是默认值 `open`（当前 agent 从不写 addressed/declined），该栏不含信息，**不能读作「未修复」**
+- `rev5` 审查 answer-cand6@334248eb96273f56 → inconclusive；后续版本：（无，无法关联）；新版本内容变化：None；是否修好：未核验
+  > 产物声明的处理状态全是默认值 `open`（当前 agent 从不写 addressed/declined），该栏不含信息，**不能读作「未修复」**
+- `rev6` 审查 answer-cand7@b019dac60fea0e29 → inconclusive；后续版本：（无，无法关联）；新版本内容变化：None；是否修好：未核验
+  > 产物声明的处理状态全是默认值 `open`（当前 agent 从不写 addressed/declined），该栏不含信息，**不能读作「未修复」**
+- `rev7` 审查 answer-cand7@b019dac60fea0e29 → accepted；后续版本：（无，无法关联）；新版本内容变化：None；是否修好：未核验
+  > 产物声明的处理状态全是默认值 `open`（当前 agent 从不写 addressed/declined），该栏不含信息，**不能读作「未修复」**
+
+> 仅「是否存在更晚版本 + 内容是否变化」两项为实测；「问题是否被修好」未核验，fix_verified 恒为 null
+
 
 | 类别 | 问题 | 严重性 | 出现轮次 |
 |---|---|---|---|
@@ -127,10 +141,13 @@
 
 ## 依据与未知项
 
-- 依据来源：`measured` 程序实测 / `model_judged` 真实模型判定 / `pipeline_check` 模拟判定（**只验证流程，不是真实质量评分**）/ `human_reviewed` 人工标注 / `unknown` 无依据。
+- 依据来源：`measured` 程序实测 / `model_judged` 真实模型判定 / `pipeline_check` 模拟判定（**只验证流程，不是真实质量评分**）/ `human_reviewed` 人工标注 / `unknown` 无依据 / `mixed` 各节点依据不同。
+- 程序实测的只有**结构与引用**（rid 是否存在、列与期间、计数）；「证据是否支持结论」「任务是否真的完成」属语义判断，无 Judge 时记 `unknown`。产物**自报**的完成情况单列，不当作独立核验。
 
-- `measured`：planner.dependency_soundness, planner.duplication, planner.executability, planner.scope_drift, reviewer.evidence_basis, reviewer.false_positives, reviewer.fix_linkage, reviewer.misses, reviewer.severity, reviewer.verdict
-- `unknown`：planner.coverage, reviewer.actionability, reviewer.problem_detection
+- 答案候选：`answer-cand7`（来源产物 ['art2', 'art4', 'art5']，claims 8 条）—— 候选是诊断对象，不替代最终交付成绩。
+
+- `measured`：planner.dependency_soundness, planner.duplication, planner.executability, planner.scope_drift, reviewer.review_round_linkage, reviewer.severity, reviewer.verdict, worker.data_completeness, worker.gap_statement, worker.reference_integrity, worker.result_structure
+- `unknown`：planner.coverage, reviewer.actionability, reviewer.evidence_basis, reviewer.false_positives, reviewer.fix_verification, reviewer.misses, reviewer.problem_detection, worker.calculation, worker.evidence_support, worker.query_intent, worker.task_completion
 
 > 本阶段不调用真实 API：凡标 `pipeline_check` 的结论只说明评测流程可用，
 > **不得当作真实质量评分**。
@@ -140,7 +157,7 @@
 - `analysis/query_trace.jsonl`
 - `analysis/visible_context.jsonl`
 
-> trace.jsonl 里有 2 行 `result` 事件（multi 与 cli 各写一行）；本报告取**末行**为终态：refuse。
+> trace.jsonl 里有 2 行 `result` 事件（multi 与 cli 各写一行）。终态以 `run_meta.status` 为准（refuse）；trace 末行是 refuse，仅作交叉核对。
 
 ## 已登记缺陷（本次不修）
 

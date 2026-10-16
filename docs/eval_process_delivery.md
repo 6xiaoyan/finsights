@@ -16,7 +16,7 @@
 | 运行监控 | `metrics.py` | 工具调用成功/失败/跳过/未知、异常类型、重试、角色调用、主/子轮数、提取次数、结果读取、耗时、token、费用估算；保留分母与原始计数；自报值 vs 重算值差异单列 |
 | 微观查询诊断 | `query.py` | 9 个互不塌陷的原因码；计划符合性（期间集合、列）；按**调用**计数而不是按 rid |
 | Planner 评测 | `roles/planner.py` | 节点数／重复目标／悬空依赖／自依赖／成环／范围偏移（程序判定）；覆盖映射需参考点，无 gold 记 unknown |
-| Worker 评测 | `roles/worker.py` | rid 真实性、完成标准覆盖、证据引用；归因区分上游目标错误/交接遗漏/意图错误/解析错误/执行器错误/数据不可用/未知 |
+| Worker 评测 | `roles/worker.py` | rid 真实性、完成标准覆盖、证据引用；归因区分上游目标错误/交接遗漏/意图错误/解析错误/执行器错误/数据不可用/未知；**已恢复的失败不作根因**；语义类维度无实质判定时记 unknown |
 | Reviewer 评测 | `roles/reviewer.py` | 固定样例 precision/recall/漏检/误报/严重性；真实轨迹的审查前→意见→审查后版本关联、重复意见去重保留轮次；关联不上记 unlinkable |
 | 报告 | `report.py` | 逐题报告＋汇总报告；区分 measured/model_judged/pipeline_check/human_reviewed/unknown；blocked/未交付不消失；与 A 的 E2E 按 `(case_id, run_id)` 对齐 |
 | CLI | `cli.py` | 6 子命令，默认离线 |
@@ -186,6 +186,8 @@ roles_samples_{planner,worker,reviewer}.json, report.md, summary.md, compat_tabl
 
 14. **本阶段不调用真实 API**：所有 `pipeline_check` 结论不是质量评分。
     Worker 的 `intent_error` 与 Planner 覆盖映射的语义判定都需要真实 Judge。
+    另外，Judge 判 `unknown` **不算给了依据**：该维度记 `unknown` 而不是 `pipeline_check`
+    （所以离线默认跑出来的 trajectory 结果里，语义维度是 `unknown`，只有结构与引用是 `measured`）。
 15. Planner 覆盖映射在真实运行包上恒为 `unknown`——A 的 `financial_real_v1` 仍是 draft，
     且 `LV-E2E-*` 与现有任何运行包都不绑定。提供 `--gold` 后即可变成 `judged`。
 16. Reviewer 固定样例的 `detected` 是**记录下来的输出**（离线不跑真实 Reviewer），
@@ -198,13 +200,58 @@ roles_samples_{planner,worker,reviewer}.json, report.md, summary.md, compat_tabl
 
 ## 7. 检查记录
 
-- `tests/test_agent_process.py`（128 项）：适配、监控、查询诊断、三角色、报告、CLI、真实包冒烟。
+- `tests/test_agent_process.py`（138 项）：适配、监控、查询诊断、三角色、报告、CLI、真实包冒烟。
 - `tests/test_process_instrumentation.py`（33 项）：新增事件与关联字段，含两条"行为不变"断言。
 - 全量 `python -m pytest -q`：见 §2 命令 6；埋点改动前后均全绿。
 - 埋点改动集中在 `agent/` 4 个文件，均为**新增键/新增事件/新增文件**，无既有分支被改写。
 - 固定回放包与 A 的原件字节一致（只 `Copy-Item`，未修改原包）。
 
-## 8. 未完成 / 待集成审核
+## 8. 集成审核发现的问题与修复（第一轮复审）
+
+复审提出 4 处会影响评测结论的问题，全部确认属实并已修复（每项先写失败测试再改，见 §2 命令 6）：
+
+| # | 问题 | 修复 |
+|---|---|---|
+| 1 | Worker 的「查询意图」判定**没看到实际查询**：只把用户问题、节点目标、产物摘要交给 Judge，判不了「意图是否对准节点目标」 | `_judge_inputs()` 把该节点**实际发出的每次查询**（问题文本、状态、原因码、issue 码）、**结果表结构**（rid/列/行数）、产物摘要与自报完成情况一并交给 Judge；空结果如实呈现为 `empty`，不显示成成功 |
+| 2 | 一次失败查询会**覆盖后续成功**，导致根因误归因：只要该节点出现过 parse_fail/exec_fail/no_data 就记根因，即使之后重试成功 | 归因改为看**最后一次有结论的查询**：先失败后成功＝已恢复，只记 `counts.recovered_failed_query_calls` 并在 notes 说明，**不作根因**；先成功后失败＝未恢复，照旧归因。`test_unrecovered_failure_is_still_attributed` 防止修过头把真问题一起吞掉 |
+| 3 | Worker 把 `evidence_support`/`task_completion` 标成 `measured`，但程序只验了**结构**：检查的是 rid 是否存在、以及产物**自报**的完成标准是否达标 | 拆成两个维度：`reference_integrity`（程序确实测了 rid 存在性）→ `measured`；`evidence_support`/`task_completion`/`calculation` 属语义判断，无实质判定则 `unknown`。产物的自报内容移到独立的 `self_reported` 块并注明来源与"评测侧未独立核验"。另外：Judge 判 `unknown` **等于没判**，不再因此标 `pipeline_check` |
+| 4 | 监控拿**不同量纲**的计数互比，会产生假差异：用 `queries.calls`（工具调用数）比 `run_meta.extraction_calls`（提取模型请求数），格式修复时一次调用会发多次请求 | 只比较同量纲：有逐次明细时用 `extraction.attempts_seen` 比；**无明细时不比较**并加一条"不可比"说明（真实包即属此列）。测试夹具的 `extraction_calls` 也改为按请求数计，与 `agent` 实际口径一致 |
+
+复审另提到「续接调用的上下文记录不含历史 messages」——已确认为设计内的部分可观测（记录带
+`resumed=true` 与 `resume_message_count`），交付说明 §6 第 13 条保留该限制，使用时要继续按此理解。
+
+> 关于分支状态：复审记录写「已推送」。**本任务从未执行 `git push`**。经 `git reflog show
+> origin/feat/eval-process` 核对，远端确实存在该分支且指向本分支 HEAD（reflog 记为
+> `update by push`），但推送动作不是本任务发起的，请以集成审核侧的实际操作为准。
+
+## 8b. 全分支代码复审（第二轮，14 项）
+
+独立复审又报了 14 项（2 项与 §8 重复，已修）。其余 12 项全部确认属实并已修复：
+
+| # | 问题 | 严重性 | 修复 |
+|---|---|---|---|
+| F2 | Reviewer 的「已修复/未修复」**完全来自 `response_status`**，而该字段默认 `open` 且全仓**从不写入** `addressed`/`declined` —— 等于用默认值断言「所有问题都没修」，还标成 `measured` | 重要 | 删除 `fixed`/`not_fixed`/`declined` 结论；改为 `declared_response`（如实转述声明）+ `response_status_is_default`（标明不含信息）+ `fix_verified=None`（未做前后语义比对）。维度改名 `review_round_linkage`（实测）/ `fix_verification`（unknown），报告显式写「**不能读作「未修复」**」 |
+| F3 | 缺数据因求和变成 `0`：子调用没有 `end`（崩溃/超时）时报告打印「耗时：角色总 0 ms」「子循环步数：0」且无说明；而 `pairs_missing_end` 明明算出来了却没露出 | 重要 | 加 `latency_ms.complete` / `rounds.child_steps_complete` / `tokens.subagent_complete`；有缺失时在 notes 里写明这些是**下界**；报告在提供不完整值时显示提示 |
+| F4 | `redact_record` 只处理**顶层**字符串，记录里嵌套的 `plan`、`extractor_events`（含 `str(ValidationError)`，会带出模型原始载荷）可把密钥写到盘上；交付说明的「两处脱敏」说法过度声称 | 重要 | 改为**递归**遍历 dict/list/tuple；新增两条测试（嵌套密钥、非字符串保持原样） |
+| F5 | `query_trace_id` 用 `len(stats["query_trace"])` 分配，而主循环对**只读工具走线程池**（`agent/loop.py`），两个 `query_financial_data` 并发会撞 id → 适配器把第二条查询挂到第一次调用上 | 重要 | 改为加锁的**独立单调计数器** `query_trace_seq`；新增并发测试（`threading.Barrier` 强制重叠），该测试在修前确实失败 |
+| F6 | 报告的依据段**完全没有 Worker**（worker 只在节点里给 basis，无顶层）；Reviewer 轨迹路径标称 `misses`/`false_positives` 为 `measured`，但轨迹上没有标注、没算 precision/recall | 重要 | `worker.evaluate_package` 增顶层 `evidence_basis`（按节点汇总，不一致标 `mixed`）；Reviewer 轨迹路径把检出/漏检/误报一律改 `unknown` 并加 `basis_scope`；报告依据段现覆盖三角色 |
+| F7 | 交付说明里的 `--gold` 命令**静默无效**：`pkg.case_id` 默认为空，gold 绑不上，却报「gold 未就绪」（理由与事实不符） | 重要 | 区分「没给 gold」与「给了但绑不上」：后者明确提示需传 `--case-id`，`coverage.reason` 写真实原因；新增两条测试（绑不上 / 传了 case-id 后确实 judged） |
+| F8 | plan 目标的「后续版本」是**编的**：直接取 `latest_revision`，审查 rev1 而 latest 也是 1 时也会报「后续版本 1」 | 重要 | 改为只有存在**更晚**修订时才算后续版本，否则 `None` 并计入 `unlinkable`；plan 审查同样纳入关联检查 |
+| F9 | 报告无条件写「取末行为终态」，与实际的「终态以 `run_meta.status` 为准」自相矛盾，且不显示不一致 | 次要 | 改为如实描述规则，并在两者不一致时显式告警「该包可能被人工改动过」 |
+| F11 | 汇总表列名误导：`失败数` 把合法澄清/拒答也算失败；`评分错误数` 统计的其实是自报 vs 重算差异 | 次要 | 改为 `交付数`/`未交付数`/`计数差异数`，并加注说明「未交付≠答错」「差异数≠评分器错误」 |
+| F12 | `cases/<id>.md` 只是**精简壳**，按 case 打开看不到角色评测与查询诊断 | 次要 | `write_reports` 接受 `pkgs`，有包时渲染完整逐题报告（本包 172 行） |
+| F13 | 去重键含 `parent_call_id`，转发副本一旦丢了该字段就会被重复计数；无 `call_id` 的事件完全不去重 | 次要 | 有 `call_id` 时只用 `call_id` 作键；新增测试（丢 parent 的重复副本仍被去重） |
+| F14 | 若干小项：`results.json` 缺 `rows` 键被算成 0 行；只有一项 token 时仍标 `run_meta`；`冗余调用` 措辞像结论；`answer_candidate` 适配了却从不出现 | 次要 | `total_rows` 缺键记 `None`；新增 `run_meta_partial` 来源；报告改用「同工具重复调用（重复≠冗余）」；报告列出答案候选（并注明候选是诊断对象，不替代最终成绩） |
+
+复审同时确认了通过项：硬约束 1/3/4/5/6/8 均满足（含 `agent/query/*` 未被改动、
+跳过不计成功、无单一总分、历史包诚实降级、每项离线结论都带标记）、
+Review Focus 五条全部有测试覆盖、固定包回放可复现。
+
+复审未能判定的部分（本交付同样未覆盖）：`--judge live` 全链路未执行；
+固定样例标注本身的**正确性与公平性**未由评测侧之外的人复核；
+F5 的并发竞态在真实运行中尚未观察到（参考包主循环未调用该工具）。
+
+## 9. 未完成 / 待集成审核
 
 - **PRD §9.3 M3「真实执行贯通」未完成**：未跑真实 API，未做评分校准，未产出经审核的小样本真实执行。
 - `--judge live` 已实现未执行；真实 Judge 的角色提示词（`RoleLLMJudge`，独立于 A 的 E2E 提示词）

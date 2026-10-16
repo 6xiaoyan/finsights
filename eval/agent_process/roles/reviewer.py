@@ -21,9 +21,14 @@ REVIEW_CATEGORIES = ("wrong_period", "unit_error", "omission",
 
 REVIEW_DIMENSIONS = ("problem_detection", "misses", "false_positives",
                      "severity", "evidence_basis", "actionability",
-                     "fix_linkage")
+                     "review_round_linkage", "fix_verification")
 
 _SEVERITY_ORDER = ("must_fix", "limitation", "suggestion")
+
+#: 用于判断「新版本内容是否变了」的字段——必须是 ArtifactView 上真实存在的字段。
+_CONTENT_FIELDS = ("facts", "calculations", "evidence_refs", "summary", "limitations",
+                   "required_missing_inputs", "optional_missing_inputs",
+                   "completion_report")
 
 
 def _norm(text: str) -> str:
@@ -96,7 +101,8 @@ def evaluate_sample(sample: dict) -> dict:
             "severity": evidence_basis(True, False),
             "evidence_basis": evidence_basis(False, False),
             "actionability": evidence_basis(False, False),
-            "fix_linkage": evidence_basis(False, False),
+            "review_round_linkage": evidence_basis(False, False),
+            "fix_verification": evidence_basis(False, False),
             "detection": "pipeline_check",
             "annotation": "human_reviewed",
             "precision_recall": "measured",
@@ -109,46 +115,77 @@ def _artifact_index(pkg: ProcessPackage) -> dict[str, Any]:
     return {a.artifact_id: a for a in pkg.artifacts}
 
 
-def _next_version(pkg: ProcessPackage, target_id: str) -> tuple[str | None, str | None]:
-    """找被审对象的同节点下一版产物。"""
+_CONTENT_FIELDS = ("facts", "calculations", "evidence_refs", "summary", "limitations",
+                   "required_missing_inputs", "optional_missing_inputs",
+                   "completion_report", "interpretations", "hypotheses")
+
+
+_CONTENT_FIELDS = ("facts", "calculations", "evidence_refs", "summary", "limitations",
+                   "required_missing_inputs", "optional_missing_inputs",
+                   "completion_report")
+
+
+def _content_changed(before: Any, after: Any) -> bool | None:
+    """新版本的内容相对被审版本是否变了。可测；「是否修好」不可测。"""
+    if before is None or after is None:
+        return None
+    return any(getattr(before, f) != getattr(after, f) for f in _CONTENT_FIELDS)
+
+
+def _next_artifact(pkg: ProcessPackage, target_id: str) -> tuple[str | None, str | None, bool | None]:
+    """找被审产物的同节点下一版：返回（版本, artifact_id, 内容是否变化）。"""
     idx = _artifact_index(pkg)
     cur = idx.get(target_id)
     if cur is None:
-        return None, None
+        return None, None, None
     later = [a for a in pkg.artifacts
              if a.node_id == cur.node_id
              and (a.plan_revision or 0, a.attempt or 0)
              > (cur.plan_revision or 0, cur.attempt or 0)]
     if not later:
-        return None, None
+        return None, None, None
     nxt = min(later, key=lambda a: (a.plan_revision or 0, a.attempt or 0))
-    return nxt.version, nxt.artifact_id
+    return nxt.version, nxt.artifact_id, _content_changed(cur, nxt)
+
+
+def _next_plan_revision(pkg: ProcessPackage, target_version: str) -> str | None:
+    """计划审查：只有确实存在**更晚**的修订时才算有后续版本。
+
+    不能拿 `latest_revision` 当"下一个版本"——审查 rev1 而 latest 也是 1 时，
+    那等于凭空造出一个后续版本（本模块的 whole point 就是不伪造）。
+    """
+    try:
+        reviewed = int(str(target_version))
+    except (TypeError, ValueError):
+        return None
+    later = [p.revision for p in pkg.plans if p.revision > reviewed]
+    return str(min(later)) if later else None
 
 
 def link_review_rounds(pkg: ProcessPackage) -> dict:
-    """审查前对象 → 意见 → 审查后对象；关联不上就记 unlinkable。"""
+    """审查前对象 → 意见 → 审查后对象。
+
+    能程序判定的只有「有没有新版本」「新版本内容是否变了」。
+    「被指出的问题是否修好」需要语义比对，本模块**不做**，记 `fix_verified=None`。
+
+    特别地：`ReviewFinding.response_status` 的默认值是 `open`，而当前 agent
+    **从不写入** `addressed`/`declined`（全仓 grep 只有声明与读取）。所以真实包里它
+    恒为默认值、不含信息 —— 不能拿它断言「未修复」。
+    """
     rounds: list[dict] = []
     unlinkable: list[dict] = []
 
     for rv in pkg.reviews:
         findings = list(rv.findings or [])
-        nxt_version, nxt_id = (None, None)
+        nxt_version = nxt_id = None
+        changed: bool | None = None
         if rv.target_type == "artifact":
-            nxt_version, nxt_id = _next_version(pkg, rv.target_id)
+            nxt_version, nxt_id, changed = _next_artifact(pkg, rv.target_id)
         elif rv.target_type == "plan":
-            nxt_version = str(pkg.latest_revision) if pkg.latest_revision else None
+            nxt_version = _next_plan_revision(pkg, rv.target_version)
 
-        fixed, not_fixed, declined = [], [], []
-        for f in findings:
-            fid = f.get("finding_id")
-            status = (f.get("response_status") or "open").lower()
-            if status == "addressed":
-                fixed.append(fid)
-            elif status == "declined":
-                declined.append(fid)
-            else:
-                not_fixed.append(fid)
-
+        declared = {f.get("finding_id"): (f.get("response_status") or "open")
+                    for f in findings}
         rnd = {
             "review_id": rv.review_id,
             "target_type": rv.target_type,
@@ -159,15 +196,18 @@ def link_review_rounds(pkg: ProcessPackage) -> dict:
             "must_fix": sum(1 for f in findings if f.get("severity") == "must_fix"),
             "next_version": nxt_version,
             "next_artifact_id": nxt_id,
-            "fixed": fixed,
-            "not_fixed": not_fixed,
-            "declined": declined,
+            # 可测：新版本内容是否变了。「是否修好」见 fix_verified。
+            "next_content_changed": changed,
+            "fix_verified": None,
+            # 产物**声明**的处理状态，如实转述；默认值不构成证据
+            "declared_response": declared,
+            "response_status_is_default": all(v == "open" for v in declared.values()),
             "findings": findings,
         }
         rounds.append(rnd)
-        if rv.target_type == "artifact" and nxt_version is None:
+        if rv.target_type in ("artifact", "plan") and nxt_version is None:
             unlinkable.append({"review_id": rv.review_id, "target_id": rv.target_id,
-                               "reason": "该节点没有更晚版本的产物，无法判断是否修复"})
+                               "reason": "没有更晚版本的对象，无法判断是否修复"})
 
     # 同一问题多轮重复提出：去重但保留轮次
     grouped: dict[tuple[str, str], dict] = {}
@@ -188,6 +228,10 @@ def link_review_rounds(pkg: ProcessPackage) -> dict:
     notes = [
         "Reviewer 的 accepted 是被测输出，不是标准答案；本评测不据此判定问题已修复",
         "修改前后变好只是该轨迹的观察结果，不宣称 Reviewer 带来了能力提升",
+        "「是否修好」未做前后语义比对，一律记 fix_verified=null；"
+        "只报告有无新版本、新版本内容是否变化",
+        "`response_status` 由产物声明；当前 agent 从不写 addressed/declined，"
+        "真实包里它恒为默认值 open，**不能当作「未修复」的证据**",
     ]
     if unlinkable:
         notes.append(f"{len(unlinkable)} 条审查无法关联到审查后版本："
@@ -224,14 +268,21 @@ def evaluate_package(pkg: ProcessPackage, *, judge: Any = None,
         },
         "categories": list(REVIEW_CATEGORIES),
         "dimensions": list(REVIEW_DIMENSIONS),
+        # 轨迹路径**没有标注**、也没算 precision/recall（那在固定样例路径里）。
+        # 所以检出/漏检/误报在轨迹上无从判定，只能是 unknown —— 不能标 measured。
+        "basis_scope": "trajectory",
         "evidence_basis": {
             "problem_detection": evidence_basis(False, False),
-            "misses": evidence_basis(True, False),
-            "false_positives": evidence_basis(True, False),
+            "misses": evidence_basis(False, False),
+            "false_positives": evidence_basis(False, False),
             "severity": evidence_basis(True, False),
-            "evidence_basis": evidence_basis(True, False),
+            "evidence_basis": evidence_basis(False, False),
             "actionability": evidence_basis(False, False),
-            "fix_linkage": evidence_basis(True, False),
+            # 关联本身是实测的（找到更晚版本、比对内容）；是否修好不是
+            "review_round_linkage": evidence_basis(True, False),
+            "fix_verification": evidence_basis(False, False),
             "verdict": evidence_basis(True, False),
         },
+        "fix_linkage_scope": "仅「是否存在更晚版本 + 内容是否变化」两项为实测；"
+                             "「问题是否被修好」未核验，fix_verified 恒为 null",
     }

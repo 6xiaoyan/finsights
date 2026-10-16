@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import re
+import threading
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
@@ -24,6 +25,9 @@ from semantic.catalog import list_catalog
 from semantic.compiler import MetricRequest, compile as compile_sql, load_metrics
 
 DEFAULT_CFG = {"result_max_rows": 50, "result_max_tokens": 2000}
+
+#: 调用级查询 id 的分配锁（见 _next_query_trace_id）。
+_QUERY_TRACE_LOCK = threading.Lock()
 
 
 def make_data_version(db_path: str) -> str:
@@ -487,6 +491,20 @@ def _record_query_call(ctx: ToolContext, *, query_trace_id: str, call_index: int
     return rec
 
 
+def _next_query_trace_id(ctx: ToolContext) -> tuple[str, int]:
+    """分配调用级查询 id。
+
+    必须用**独立的单调计数器**而不是 `len(stats["query_trace"])`：主循环对只读工具
+    走线程池（agent/loop.py 的 ThreadPoolExecutor），两个 query_financial_data 并发时
+    会同时读到同一个长度，从而撞出重复 id —— 适配器按该 id 关联角色调用，撞车会把
+    第二条查询挂到第一次调用上。加锁自增保证唯一。
+    """
+    with _QUERY_TRACE_LOCK:
+        seq = int(ctx.stats.get("query_trace_seq", 0)) + 1
+        ctx.stats["query_trace_seq"] = seq
+    return f"q{seq}", seq - 1
+
+
 def _h_query_financial_data(args, ctx: ToolContext, step: int) -> Outcome:
     from agent.query.executor import execute_plan
     from agent.query.extractor import extract_plan
@@ -495,8 +513,7 @@ def _h_query_financial_data(args, ctx: ToolContext, step: int) -> Outcome:
     node_task = getattr(args, "node_task", "") or ""
     qcfg = getattr(ctx, "query_cfg", None) or {}
     # 调用级 id：本次运行内唯一，每次调用必有（不能拿 rid 顶替——同计划会复用 rid）
-    call_index = len(ctx.stats.setdefault("query_trace", []))
-    query_trace_id = f"q{call_index + 1}"
+    query_trace_id, call_index = _next_query_trace_id(ctx)
     extraction, events = extract_plan(args.question, node_task, ctx.catalog, ctx.llm, ctx=ctx,
                                       temperature=qcfg.get("extraction_temperature"),
                                       max_format_repairs=int(qcfg.get("max_format_repairs", 1)))

@@ -45,7 +45,8 @@
     "severity",
     "evidence_basis",
     "actionability",
-    "fix_linkage"
+    "review_round_linkage",
+    "fix_verification"
    ],
    "evidence_basis": {
     "problem_detection": "unknown",
@@ -54,7 +55,8 @@
     "severity": "measured",
     "evidence_basis": "unknown",
     "actionability": "unknown",
-    "fix_linkage": "unknown",
+    "review_round_linkage": "unknown",
+    "fix_verification": "unknown",
     "detection": "pipeline_check",
     "annotation": "human_reviewed",
     "precision_recall": "measured"
@@ -104,7 +106,8 @@
     "severity",
     "evidence_basis",
     "actionability",
-    "fix_linkage"
+    "review_round_linkage",
+    "fix_verification"
    ],
    "evidence_basis": {
     "problem_detection": "unknown",
@@ -113,7 +116,8 @@
     "severity": "measured",
     "evidence_basis": "unknown",
     "actionability": "unknown",
-    "fix_linkage": "unknown",
+    "review_round_linkage": "unknown",
+    "fix_verification": "unknown",
     "detection": "pipeline_check",
     "annotation": "human_reviewed",
     "precision_recall": "measured"
@@ -171,7 +175,8 @@
     "severity",
     "evidence_basis",
     "actionability",
-    "fix_linkage"
+    "review_round_linkage",
+    "fix_verification"
    ],
    "evidence_basis": {
     "problem_detection": "unknown",
@@ -180,7 +185,8 @@
     "severity": "measured",
     "evidence_basis": "unknown",
     "actionability": "unknown",
-    "fix_linkage": "unknown",
+    "review_round_linkage": "unknown",
+    "fix_verification": "unknown",
     "detection": "pipeline_check",
     "annotation": "human_reviewed",
     "precision_recall": "measured"
@@ -230,7 +236,8 @@
     "severity",
     "evidence_basis",
     "actionability",
-    "fix_linkage"
+    "review_round_linkage",
+    "fix_verification"
    ],
    "evidence_basis": {
     "problem_detection": "unknown",
@@ -239,7 +246,8 @@
     "severity": "measured",
     "evidence_basis": "unknown",
     "actionability": "unknown",
-    "fix_linkage": "unknown",
+    "review_round_linkage": "unknown",
+    "fix_verification": "unknown",
     "detection": "pipeline_check",
     "annotation": "human_reviewed",
     "precision_recall": "measured"
@@ -287,7 +295,8 @@
     "severity",
     "evidence_basis",
     "actionability",
-    "fix_linkage"
+    "review_round_linkage",
+    "fix_verification"
    ],
    "evidence_basis": {
     "problem_detection": "unknown",
@@ -296,7 +305,8 @@
     "severity": "measured",
     "evidence_basis": "unknown",
     "actionability": "unknown",
-    "fix_linkage": "unknown",
+    "review_round_linkage": "unknown",
+    "fix_verification": "unknown",
     "detection": "pipeline_check",
     "annotation": "human_reviewed",
     "precision_recall": "measured"
@@ -333,7 +343,8 @@
     "severity",
     "evidence_basis",
     "actionability",
-    "fix_linkage"
+    "review_round_linkage",
+    "fix_verification"
    ],
    "evidence_basis": {
     "problem_detection": "unknown",
@@ -342,7 +353,8 @@
     "severity": "measured",
     "evidence_basis": "unknown",
     "actionability": "unknown",
-    "fix_linkage": "unknown",
+    "review_round_linkage": "unknown",
+    "fix_verification": "unknown",
     "detection": "pipeline_check",
     "annotation": "human_reviewed",
     "precision_recall": "measured"
@@ -390,7 +402,8 @@
     "severity",
     "evidence_basis",
     "actionability",
-    "fix_linkage"
+    "review_round_linkage",
+    "fix_verification"
    ],
    "evidence_basis": {
     "problem_detection": "unknown",
@@ -399,7 +412,8 @@
     "severity": "measured",
     "evidence_basis": "unknown",
     "actionability": "unknown",
-    "fix_linkage": "unknown",
+    "review_round_linkage": "unknown",
+    "fix_verification": "unknown",
     "detection": "pipeline_check",
     "annotation": "human_reviewed",
     "precision_recall": "measured"
@@ -436,7 +450,8 @@
     "severity",
     "evidence_basis",
     "actionability",
-    "fix_linkage"
+    "review_round_linkage",
+    "fix_verification"
    ],
    "evidence_basis": {
     "problem_detection": "unknown",
@@ -445,7 +460,8 @@
     "severity": "measured",
     "evidence_basis": "unknown",
     "actionability": "unknown",
-    "fix_linkage": "unknown",
+    "review_round_linkage": "unknown",
+    "fix_verification": "unknown",
     "detection": "pipeline_check",
     "annotation": "human_reviewed",
     "precision_recall": "measured"
@@ -493,7 +509,8 @@
     "severity",
     "evidence_basis",
     "actionability",
-    "fix_linkage"
+    "review_round_linkage",
+    "fix_verification"
    ],
    "evidence_basis": {
     "problem_detection": "unknown",
@@ -502,7 +519,8 @@
     "severity": "measured",
     "evidence_basis": "unknown",
     "actionability": "unknown",
-    "fix_linkage": "unknown",
+    "review_round_linkage": "unknown",
+    "fix_verification": "unknown",
     "detection": "pipeline_check",
     "annotation": "human_reviewed",
     "precision_recall": "measured"

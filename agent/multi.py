@@ -671,14 +671,21 @@ def _context_refs(user: str, ident: dict) -> dict:
     return refs
 
 
-def redact_record(rec: dict) -> dict:
-    """导出前的兜底脱敏：记录里每个字符串值都再过一遍。
+def redact_record(value: Any) -> Any:
+    """导出前的兜底脱敏：**递归**走完整条记录。
 
-    主要脱敏发生在采集点（_emit_subagent_context）；这里是写盘边界上的第二道，
-    保证即使将来有新的生产者忘了脱敏，密钥也不会落进运行包。
-    id/hash 类值不会被模式命中，所以对它们是空操作。
+    主要脱敏发生在采集点（_emit_subagent_context）；这里是写盘边界上的第二道。
+    必须递归：记录里嵌着模型产出的 `plan` 与 `extractor_events`（后者含
+    `str(ValidationError)`，会把模型的原始载荷带出来），只处理顶层字符串挡不住。
+    id/hash 类值不会被模式命中，对它们是空操作。
     """
-    return {k: (_redact_text(v) if isinstance(v, str) else v) for k, v in rec.items()}
+    if isinstance(value, str):
+        return _redact_text(value)
+    if isinstance(value, dict):
+        return {k: redact_record(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [redact_record(v) for v in value]
+    return value
 
 
 def _emit_subagent_context(ctx: Any, *, agent_call_id: str, role: str, step: int,

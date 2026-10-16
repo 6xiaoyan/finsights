@@ -44,6 +44,11 @@ def _query_events(specs: list[dict], with_instrumentation: bool) -> list[dict]:
     return out
 
 
+def _extractor_events(spec: dict) -> list[dict]:
+    return spec.get("extractor_events") or [
+        {"type": "extractor_call", "attempt": 1, "status": "parsed"}]
+
+
 def _write_run_package(
     tmp_path: Path,
     *,
@@ -87,7 +92,11 @@ def _write_run_package(
         "enabled_tools": ["calc", "final_answer", "list_metrics", "query_financial_data"],
         "catalog_version": "ac8a63098ffd",
         "extraction_prompt_version": "6aae694677ce",
-        "extraction_calls": len(specs),
+        # extraction_calls 数的是**提取模型请求**次数（agent 里按 LLM 调用自增，
+        # 格式修复会算两次），不是工具调用次数——夹具必须同口径，否则会自造差异。
+        "extraction_calls": sum(
+            len([e for e in _extractor_events(s) if e.get("type") == "extractor_call"])
+            for s in specs),
         "verified": verified,
         "status": status,
         "multi_agent": {
@@ -263,9 +272,9 @@ def _write_run_package(
                          "period_basis": "fiscal", "periods": ["FY2024Q2"],
                          "group_by": ["region"], "filters": []},
                 "plan_digest": "9e3ef01addb3" if rid else None,
-                "attempts": 1,
-                "extractor_events": [{"type": "extractor_call", "attempt": 1,
-                                      "status": "parsed"}],
+                "attempts": len([e for e in _extractor_events(s)
+                                 if e.get("type") == "extractor_call"]),
+                "extractor_events": _extractor_events(s),
                 "prompt_version": "6aae694677ce", "catalog_version": "ac8a63098ffd",
                 "data_version": "2633728-1792117547120291300-d728e5137cbb",
                 "result_ids": [rid] if rid else [],
@@ -1232,7 +1241,7 @@ def test_node_completed_does_not_imply_success(tmp_path):
     out = evaluate_node(load_process_package(run, case_id="LV-T01"), "n1")
 
     assert out["measured"]["facts_missing_rid"] == 1
-    assert out["evidence_basis"]["evidence_support"] == "measured"
+    assert out["evidence_basis"]["reference_integrity"] == "measured"
     assert "success" not in out          # 不提供「completed 即成功」的字段
     assert out["measured"]["execution_status"] == "completed"
 
@@ -1342,6 +1351,456 @@ def test_worker_judged_dimensions_unknown_without_judge(tmp_path):
     assert out["judged"] is None
     assert out["evidence_basis"]["query_intent"] == "unknown"
     assert out["evidence_basis"]["calculation"] == "unknown"
+
+
+# --- 审查发现 1：查询意图判定必须看到实际查询 ---
+
+class CapturingJudge:
+    """记录 Judge 实际收到的输入，用于验证它到底看到了什么。"""
+
+    def __init__(self, verdict="unknown"):
+        self.calls = []
+        self.verdict = verdict
+
+    def score_point(self, question, point, facts, answer):
+        self.calls.append({"question": question, "point": point,
+                           "facts": facts, "answer": answer})
+        return {"verdict": self.verdict, "reason": "captured"}
+
+    def score_whole(self, question, answer):
+        return {"dimensions": {}}
+
+
+def test_query_intent_judge_sees_actual_queries(tmp_path):
+    """PRD §8.2：Worker 评测输入必须含「查询与结果」，否则判不了查询意图。"""
+    from eval.agent_process.adapt import load_process_package
+    from eval.agent_process.roles.worker import evaluate_node
+
+    specs = [{"ok": True, "rid": "r2",
+              "args": {"question": "联想 FY2024Q2 存货", "node_task": "取存货"}}]
+    pkg = load_process_package(
+        _write_run_package(tmp_path, with_instrumentation=True, query_specs=specs),
+        case_id="LV-T01")
+    judge = CapturingJudge()
+    evaluate_node(pkg, "n1", judge=judge)
+
+    blob = json.dumps(judge.calls[0], ensure_ascii=False)
+    # 实际发出的查询文本必须进入 Judge 视野
+    assert "联想 FY2024Q2 存货" in blob
+    # 结果引用也要在，才能判断查询是否真的取到数
+    assert "r2" in blob
+
+
+def test_query_intent_judge_sees_empty_result_as_such(tmp_path):
+    from eval.agent_process.adapt import load_process_package
+    from eval.agent_process.roles.worker import evaluate_node
+
+    specs = [{"ok": True, "rid": None, "status": "empty",
+              "args": {"question": "无数据的查询"}}]
+    pkg = load_process_package(
+        _write_run_package(tmp_path, with_instrumentation=True, query_specs=specs),
+        case_id="LV-T01")
+    judge = CapturingJudge()
+    evaluate_node(pkg, "n1", judge=judge)
+
+    blob = json.dumps(judge.calls[0], ensure_ascii=False)
+    assert "empty" in blob          # 空结果必须如实呈现，不能显示成成功
+
+
+# --- 审查发现 2：已恢复的失败不能当作根因 ---
+
+def test_recovered_failure_is_not_attributed_as_cause(tmp_path):
+    """先失败后重试成功并完成：失败是观察，不是根因。"""
+    from eval.agent_process.adapt import load_process_package
+    from eval.agent_process.roles.worker import evaluate_node
+
+    specs = [{"ok": True, "rid": None, "status": "empty",
+              "args": {"question": "第一次没数据"}},
+             {"ok": True, "rid": "r2", "status": "ok",
+              "args": {"question": "换个问法拿到数"}}]
+    pkg = load_process_package(
+        _write_run_package(tmp_path, with_instrumentation=True, query_specs=specs),
+        case_id="LV-T01")
+    out = evaluate_node(pkg, "n1")
+
+    assert out["attribution"]["cause"] != "data_unavailable", \
+        "节点已重试成功，不该仍归因为数据不可用"
+    assert out["counts"]["failed_query_calls"] == 1
+    assert out["counts"]["recovered_failed_query_calls"] == 1
+    assert any("恢复" in n or "重试" in n for n in out["notes"])
+
+
+def test_unrecovered_failure_is_still_attributed(tmp_path):
+    """最后一次查询仍是失败：照旧归因（修复不能把真问题一起吞掉）。"""
+    from eval.agent_process.adapt import load_process_package
+    from eval.agent_process.roles.worker import evaluate_node
+
+    specs = [{"ok": True, "rid": "r2", "status": "ok",
+              "args": {"question": "先取到数"}},
+             {"ok": True, "rid": None, "status": "empty",
+              "args": {"question": "再取就空了"}}]
+    pkg = load_process_package(
+        _write_run_package(tmp_path, with_instrumentation=True, query_specs=specs),
+        case_id="LV-T01")
+    out = evaluate_node(pkg, "n1")
+
+    assert out["attribution"]["cause"] == "data_unavailable"
+    assert out["counts"]["recovered_failed_query_calls"] == 0
+
+
+# --- 审查发现 3：依据等级必须与代码实际检查的内容一致 ---
+
+def test_task_completion_is_not_claimed_as_measured(tmp_path):
+    """程序只解析了产物**自报**的完成情况，没独立核验任务是否完成。"""
+    from eval.agent_process.adapt import load_process_package
+    from eval.agent_process.roles.worker import evaluate_node
+
+    out = evaluate_node(load_process_package(_write_run_package(tmp_path),
+                                             case_id="LV-T01"), "n1")
+
+    assert out["evidence_basis"]["task_completion"] == "unknown"
+    assert out["evidence_basis"]["evidence_support"] == "unknown"
+    # 自报内容单独放，并标明来源是被测产物自己写的
+    sr = out["self_reported"]
+    assert sr["task_completion"]["source"] == "artifact.completion_report"
+    assert sr["task_completion"]["criteria_covered"] == 1
+
+
+def test_reference_integrity_is_measured(tmp_path):
+    """程序确实测到的只是「引用的 rid 是否存在」——名字要如实。"""
+    from eval.agent_process.adapt import load_process_package
+    from eval.agent_process.roles.worker import evaluate_node
+
+    out = evaluate_node(load_process_package(_write_run_package(tmp_path),
+                                             case_id="LV-T01"), "n1")
+    assert out["evidence_basis"]["reference_integrity"] == "measured"
+    assert "reference_integrity" in out["dimensions"]
+    assert "evidence_support" in out["dimensions"]
+
+
+def test_evidence_support_becomes_judged_with_judge(tmp_path):
+    from eval.agent_process.adapt import load_process_package
+    from eval.agent_process.roles.worker import evaluate_node
+
+    pkg = load_process_package(_write_run_package(tmp_path), case_id="LV-T01")
+    out = evaluate_node(pkg, "n1", judge=CapturingJudge(verdict="met"))
+    # 有 Judge 才能谈「证据是否支持结论」，且只是 pipeline_check
+    assert out["evidence_basis"]["evidence_support"] == "pipeline_check"
+    assert out["evidence_basis"]["reference_integrity"] == "measured"
+
+
+def test_unknown_verdict_does_not_earn_a_basis(tmp_path):
+    """Judge 判 unknown 等于没判：不能因为「跑过 Judge」就标 pipeline_check。"""
+    from eval.agent_process.adapt import load_process_package
+    from eval.agent_process.roles.worker import evaluate_node
+
+    pkg = load_process_package(_write_run_package(tmp_path), case_id="LV-T01")
+    out = evaluate_node(pkg, "n1", judge=CapturingJudge(verdict="unknown"))
+
+    assert out["evidence_basis"]["evidence_support"] == "unknown"
+    assert out["evidence_basis"]["task_completion"] == "unknown"
+    assert out["evidence_basis"]["query_intent"] == "unknown"
+    assert out["evidence_basis"]["reference_integrity"] == "measured"
+
+
+# --- 审查发现 4：不同量纲的计数不能拿来互比 ---
+
+def test_extraction_discrepancy_uses_attempts_not_tool_calls(tmp_path):
+    """一次工具调用可发多次提取请求（格式修复）：拿工具调用数比提取数会误报差异。"""
+    evs = [{"type": "extractor_call", "attempt": 1, "status": "invalid"},
+           {"type": "extractor_call", "attempt": 2, "status": "parsed"}]
+    specs = [{"ok": True, "rid": "r2", "args": {"question": "q"},
+              "extractor_events": evs}]
+    m = _metrics(tmp_path, with_instrumentation=True, query_specs=specs)
+
+    assert m["queries"]["calls"] == 1              # 1 次工具调用
+    assert m["extraction"]["attempts_seen"] == 2   # 2 次提取请求
+    # 两者量纲不同，不得据此报差异
+    assert [d["field"] for d in m["discrepancies"] if d["field"] == "extraction_calls"] == []
+
+
+def test_extraction_discrepancy_still_flagged_on_real_mismatch(tmp_path):
+    evs = [{"type": "extractor_call", "attempt": 1, "status": "parsed"}]
+    specs = [{"ok": True, "rid": "r2", "args": {"question": "q"},
+              "extractor_events": evs}]
+    run = _write_run_package(tmp_path, with_instrumentation=True, query_specs=specs)
+    meta_path = run / "run_meta.json"
+    meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    meta["extraction_calls"] = 9                    # 自报 9，实际 1
+    meta_path.write_text(json.dumps(meta, ensure_ascii=False), encoding="utf-8")
+
+    from eval.agent_process.adapt import load_process_package
+    from eval.agent_process.metrics import compute_metrics
+
+    m = compute_metrics(load_process_package(run, case_id="LV-T01"))
+    d = next(x for x in m["discrepancies"] if x["field"] == "extraction_calls")
+    assert d["reported"] == 9 and d["recomputed"] == 1
+
+
+def test_extraction_not_compared_when_detail_absent(tmp_path):
+    """历史包没有提取明细：不比较、不报差异，只标不可比。"""
+    m = _metrics(tmp_path)                          # 无埋点
+    assert m["extraction"]["attempts_seen"] is None
+    assert [d for d in m["discrepancies"] if d["field"] == "extraction_calls"] == []
+    assert any("提取" in n for n in m["notes"])
+
+
+# ================= 第一轮复审（14 项）修复：按影响排序 =================
+
+# --- F2：修复情况不能由一个 agent 从不写入的默认值得出 ---
+
+def test_reviewer_fix_linkage_is_not_claimed_measured(tmp_path):
+    """`response_status` 的默认值是 open 且 agent 从不写 addressed：
+    拿它断言「未修复」等于用默认值冒充事实。"""
+    from eval.agent_process.adapt import load_process_package
+    from eval.agent_process.roles.reviewer import evaluate_package
+
+    out = evaluate_package(load_process_package(_reviewer_pkg(tmp_path), case_id="LV-T01"))
+
+    # 「关联」是实测的；「是否修好」不是
+    assert out["evidence_basis"]["review_round_linkage"] == "measured"
+    assert out["evidence_basis"]["fix_verification"] == "unknown"
+    rnd = out["rounds"][0]
+    assert rnd["fix_verified"] is None
+    assert rnd["declared_response"]["rev1-f1"] == "open"
+    assert rnd["response_status_is_default"] is True
+    assert any("response_status" in n and "默认" in n for n in out["notes"])
+    # 不再输出会被读成结论的「未修复」字段
+    assert "not_fixed" not in rnd and "fixed" not in rnd
+
+
+def test_declared_addressed_is_reported_as_declaration_not_verification(tmp_path):
+    """产物若声明 addressed，只如实转述该声明；仍不据此断言已修复。"""
+    out = _link(tmp_path, finding_status="addressed")
+
+    rnd = out["rounds"][0]
+    assert rnd["declared_response"]["rev1-f1"] == "addressed"
+    assert rnd["response_status_is_default"] is False
+    assert rnd["fix_verified"] is None
+
+
+def test_reviewer_trajectory_basis_does_not_claim_precision(tmp_path):
+    """轨迹路径没有标注、没算 precision/recall：不能标 measured。"""
+    from eval.agent_process.adapt import load_process_package
+    from eval.agent_process.roles.reviewer import evaluate_package
+
+    out = evaluate_package(load_process_package(_reviewer_pkg(tmp_path), case_id="LV-T01"))
+    for dim in ("misses", "false_positives"):
+        assert out["evidence_basis"][dim] == "unknown"
+    assert out["basis_scope"] == "trajectory"
+
+
+def test_reviewer_round_records_content_change(tmp_path):
+    """能不能关联到新版本、新版本内容是否变了，是可测的；是否修好不是。"""
+    out = _link(tmp_path)
+
+    rnd = out["rounds"][0]
+    assert rnd["next_version"] == "rev1-attempt2"
+    assert rnd["next_content_changed"] is True
+    assert rnd["fix_verified"] is None          # 未做前后语义比对，不假装知道
+
+
+def test_reviewer_same_content_next_version_flags_unchanged(tmp_path):
+    run = _reviewer_pkg(tmp_path)
+    state_path = run / "analysis" / "analysis_state.json"
+    state = json.loads(state_path.read_text(encoding="utf-8"))
+    for k in ("facts", "evidence_refs", "summary", "limitations",
+              "required_missing_inputs", "completion_report"):
+        state["artifacts"]["art2"][k] = state["artifacts"]["art1"][k]
+    state_path.write_text(json.dumps(state, ensure_ascii=False), encoding="utf-8")
+
+    from eval.agent_process.adapt import load_process_package
+    from eval.agent_process.roles.reviewer import link_review_rounds
+
+    out = link_review_rounds(load_process_package(run, case_id="LV-T01"))
+    assert out["rounds"][0]["next_content_changed"] is False
+
+
+# --- F8：plan 目标的「后续版本」不能编 ---
+
+def test_plan_review_next_version_not_fabricated(tmp_path):
+    """审查 plan rev1 而 latest_revision 也是 1：没有新版本，不许报「后续版本 1」。"""
+    run = _write_run_package(tmp_path)
+    state_path = run / "analysis" / "analysis_state.json"
+    state = json.loads(state_path.read_text(encoding="utf-8"))
+    state["reviews"]["rev1"] = {"review_id": "rev1", "target_type": "plan",
+                               "target_id": "plan1", "target_version": "1",
+                               "verdict": "needs_revision", "findings": [],
+                               "unresolved_items": [], "created_ts": ""}
+    state_path.write_text(json.dumps(state, ensure_ascii=False), encoding="utf-8")
+
+    from eval.agent_process.adapt import load_process_package
+    from eval.agent_process.roles.reviewer import link_review_rounds
+
+    out = link_review_rounds(load_process_package(run, case_id="LV-T01"))
+    assert out["rounds"][0]["next_version"] is None
+    assert out["unlinkable"][0]["review_id"] == "rev1"
+
+
+def test_plan_review_next_version_when_revision_exists(tmp_path):
+    run = _write_run_package(tmp_path)
+    state_path = run / "analysis" / "analysis_state.json"
+    state = json.loads(state_path.read_text(encoding="utf-8"))
+    state["reviews"]["rev1"] = {"review_id": "rev1", "target_type": "plan",
+                               "target_id": "plan1", "target_version": "1",
+                               "verdict": "needs_revision", "findings": [],
+                               "unresolved_items": [], "created_ts": ""}
+    plan2 = json.loads(json.dumps(state["plans"]["1"]))
+    plan2.update({"revision": 2, "plan_id": "plan2"})
+    state["plans"]["2"] = plan2
+    state["latest_revision"] = 2
+    state_path.write_text(json.dumps(state, ensure_ascii=False), encoding="utf-8")
+
+    from eval.agent_process.adapt import load_process_package
+    from eval.agent_process.roles.reviewer import link_review_rounds
+
+    out = link_review_rounds(load_process_package(run, case_id="LV-T01"))
+    assert out["rounds"][0]["next_version"] == "2"
+
+
+# --- F3：缺数据不能因为求和而变成 0 ---
+
+def test_orphan_role_call_marks_sums_incomplete(tmp_path):
+    """子调用没有 end（崩溃/超时）：耗时与步数是下界，不能报成 0 且不加说明。"""
+    orphan = {"type": "subagent_start", "role": "worker", "step": 9,
+              "agent_call_id": "worker@9#n9", "node_id": "n9", "plan_revision": 1}
+    m = _metrics(tmp_path, extra_trace_events=[orphan])
+
+    assert m["role_calls"]["pairs_missing_end"] == 1
+    assert m["latency_ms"]["complete"] is False
+    assert m["rounds"]["child_steps_complete"] is False
+    assert m["tokens"]["subagent_complete"] is False
+    assert any("下界" in n or "不完整" in n for n in m["notes"])
+
+
+def test_complete_package_marks_sums_complete(tmp_path):
+    m = _metrics(tmp_path)
+    assert m["latency_ms"]["complete"] is True
+    assert m["rounds"]["child_steps_complete"] is True
+
+
+def test_report_surfaces_incomplete_sums(tmp_path):
+    orphan = {"type": "subagent_start", "role": "worker", "step": 9,
+              "agent_call_id": "worker@9#n9", "node_id": "n9", "plan_revision": 1}
+    md = _report(tmp_path, extra_trace_events=[orphan])
+    assert "下界" in md or "不完整" in md
+
+
+# --- F4：脱敏必须递归到嵌套字段 ---
+
+def test_redact_record_is_recursive():
+    from agent.multi import redact_record
+
+    rec = {"user_content": "sk-abcdefgh12345678",
+           "plan": {"note": "key sk-zzzzzzzz99999999"},
+           "extractor_events": [{"error": "api_key: nestedsecret1"}],
+           "nested": {"deep": [{"x": "Bearer tok.abc"}]}}
+    out = redact_record(rec)
+    blob = json.dumps(out, ensure_ascii=False)
+    for leaked in ("sk-abcdefgh12345678", "sk-zzzzzzzz99999999",
+                   "nestedsecret1", "tok.abc"):
+        assert leaked not in blob, f"嵌套字段泄漏: {leaked}"
+    assert blob.count("***REDACTED***") >= 4
+
+
+def test_redact_record_keeps_non_strings():
+    from agent.multi import redact_record
+
+    out = redact_record({"n": 1, "b": True, "none": None, "lst": [1, "sk-abcdefgh12345678"]})
+    assert out["n"] == 1 and out["b"] is True and out["none"] is None
+    assert out["lst"][0] == 1 and "sk-abcdefgh12345678" not in out["lst"][1]
+
+
+# --- F6：报告的依据段必须覆盖 Worker，且 Reviewer 轨迹不得超额声称 ---
+
+def test_worker_package_eval_exposes_top_level_basis(tmp_path):
+    from eval.agent_process.adapt import load_process_package
+    from eval.agent_process.roles.worker import evaluate_package
+
+    out = evaluate_package(load_process_package(_write_run_package(tmp_path),
+                                                case_id="LV-T01"))
+    assert out["evidence_basis"], "报告要按角色汇总依据，Worker 不能没有顶层依据"
+    assert "reference_integrity" in out["evidence_basis"]
+
+
+def test_report_evidence_section_covers_all_three_roles(tmp_path):
+    md = _report(tmp_path)
+    section = md.split("## 依据与未知项")[1].split("## 字段兼容表")[0]
+    for role in ("planner", "worker", "reviewer"):
+        assert f"{role}." in section, f"依据段缺 {role}"
+
+
+# --- F7：--gold 给了但绑不上，理由必须是真实的 ---
+
+def test_gold_without_case_id_reports_binding_problem(tmp_path):
+    run = _write_run_package(tmp_path)
+    gold = tmp_path / "gold.jsonl"
+    gold.write_text(json.dumps({"case_id": "LV-T01",
+                                "scoring_points": [{"point_id": "p1",
+                                                    "atomic_judgment": "x"}]},
+                               ensure_ascii=False) + "\n", encoding="utf-8")
+    out = tmp_path / "out"
+    # 不传 --case-id → 无法绑定
+    assert _cli(["roles", "--run-dir", str(run), "--mode", "trajectory",
+                 "--gold", str(gold), "--out", str(out)]) == 0
+
+    d = json.loads((out / "roles_trajectory.json").read_text(encoding="utf-8"))
+    reason = d["roles"]["planner"]["coverage"]["reason"]
+    assert d["gold_provided"] is True
+    assert "--case-id" in reason or "绑定" in reason
+    assert "gold 未就绪" not in reason        # 真实理由是绑不上，不是没有 gold
+
+
+def test_gold_binds_when_case_id_given(tmp_path):
+    run = _write_run_package(tmp_path)
+    gold = tmp_path / "gold.jsonl"
+    gold.write_text(json.dumps({"case_id": "LV-T01",
+                                "scoring_points": [{"point_id": "p1",
+                                                    "atomic_judgment": "x"}]},
+                               ensure_ascii=False) + "\n", encoding="utf-8")
+    out = tmp_path / "out"
+    assert _cli(["roles", "--run-dir", str(run), "--case-id", "LV-T01",
+                 "--mode", "trajectory", "--gold", str(gold), "--out", str(out)]) == 0
+
+    d = json.loads((out / "roles_trajectory.json").read_text(encoding="utf-8"))
+    assert d["roles"]["planner"]["coverage"]["status"] == "judged"
+
+
+# --- F13：去重键在被转发时丢 parent 也要成立 ---
+
+def test_dedupe_survives_missing_parent_call_id(tmp_path):
+    dup = {"type": "tool_result", "role": "worker", "step": 0,
+           "tool": "query_financial_data", "ok": True, "rid": "r2", "call_id": "call_w1",
+           "args_head": "{}", "result_head": "x"}          # 没有 parent_call_id
+    base = _metrics(tmp_path / "a")
+    got = _metrics(tmp_path / "b", extra_trace_events=[dup])
+
+    assert got["tool_calls"]["total"] == base["tool_calls"]["total"]
+    assert got["tool_calls"]["deduped_duplicates"] == 1
+
+
+# --- F14：缺 rows 键不能变成 0 行 ---
+
+def test_fallback_result_rows_missing_is_none_not_zero(tmp_path):
+    run = _write_run_package(tmp_path)
+    results_path = run / "results.json"
+    results = json.loads(results_path.read_text(encoding="utf-8"))
+    for rec in results["results"]:
+        rec.pop("rows", None)
+    results_path.write_text(json.dumps(results, ensure_ascii=False), encoding="utf-8")
+    # 去掉查询事件，逼适配器走 results.json 退路
+    trace_path = run / "trace.jsonl"
+    keep = [json.loads(x) for x in
+            trace_path.read_text(encoding="utf-8").splitlines() if x.strip()]
+    keep = [e for e in keep if e.get("tool") != "query_financial_data"]
+    trace_path.write_text("\n".join(json.dumps(e, ensure_ascii=False) for e in keep) + "\n",
+                          encoding="utf-8")
+
+    from eval.agent_process.adapt import load_process_package
+
+    pkg = load_process_package(run, case_id="LV-T01")
+    assert pkg.query_records[0].total_rows is None
+    assert pkg.query_records[0].columns == []
 
 
 def test_worker_judged_dimensions_pipeline_check_with_fake_judge(tmp_path):
@@ -1517,23 +1976,28 @@ def test_review_round_linked_to_next_version(tmp_path):
     assert out["unlinkable"] == []
 
 
-def test_finding_response_status_marks_fixed(tmp_path):
+def test_finding_response_status_recorded_verbatim(tmp_path):
     out = _link(tmp_path, finding_status="addressed")
-    assert out["rounds"][0]["fixed"] == ["rev1-f1"]
-    assert out["rounds"][0]["not_fixed"] == []
+    rnd = out["rounds"][0]
+    assert rnd["declared_response"] == {"rev1-f1": "addressed"}
+    assert rnd["response_status_is_default"] is False
 
 
-def test_open_finding_stays_not_fixed(tmp_path):
+def test_open_finding_is_default_not_evidence(tmp_path):
+    """open 是默认值：报告必须标明它不含信息。"""
     out = _link(tmp_path, finding_status="open")
-    assert out["rounds"][0]["not_fixed"] == ["rev1-f1"]
-    assert out["rounds"][0]["fixed"] == []
+    rnd = out["rounds"][0]
+    assert rnd["declared_response"] == {"rev1-f1": "open"}
+    assert rnd["response_status_is_default"] is True
+    assert rnd["fix_verified"] is None
 
 
-def test_declined_finding_reported_separately(tmp_path):
+def test_declined_finding_recorded_not_concluded(tmp_path):
     out = _link(tmp_path, finding_status="declined")
     rnd = out["rounds"][0]
-    assert rnd["declined"] == ["rev1-f1"]
-    assert rnd["fixed"] == [] and rnd["not_fixed"] == []
+    assert rnd["declared_response"] == {"rev1-f1": "declined"}
+    # 声明被驳回，不等于我们核验过它没被修复
+    assert rnd["fix_verified"] is None
 
 
 def test_unlinkable_review_reported_not_faked(tmp_path):
@@ -1742,8 +2206,12 @@ def test_summary_reports_sample_counts(tmp_path):
     rec = _record(tmp_path)
     md = summary_report_md([rec], run_ids=[rec["run_id"]], dataset_name=None)
 
-    for col in ("样本数", "完成数", "失败数", "评分错误数"):
+    for col in ("样本数", "交付数", "未交付数", "计数差异数"):
         assert col in md, f"缺列: {col}"
+    # 列名必须如实：未交付含合法澄清/拒答，不能直接叫「失败数」；
+    # 计数差异是自报 vs 重算，不是评分器错误
+    assert "失败数" not in md
+    assert "评分错误数" not in md
 
 
 def test_join_with_e2e_results_by_case_and_run(tmp_path):

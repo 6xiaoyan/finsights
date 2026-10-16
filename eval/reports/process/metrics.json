@@ -67,7 +67,8 @@
   "main_assistant_events": 20,
   "main_steps_reported": 20,
   "subagent_child_steps": 52,
-  "subagent_child_steps_reported": 52
+  "subagent_child_steps_reported": 52,
+  "child_steps_complete": true
  },
  "extraction": {
   "calls_reported": 11,
@@ -106,7 +107,9 @@
    "reviewer@13#answer-cand6": 7677,
    "reviewer@17#answer-cand7": 7220,
    "reviewer@19#answer-cand7": 6178
-  }
+  },
+  "complete": true,
+  "missing_latency_calls": []
  },
  "tokens": {
   "prompt_tokens": 383994,
@@ -114,6 +117,7 @@
   "source": "run_meta",
   "subagent_prompt_tokens": 157368,
   "subagent_completion_tokens": 17336,
+  "subagent_complete": true,
   "notes": [
    "run_meta.usage 是整次运行的用量；子 Agent token 是其中的子集，不相加"
   ]
@@ -129,6 +133,7 @@
  "discrepancies": [],
  "notes": [
   "工具调用成功只描述程序运行状态，不表示取数业务正确（PRD §7.2）",
-  "metrics 是运行状态，与质量评分分列展示，不合并为总分"
+  "metrics 是运行状态，与质量评分分列展示，不合并为总分",
+  "extraction_calls 自报 11 次，但该包没有逐次提取明细，无法重算，不参与差异比较"
  ]
 }

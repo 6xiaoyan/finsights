@@ -84,12 +84,23 @@
        "以下为可选补充数据缺失，不影响本节点完成：数据库未提供财年日历映射表（fiscal period → 自然日历起止日期）的显式字段，FY2025Q1=2024-04-01~2024-06-30 依赖联想集团 4 月制财年制度而非库内字段"
       ]
      },
+     "self_reported": {
+      "task_completion": {
+       "source": "artifact.completion_report",
+       "criteria_covered": 3,
+       "criteria_uncovered": 0,
+       "declared_status": "completed",
+       "note": "由产物自报，评测侧未独立核验"
+      }
+     },
      "counts": {
       "role_calls": 1,
       "child_steps": 3,
       "llm_retry": 0,
       "recall_reads": 0,
       "query_calls": 2,
+      "failed_query_calls": 0,
+      "recovered_failed_query_calls": 0,
       "redundant_same_tool": 1,
       "tool_calls_by_tool": {
        "list_metrics": 1,
@@ -132,22 +143,25 @@
       "data_completeness",
       "result_structure",
       "calculation",
+      "reference_integrity",
       "evidence_support",
       "task_completion",
       "gap_statement"
      ],
      "evidence_basis": {
-      "query_intent": "pipeline_check",
+      "query_intent": "unknown",
       "data_completeness": "measured",
       "result_structure": "measured",
-      "calculation": "pipeline_check",
-      "evidence_support": "measured",
-      "task_completion": "measured",
+      "calculation": "unknown",
+      "reference_integrity": "measured",
+      "evidence_support": "unknown",
+      "task_completion": "unknown",
       "gap_statement": "measured"
      },
      "notes": [
       "节点声明 completed 不等于任务成功；本评测只看证据是否站得住",
-      "轮数/重试/冗余调用只计数，不自动影响质量判断（PRD §8.2）"
+      "轮数/重试/冗余调用只计数，不自动影响质量判断（PRD §8.2）",
+      "`reference_integrity` 只说明引用的 rid 是否存在；「证据是否支持结论」属语义判断，无 Judge 时为 unknown"
      ]
     },
     "n2": {
@@ -179,12 +193,23 @@
        "以下为可选补充数据缺失，不影响本节点完成：财报/公告原文链接或页码（当前来源为结构化财务数据库，未含原始披露文件定位）"
       ]
      },
+     "self_reported": {
+      "task_completion": {
+       "source": "artifact.completion_report",
+       "criteria_covered": 1,
+       "criteria_uncovered": 0,
+       "declared_status": "completed",
+       "note": "由产物自报，评测侧未独立核验"
+      }
+     },
      "counts": {
       "role_calls": 1,
       "child_steps": 2,
       "llm_retry": 0,
       "recall_reads": 0,
       "query_calls": 1,
+      "failed_query_calls": 0,
+      "recovered_failed_query_calls": 0,
       "redundant_same_tool": 0,
       "tool_calls_by_tool": {
        "list_metrics": 1,
@@ -218,22 +243,25 @@
       "data_completeness",
       "result_structure",
       "calculation",
+      "reference_integrity",
       "evidence_support",
       "task_completion",
       "gap_statement"
      ],
      "evidence_basis": {
-      "query_intent": "pipeline_check",
+      "query_intent": "unknown",
       "data_completeness": "measured",
       "result_structure": "measured",
-      "calculation": "pipeline_check",
-      "evidence_support": "measured",
-      "task_completion": "measured",
+      "calculation": "unknown",
+      "reference_integrity": "measured",
+      "evidence_support": "unknown",
+      "task_completion": "unknown",
       "gap_statement": "measured"
      },
      "notes": [
       "节点声明 completed 不等于任务成功；本评测只看证据是否站得住",
-      "轮数/重试/冗余调用只计数，不自动影响质量判断（PRD §8.2）"
+      "轮数/重试/冗余调用只计数，不自动影响质量判断（PRD §8.2）",
+      "`reference_integrity` 只说明引用的 rid 是否存在；「证据是否支持结论」属语义判断，无 Judge 时为 unknown"
      ]
     },
     "n3": {
@@ -270,12 +298,23 @@
        "以下为可选补充数据缺失，不影响本节点完成：外部独立来源（联想集团 FY2025Q1 官方财报/公告原文、港交所披露文件）未在库内提供，无法做库外第三方比对，仅完成库内多路径交叉验证；FY2025Q1 按 region×product_line 的 revenue 明细仅覆盖 9 个组合（APAC/Americas/EMEA × Infra/Other/PC），未提供其他产品线或未分配项，无法确认是否存在未列示的 revenue 构成项"
       ]
      },
+     "self_reported": {
+      "task_completion": {
+       "source": "artifact.completion_report",
+       "criteria_covered": 1,
+       "criteria_uncovered": 0,
+       "declared_status": "completed",
+       "note": "由产物自报，评测侧未独立核验"
+      }
+     },
      "counts": {
       "role_calls": 2,
       "child_steps": 12,
       "llm_retry": 0,
       "recall_reads": 1,
       "query_calls": 6,
+      "failed_query_calls": 0,
+      "recovered_failed_query_calls": 0,
       "redundant_same_tool": 11,
       "tool_calls_by_tool": {
        "list_metrics": 2,
@@ -356,22 +395,25 @@
       "data_completeness",
       "result_structure",
       "calculation",
+      "reference_integrity",
       "evidence_support",
       "task_completion",
       "gap_statement"
      ],
      "evidence_basis": {
-      "query_intent": "pipeline_check",
+      "query_intent": "unknown",
       "data_completeness": "measured",
       "result_structure": "measured",
-      "calculation": "pipeline_check",
-      "evidence_support": "measured",
-      "task_completion": "measured",
+      "calculation": "unknown",
+      "reference_integrity": "measured",
+      "evidence_support": "unknown",
+      "task_completion": "unknown",
       "gap_statement": "measured"
      },
      "notes": [
       "节点声明 completed 不等于任务成功；本评测只看证据是否站得住",
-      "轮数/重试/冗余调用只计数，不自动影响质量判断（PRD §8.2）"
+      "轮数/重试/冗余调用只计数，不自动影响质量判断（PRD §8.2）",
+      "`reference_integrity` 只说明引用的 rid 是否存在；「证据是否支持结论」属语义判断，无 Judge 时为 unknown"
      ]
     },
     "n4": {
@@ -407,12 +449,23 @@
        "以下为可选补充数据缺失，不影响本节点完成：n2/n3 原始引用内容（本次未提供，无法逐字比对，仅以工具返回值为准）；FY2025Q1 分部/地区收入拆分与汇率口径说明"
       ]
      },
+     "self_reported": {
+      "task_completion": {
+       "source": "artifact.completion_report",
+       "criteria_covered": 3,
+       "criteria_uncovered": 0,
+       "declared_status": "completed",
+       "note": "由产物自报，评测侧未独立核验"
+      }
+     },
      "counts": {
       "role_calls": 1,
       "child_steps": 6,
       "llm_retry": 0,
       "recall_reads": 1,
       "query_calls": 2,
+      "failed_query_calls": 0,
+      "recovered_failed_query_calls": 0,
       "redundant_same_tool": 2,
       "tool_calls_by_tool": {
        "list_metrics": 1,
@@ -457,22 +510,25 @@
       "data_completeness",
       "result_structure",
       "calculation",
+      "reference_integrity",
       "evidence_support",
       "task_completion",
       "gap_statement"
      ],
      "evidence_basis": {
-      "query_intent": "pipeline_check",
+      "query_intent": "unknown",
       "data_completeness": "measured",
       "result_structure": "measured",
-      "calculation": "pipeline_check",
-      "evidence_support": "measured",
-      "task_completion": "measured",
+      "calculation": "unknown",
+      "reference_integrity": "measured",
+      "evidence_support": "unknown",
+      "task_completion": "unknown",
       "gap_statement": "measured"
      },
      "notes": [
       "节点声明 completed 不等于任务成功；本评测只看证据是否站得住",
-      "轮数/重试/冗余调用只计数，不自动影响质量判断（PRD §8.2）"
+      "轮数/重试/冗余调用只计数，不自动影响质量判断（PRD §8.2）",
+      "`reference_integrity` 只说明引用的 rid 是否存在；「证据是否支持结论」属语义判断，无 Judge 时为 unknown"
      ]
     }
    },
@@ -481,10 +537,22 @@
     "data_completeness",
     "result_structure",
     "calculation",
+    "reference_integrity",
     "evidence_support",
     "task_completion",
     "gap_statement"
-   ]
+   ],
+   "evidence_basis": {
+    "query_intent": "unknown",
+    "data_completeness": "measured",
+    "result_structure": "measured",
+    "calculation": "unknown",
+    "reference_integrity": "measured",
+    "evidence_support": "unknown",
+    "task_completion": "unknown",
+    "gap_statement": "measured"
+   },
+   "basis_scope": "trajectory"
   },
   "reviewer": {
    "rounds": [
@@ -498,15 +566,16 @@
      "must_fix": 2,
      "next_version": "rev1-attempt2",
      "next_artifact_id": "art4",
-     "fixed": [],
-     "not_fixed": [
-      "rev1-f1",
-      "rev1-f2",
-      "rev1-f3",
-      "rev1-f4",
-      "rev1-f5"
-     ],
-     "declined": [],
+     "next_content_changed": true,
+     "fix_verified": null,
+     "declared_response": {
+      "rev1-f1": "open",
+      "rev1-f2": "open",
+      "rev1-f3": "open",
+      "rev1-f4": "open",
+      "rev1-f5": "open"
+     },
+     "response_status_is_default": true,
      "findings": [
       {
        "category": "task_scope",
@@ -590,12 +659,13 @@
      "must_fix": 0,
      "next_version": null,
      "next_artifact_id": null,
-     "fixed": [],
-     "not_fixed": [
-      "rev2-f1",
-      "rev2-f2"
-     ],
-     "declined": [],
+     "next_content_changed": null,
+     "fix_verified": null,
+     "declared_response": {
+      "rev2-f1": "open",
+      "rev2-f2": "open"
+     },
+     "response_status_is_default": true,
      "findings": [
       {
        "category": "evidence_quality",
@@ -635,14 +705,15 @@
      "must_fix": 0,
      "next_version": null,
      "next_artifact_id": null,
-     "fixed": [],
-     "not_fixed": [
-      "rev3-f1",
-      "rev3-f2",
-      "rev3-f3",
-      "rev3-f4"
-     ],
-     "declined": [],
+     "next_content_changed": null,
+     "fix_verified": null,
+     "declared_response": {
+      "rev3-f1": "open",
+      "rev3-f2": "open",
+      "rev3-f3": "open",
+      "rev3-f4": "open"
+     },
+     "response_status_is_default": true,
      "findings": [
       {
        "category": "evidence_quality",
@@ -717,13 +788,14 @@
      "must_fix": 0,
      "next_version": null,
      "next_artifact_id": null,
-     "fixed": [],
-     "not_fixed": [
-      "rev4-f1",
-      "rev4-f2",
-      "rev4-f3"
-     ],
-     "declined": [],
+     "next_content_changed": null,
+     "fix_verified": null,
+     "declared_response": {
+      "rev4-f1": "open",
+      "rev4-f2": "open",
+      "rev4-f3": "open"
+     },
+     "response_status_is_default": true,
      "findings": [
       {
        "category": "evidence_quality",
@@ -779,13 +851,14 @@
      "must_fix": 0,
      "next_version": null,
      "next_artifact_id": null,
-     "fixed": [],
-     "not_fixed": [
-      "rev5-f1",
-      "rev5-f2",
-      "rev5-f3"
-     ],
-     "declined": [],
+     "next_content_changed": null,
+     "fix_verified": null,
+     "declared_response": {
+      "rev5-f1": "open",
+      "rev5-f2": "open",
+      "rev5-f3": "open"
+     },
+     "response_status_is_default": true,
      "findings": [
       {
        "category": "evidence_quality",
@@ -836,13 +909,14 @@
      "must_fix": 0,
      "next_version": null,
      "next_artifact_id": null,
-     "fixed": [],
-     "not_fixed": [
-      "rev6-f1",
-      "rev6-f2",
-      "rev6-f3"
-     ],
-     "declined": [],
+     "next_content_changed": null,
+     "fix_verified": null,
+     "declared_response": {
+      "rev6-f1": "open",
+      "rev6-f2": "open",
+      "rev6-f3": "open"
+     },
+     "response_status_is_default": true,
      "findings": [
       {
        "category": "evidence_quality",
@@ -898,12 +972,13 @@
      "must_fix": 0,
      "next_version": null,
      "next_artifact_id": null,
-     "fixed": [],
-     "not_fixed": [
-      "rev7-f1",
-      "rev7-f2"
-     ],
-     "declined": [],
+     "next_content_changed": null,
+     "fix_verified": null,
+     "declared_response": {
+      "rev7-f1": "open",
+      "rev7-f2": "open"
+     },
+     "response_status_is_default": true,
      "findings": [
       {
        "category": "evidence_quality",
@@ -1206,22 +1281,24 @@
     {
      "review_id": "rev2",
      "target_id": "art2",
-     "reason": "该节点没有更晚版本的产物，无法判断是否修复"
+     "reason": "没有更晚版本的对象，无法判断是否修复"
     },
     {
      "review_id": "rev3",
      "target_id": "art4",
-     "reason": "该节点没有更晚版本的产物，无法判断是否修复"
+     "reason": "没有更晚版本的对象，无法判断是否修复"
     },
     {
      "review_id": "rev4",
      "target_id": "art5",
-     "reason": "该节点没有更晚版本的产物，无法判断是否修复"
+     "reason": "没有更晚版本的对象，无法判断是否修复"
     }
    ],
    "notes": [
     "Reviewer 的 accepted 是被测输出，不是标准答案；本评测不据此判定问题已修复",
     "修改前后变好只是该轨迹的观察结果，不宣称 Reviewer 带来了能力提升",
+    "「是否修好」未做前后语义比对，一律记 fix_verified=null；只报告有无新版本、新版本内容是否变化",
+    "`response_status` 由产物声明；当前 agent 从不写 addressed/declined，真实包里它恒为默认值 open，**不能当作「未修复」的证据**",
     "3 条审查无法关联到审查后版本：无法判断是否修复，不伪造改进率"
    ],
    "counts": {
@@ -1253,18 +1330,22 @@
     "severity",
     "evidence_basis",
     "actionability",
-    "fix_linkage"
+    "review_round_linkage",
+    "fix_verification"
    ],
+   "basis_scope": "trajectory",
    "evidence_basis": {
     "problem_detection": "unknown",
-    "misses": "measured",
-    "false_positives": "measured",
+    "misses": "unknown",
+    "false_positives": "unknown",
     "severity": "measured",
-    "evidence_basis": "measured",
+    "evidence_basis": "unknown",
     "actionability": "unknown",
-    "fix_linkage": "measured",
+    "review_round_linkage": "measured",
+    "fix_verification": "unknown",
     "verdict": "measured"
-   }
+   },
+   "fix_linkage_scope": "仅「是否存在更晚版本 + 内容是否变化」两项为实测；「问题是否被修好」未核验，fix_verified 恒为 null"
   }
  }
 }
