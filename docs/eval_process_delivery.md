@@ -56,7 +56,7 @@ Copy-Item -Recurse -Force "D:\finsights\finsights-dev\runs\cli-20261016-134035" 
       --gold eval/datasets/financial_real_v1/cases.jsonl --out eval/reports/process
 
 # 6) 测试
-& $py -m pytest tests/test_agent_process.py tests/test_process_instrumentation.py -q   # 128 + 33
+& $py -m pytest tests/test_agent_process.py tests/test_process_instrumentation.py -q   # 164 + 34
 & $py -m pytest -q                                                                     # 全量
 ```
 
@@ -200,8 +200,8 @@ roles_samples_{planner,worker,reviewer}.json, report.md, summary.md, compat_tabl
 
 ## 7. 检查记录
 
-- `tests/test_agent_process.py`（138 项）：适配、监控、查询诊断、三角色、报告、CLI、真实包冒烟。
-- `tests/test_process_instrumentation.py`（33 项）：新增事件与关联字段，含两条"行为不变"断言。
+- `tests/test_agent_process.py`（164 项）：适配、监控、查询诊断、三角色、报告、CLI、真实包冒烟。
+- `tests/test_process_instrumentation.py`（34 项）：新增事件与关联字段，含两条"行为不变"断言。
 - 全量 `python -m pytest -q`：见 §2 命令 6；埋点改动前后均全绿。
 - 埋点改动集中在 `agent/` 4 个文件，均为**新增键/新增事件/新增文件**，无既有分支被改写。
 - 固定回放包与 A 的原件字节一致（只 `Copy-Item`，未修改原包）。

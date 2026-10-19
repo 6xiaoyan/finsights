@@ -25,7 +25,7 @@
 | `eval/datasets/financial_real_v1/dataset_meta.json` | 数据集元信息（题数/数据版本/split/blocked） |
 | `eval/datasets/financial_real_v1/build_cases.py` | 可重建脚本（从 DB + PDF 重算） |
 | `docs/superpowers/specs/2026-10-16-eval-e2e-design.md` | 设计说明 |
-| `tests/test_financial_e2e.py` | 离线测试（24 项） |
+| `tests/test_financial_e2e.py` | 离线测试（38 项） |
 
 ## 2. 准确命令
 
@@ -127,7 +127,7 @@
 
 ```
 $ .venv\Scripts\python -m eval.financial_e2e score-run --run-dir runs/cli-20261016-134035 \
-    --case-id LV-E2E-FY2026Q1-CONFLICT-001 --out eval/reports/e2e_dev --judge-fake
+    --case-id LV-E2E-FY2026Q1-CONFLICT-001 --out eval/reports/e2e_dev --judge-fake --allow-draft
 LV-E2E-FY2026Q1-CONFLICT-001: status=refuse delivered=False 必答命中=0.00 \
   missing=4 contradicted=0 unknown=0
 ```
