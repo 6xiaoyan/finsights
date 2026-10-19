@@ -58,20 +58,32 @@ def test_sample_dataset_is_valid():
     cases = load_dataset("eval/datasets/financial_real_v1/cases.jsonl")
     assert len(cases) >= 5
     for c in cases:
-        assert c.review_status == "draft"          # 生成器不得自批
+        assert c.review_status in {"draft", "approved"}
         assert c.sources, f"{c.case_id} 缺来源"
         assert c.required_points(), f"{c.case_id} 缺必答点"
     types = {c.question_type for c in cases}
     assert {"multi_period", "attribution", "judgment", "forecast"} <= types
 
 
-def test_dataset_30_composition_and_no_autapprove():
+def test_dataset_30_composition_and_review_state():
     cases = load_dataset("eval/datasets/financial_real_v1/cases.jsonl")
     assert len(cases) == 30
     from collections import Counter
     comp = Counter(c.question_type for c in cases)
     assert comp == {"multi_period": 6, "attribution": 10, "judgment": 8, "forecast": 6}
-    assert all(c.review_status != "approved" for c in cases)   # 生成器不得自批
+    # 生成器只写 draft；approved 只能来自 review 命令并留下 review_log。
+    approved = [c for c in cases if c.review_status == "approved"]
+    draft = [c for c in cases if c.review_status == "draft"]
+    assert len(approved) == 21
+    assert len(draft) == 9
+    log = Path("eval/datasets/financial_real_v1/review_log.md")
+    assert log.exists()
+    log_text = log.read_text(encoding="utf-8")
+    for c in approved:
+        assert c.case_id in log_text
+        assert "reviewer=user" in log_text
+    for c in draft:
+        assert c.case_id not in log_text
     assert all(c.sources for c in cases if not c.blocked)      # 可答题必须有来源
     # 至少 24 题需要多步推理（PRD §5.1）
     multi = sum(1 for c in cases if len(c.reasoning_requirements) >= 2)
@@ -113,7 +125,12 @@ def test_split_is_group_disjoint_and_meta():
                       .read_text(encoding="utf-8"))
     assert meta["n_cases"] == 30
     assert meta["db_sha256_12"]
-    assert meta["blocked"] == ["LV-E2E-FY2027Q1-SEGMENT-GAP-001"]
+    # 2026-10-19 复审：分部缺口题改为"说明数据需求/缺口/替代方案"的可回答边界题后解除 blocked，
+    # 见 docs/financial_real_v1_review_2026-10-19.md 第 23 题；因此当前不应再有 blocked 题。
+    assert meta["blocked"] == []
+    segment = next(c for c in cases if c.case_id == "LV-E2E-FY2027Q1-SEGMENT-GAP-001")
+    assert not segment.blocked
+    assert any(p.point_id == "p3" for p in segment.scoring_points)
     assert "holdout_independent" in meta
 
 

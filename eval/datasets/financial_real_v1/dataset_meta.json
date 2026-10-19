@@ -17,12 +17,11 @@
   "dev": 25,
   "holdout": 5
  },
- "holdout_independent": 3,
+ "holdout_independent": 1,
  "review_status": {
-  "draft": 30
+  "approved": 21,
+  "draft": 9
  },
- "blocked": [
-  "LV-E2E-FY2027Q1-SEGMENT-GAP-001"
- ],
- "note": "全部 draft，待人工/独立审核；真实实绩仅评测侧。"
+ "blocked": [],
+ "note": "21 题经第二轮复审批准，9 题保持 draft；生成器不自批；真实实绩仅评测侧。"
 }

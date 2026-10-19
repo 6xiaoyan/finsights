@@ -74,18 +74,21 @@
 | 证据边界与综合判断 | 8 | 单季 vs 累计、证据冲突、数据缺口、合成明细、列/期间误用 |
 | 历史时点预测 | 6 | 固定 as_of、点/区间、方法、不确定性 |
 
-- 复用已审开发题 9 条（S01、S02、S03、S04×2、S05、S06、S07；另 R02 作为 blocked 题）：
-  `origin=reused`，保留 `selected_id` 与审核历史。S01–S07 全部覆盖。
+- 复用已审开发题 9 条（S01、S02、S03、S04×2、S05、S06、S07；R02 改为可回答的边界题，
+  第二轮复审解除 blocked）：`origin=reused`，保留 `selected_id` 与审核历史。S01–S07 全部覆盖。
 - 新构造 21 题：`origin=new`。
 - 开发/留出：**dev 25 / holdout 5**。按 `split_group` **整组划分，同一组不跨集**
   （复用的 S01–S07 所在组 FY2026/FY2025Q3/FY2027Q1 归开发集）。留出题逐题检查期间是否
-  与开发集重叠并写入 `data_visibility.independent_holdout`：其中 FY2024×2 与 global 为
-  **独立留出（3 题）**，FY2025Q4、FY2027Q2 预测与开发集共享期间，**标记为非独立留出**，
-  不得据此宣称泛化能力。实际数量（25/5、独立 3）如实记录，因 S01–S07 已占多期窗口。
+  与开发集重叠并写入 `data_visibility.independent_holdout`：按完整 `numeric_assertions`
+  期间判据，当前只有 global 合成明细边界题为**独立留出（1 题）**；FY2024×2、FY2025Q4
+  与 FY2027Q2 预测均与开发集共享期间，**标记为非独立留出**，不得据此宣称泛化能力。
+  保留 25/5 与期间重叠的真实标注；把 FY2024 两题移入 dev 不会增加独立留出数量。
 - 数据版本记录在 `eval/datasets/financial_real_v1/dataset_meta.json`（`db_sha256_12`、
   题型/来源/split/审核状态计数）。
-- 全部 `review_status=draft`（生成器不得自批）。
-- `blocked=1`：`LV-E2E-FY2027Q1-SEGMENT-GAP-001`（结构化库无分部收入/抵销项）。
+- 审核状态：21 题 `approved`（第二轮复审，`review_log.md` 署名记录），9 题保持
+  `draft`；生成器只写 draft，不自批。
+- `blocked=0`：`LV-E2E-FY2027Q1-SEGMENT-GAP-001` 已解除 blocked，改为“数据需求/缺口/
+  替代方案”的边界题；当前结构库仍无分部收入/抵销项，计算分部贡献仍需补数。
 - 预测题真实实绩仅在评测侧 `forecast_truth`，不进入 `CaseInput`；`LV-E2E-FY2027Q2-...`
   目标期间尚未披露，`forecast_truth=null`，不伪造未来值。
 
@@ -94,7 +97,7 @@
 - 来源限定为 `data/manual/lenovo_manifest.json`（港交所公告清单：标题/URL/发布日期/sha256）
   与 `data/raw/lenovo/*.pdf` 本地原文。
 - 每题 `sources` 记录公告标题、港交所 URL、发布日期、报告期、PDF 页码、行/列与备注。
-- `verify-sources --strict`：**22/22 已披露项全部在引用页命中**；36 条为派生值（增速/比率/
+- `verify-sources --strict`：**35/35 已披露项全部在引用页命中**；98 条为派生值（增速/比率/
   天数/由累计推出的单季），由已披露项计算，不要求逐字出现。
 
 ## 4. 评分方法
@@ -140,9 +143,9 @@ LV-E2E-FY2026Q1-CONFLICT-001: status=refuse delivered=False 必答命中=0.00 \
 
 | 项 | 状态 | 说明 |
 |---|---|---|
-| 30 题 gold | 全部 **draft** | 待人工/独立审核来源、可回答性、替代答案公平性后才能评分 |
+| 30 题 gold | **21 approved / 9 draft** | 21 题经第二轮复审批准并留署名记录；9 题继续修改 |
 | 得分点生成 | 已实现 | 生成即强制 draft；`generate-points` 需另跑并人工复核 |
-| `LV-E2E-FY2027Q1-SEGMENT-GAP-001` | **blocked** | 无分部收入/抵销项结构化数据，需补数 |
+| `LV-E2E-FY2027Q1-SEGMENT-GAP-001` | **已解除 blocked** | 改为数据需求/缺口/替代方案边界题；补分部数据后才能计算贡献 |
 | 预测题真实实绩 | 仅评测侧 | FY2026Q1/Q2/Q3/Q4 有实绩；FY2027Q2 待披露 |
 | 真实模型运行 | **未执行** | 需 API key/网络；命令已给出，属 live 检查，不伪造结果 |
 | 已审 S01–S07 复用 | 9 条（覆盖 S01–S07） | 已按新协议重写得分点与来源锚点，保留 `selected_id` |
