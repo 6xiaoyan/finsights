@@ -1,7 +1,7 @@
 # 运行包适配、微观埋点与角色独立评测交付说明（Agent B）
 
 日期：2026-10-16；分支：`feat/eval-process`；worktree：`D:\finsights\finsights-dev-eval-process`
-基线：从 `42baa3f`（`feat/eval-e2e`，已冻结契约所在提交）切出，**未合并 main、未 push**。
+基线：从 `42baa3f`（`feat/eval-e2e`，已冻结契约所在提交）切出；**交付时未合并 main、未 push**，2026-10-19 经 `feat/eval-integration` 合入 main。
 权威规格：`docs/prd-agent-evaluation.md` §4/§7/§8/§9；设计：`docs/superpowers/specs/2026-10-16-eval-process-design.md`；计划：`docs/superpowers/plans/2026-10-16-eval-process.md`。
 
 > **本阶段不调用真实 API。** 所有角色评分走离线/固定样例路径，报告中一律标 `pipeline_check`：
@@ -287,5 +287,5 @@ F5 的并发竞态在真实运行中尚未观察到（参考包主循环未调�
 - `--judge live` 已实现未执行；真实 Judge 的角色提示词（`RoleLLMJudge`，独立于 A 的 E2E 提示词）
   需在集成审核后另行校准。
 - Planner 覆盖映射缺 gold 绑定路径的实跑验证。
-- 本分支未合并 main、未 push；`eval/contracts/`、`eval/financial_e2e/`、`eval/schema.py`、
+- 本分支交付时未合并 main、未 push，后经 `feat/eval-integration` 合入 main；`eval/contracts/`、`eval/financial_e2e/`、`eval/schema.py`、
   `eval/runner.py`、`eval/graders/`、`eval/generators/` 均未改动。

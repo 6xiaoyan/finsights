@@ -4,7 +4,8 @@
 `eval/contracts/`。
 
 本交付实现宏观 E2E 评测、真实财报 30 题数据集与数据集审核工具。**不改变 Agent 行为**，
-不修改 B 的目录（`eval/agent_process/`），不自行合并 main。
+不修改 B 的目录（`eval/agent_process/`），不自行合并 main；2026-10-19 经
+`feat/eval-integration` 合入 main。
 
 ## 1. 文件清单
 
