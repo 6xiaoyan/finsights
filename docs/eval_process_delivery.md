@@ -251,6 +251,25 @@ Review Focus 五条全部有测试覆盖、固定包回放可复现。
 固定样例标注本身的**正确性与公平性**未由评测侧之外的人复核；
 F5 的并发竞态在真实运行中尚未观察到（参考包主循环未调用该工具）。
 
+## 8c. 第三轮复审（2 项）
+
+第三轮又指出 2 处会让 Worker 评测结果失真的问题，均确认属实并已修复：
+
+| # | 问题 | 修复 |
+|---|---|---|
+| 1 | **一次 Judge 结论被算成多个维度都已评测**：Worker 只调用一次 Judge、结果只含 `query_intent`，但 `_work_basis` 把同一个「有结论」布尔量同时用于 `calculation`/`evidence_support`/`task_completion`，报告会显示这些维度已评测 | `_work_basis` 改为按**维度**分配依据（`judged_dims`）；新增 `_judged_dimensions()`：默认只有 `query_intent` 算数，Judge 若返回 `dimensions`（{维度: 判定}）则只认其中判定非 `unknown` 的维度。`judged.judged_dimensions` 如实记录到底判了哪些维度 |
+| 2 | **不同查询被误当成同一次查询的重试**：`_query_outcomes` 把一个节点的所有查询拉平，只要最后一条成功就把前面的失败都标成「已恢复」；但 Worker 可能查不同指标/期间，后一次成功不代表前一次补齐 | 改为按**查询意图**分组（标准化问题文本；无问题文本时退到计划签名；都没有则按序号视作不同意图）：只有**同一意图**重试成功才算恢复。新增 `unresolved_failed_query_calls`，并规定：只有**节点确实没交付**（产物未完成/缺 rid/完成标准未达标/缺必需输入）时才把未解决的查询失败当作根因；节点已交付时只作观察，不归因 |
+
+新增测试覆盖第三轮明确点名的场景：「失败查询后跟着一条**无关**成功查询」不算恢复
+（`test_unrelated_later_success_is_not_a_recovery`），以及一次 Judge 只点亮 `query_intent`
+（`test_single_judge_verdict_only_marks_query_intent`）、Judge 逐维返回时才点亮对应维度
+（`test_judge_can_report_multiple_dimensions`）。
+
+> 附带的口径修正：归因现在区分「节点已交付」与「节点未交付」。节点已交付时，
+> 某条查询失败只作为观察记录（`unresolved_failed_query_calls`），不再把整节点归因成
+> 数据不可用——这正是第三轮第 2 点要求的方向。
+
+
 ## 9. 未完成 / 待集成审核
 
 - **PRD §9.3 M3「真实执行贯通」未完成**：未跑真实 API，未做评分校准，未产出经审核的小样本真实执行。

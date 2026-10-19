@@ -1283,13 +1283,28 @@ def test_attribution_unknown_when_evidence_insufficient(tmp_path):
     assert "证据不足" in out["attribution"]["reason"]
 
 
+def _mark_node_not_delivered(run):
+    """把 n1 的产物标成未完成。
+
+    只有**节点没交付**时才有「根因」可归；节点已交付时，某条查询失败只是观察。
+    """
+    p = run / "analysis" / "analysis_state.json"
+    state = json.loads(p.read_text(encoding="utf-8"))
+    state["artifacts"]["art1"]["execution_status"] = "failed"
+    state["artifacts"]["art1"]["completion_report"] = [
+        {"criterion": "给出存货数值与同比", "satisfied": False}]
+    p.write_text(json.dumps(state, ensure_ascii=False), encoding="utf-8")
+    return run
+
+
 def test_attribution_data_unavailable_from_no_data(tmp_path):
     from eval.agent_process.adapt import load_process_package
     from eval.agent_process.roles.worker import evaluate_node
 
     specs = [{"ok": True, "rid": None, "status": "empty",
               "args": {"question": "无数据"}}]
-    run = _write_run_package(tmp_path, with_instrumentation=True, query_specs=specs)
+    run = _mark_node_not_delivered(
+        _write_run_package(tmp_path, with_instrumentation=True, query_specs=specs))
     out = evaluate_node(load_process_package(run, case_id="LV-T01"), "n1")
 
     assert out["attribution"]["cause"] == "data_unavailable"
@@ -1301,7 +1316,8 @@ def test_attribution_parse_error_from_text2sql(tmp_path):
 
     specs = [{"ok": False, "rid": None, "status": "unsupported",
               "issue_codes": ["extractor_protocol"], "args": {"question": "坏查询"}}]
-    run = _write_run_package(tmp_path, with_instrumentation=True, query_specs=specs)
+    run = _mark_node_not_delivered(
+        _write_run_package(tmp_path, with_instrumentation=True, query_specs=specs))
     out = evaluate_node(load_process_package(run, case_id="LV-T01"), "n1")
 
     assert out["attribution"]["cause"] == "text2sql_parse_error"
@@ -1313,7 +1329,8 @@ def test_attribution_executor_error(tmp_path):
 
     specs = [{"ok": False, "rid": None, "status": "error",
               "issue_codes": ["query_error"], "args": {"question": "SQL 失败"}}]
-    run = _write_run_package(tmp_path, with_instrumentation=True, query_specs=specs)
+    run = _mark_node_not_delivered(
+        _write_run_package(tmp_path, with_instrumentation=True, query_specs=specs))
     out = evaluate_node(load_process_package(run, case_id="LV-T01"), "n1")
 
     assert out["attribution"]["cause"] == "executor_error"
@@ -1410,28 +1427,49 @@ def test_query_intent_judge_sees_empty_result_as_such(tmp_path):
 # --- 审查发现 2：已恢复的失败不能当作根因 ---
 
 def test_recovered_failure_is_not_attributed_as_cause(tmp_path):
-    """先失败后重试成功并完成：失败是观察，不是根因。"""
+    """同一问题重试成功：失败是观察，不是根因。"""
     from eval.agent_process.adapt import load_process_package
     from eval.agent_process.roles.worker import evaluate_node
 
-    specs = [{"ok": True, "rid": None, "status": "empty",
-              "args": {"question": "第一次没数据"}},
-             {"ok": True, "rid": "r2", "status": "ok",
-              "args": {"question": "换个问法拿到数"}}]
+    same_q = "联想 FY2024Q2 存货"
+    specs = [{"ok": True, "rid": None, "status": "empty", "args": {"question": same_q}},
+             {"ok": True, "rid": "r2", "status": "ok", "args": {"question": same_q}}]
     pkg = load_process_package(
         _write_run_package(tmp_path, with_instrumentation=True, query_specs=specs),
         case_id="LV-T01")
     out = evaluate_node(pkg, "n1")
 
     assert out["attribution"]["cause"] != "data_unavailable", \
-        "节点已重试成功，不该仍归因为数据不可用"
+        "同意图重试成功，不该仍归因为数据不可用"
     assert out["counts"]["failed_query_calls"] == 1
     assert out["counts"]["recovered_failed_query_calls"] == 1
+    assert out["counts"]["unresolved_failed_query_calls"] == 0
     assert any("恢复" in n or "重试" in n for n in out["notes"])
 
 
-def test_unrecovered_failure_is_still_attributed(tmp_path):
-    """最后一次查询仍是失败：照旧归因（修复不能把真问题一起吞掉）。"""
+def test_unrelated_later_success_is_not_a_recovery(tmp_path):
+    """查 A 失败后去查 B 成功：B 成功不代表 A 补齐，不能记成「已恢复」。"""
+    from eval.agent_process.adapt import load_process_package
+    from eval.agent_process.roles.worker import evaluate_node
+
+    specs = [{"ok": True, "rid": None, "status": "empty",
+              "args": {"question": "查指标 A"}},
+             {"ok": True, "rid": "r2", "status": "ok",
+              "args": {"question": "查指标 B"}}]
+    pkg = load_process_package(
+        _write_run_package(tmp_path, with_instrumentation=True, query_specs=specs),
+        case_id="LV-T01")
+    out = evaluate_node(pkg, "n1")
+
+    assert out["counts"]["recovered_failed_query_calls"] == 0
+    assert out["counts"]["unresolved_failed_query_calls"] == 1
+    # 节点最终交付了，所以不把整节点归因成数据不可用；但必须说明 A 的失败没被证明补上
+    assert out["attribution"]["cause"] != "data_unavailable"
+    assert any(("未" in n) and ("补齐" in n or "重试" in n) for n in out["notes"])
+
+
+def test_unresolved_failure_on_failed_node_is_attributed(tmp_path):
+    """节点没交付且存在未被补齐的失败查询：照旧归因，修复不能把真问题一起吞掉。"""
     from eval.agent_process.adapt import load_process_package
     from eval.agent_process.roles.worker import evaluate_node
 
@@ -1439,12 +1477,30 @@ def test_unrecovered_failure_is_still_attributed(tmp_path):
               "args": {"question": "先取到数"}},
              {"ok": True, "rid": None, "status": "empty",
               "args": {"question": "再取就空了"}}]
-    pkg = load_process_package(
-        _write_run_package(tmp_path, with_instrumentation=True, query_specs=specs),
-        case_id="LV-T01")
-    out = evaluate_node(pkg, "n1")
+    run = _mark_node_not_delivered(
+        _write_run_package(tmp_path, with_instrumentation=True, query_specs=specs))
+    out = evaluate_node(load_process_package(run, case_id="LV-T01"), "n1")
 
     assert out["attribution"]["cause"] == "data_unavailable"
+    assert out["counts"]["recovered_failed_query_calls"] == 0
+    assert out["counts"]["unresolved_failed_query_calls"] == 1
+
+
+def test_distinct_queries_are_counted_separately(tmp_path):
+    """同一节点查两个不同指标：两次失败是两件事，不是一个意图的两次重试。"""
+    from eval.agent_process.adapt import load_process_package
+    from eval.agent_process.roles.worker import evaluate_node
+
+    specs = [{"ok": True, "rid": None, "status": "empty",
+              "args": {"question": "查指标 A"}},
+             {"ok": True, "rid": None, "status": "empty",
+              "args": {"question": "查指标 B"}}]
+    run = _mark_node_not_delivered(
+        _write_run_package(tmp_path, with_instrumentation=True, query_specs=specs))
+    out = evaluate_node(load_process_package(run, case_id="LV-T01"), "n1")
+
+    assert out["counts"]["failed_query_calls"] == 2
+    assert out["counts"]["unresolved_failed_query_calls"] == 2
     assert out["counts"]["recovered_failed_query_calls"] == 0
 
 
@@ -1478,15 +1534,51 @@ def test_reference_integrity_is_measured(tmp_path):
     assert "evidence_support" in out["dimensions"]
 
 
-def test_evidence_support_becomes_judged_with_judge(tmp_path):
+def test_single_judge_verdict_only_marks_query_intent(tmp_path):
+    """只调用一次 Judge（只判 query_intent）：其余语义维度不得因此变成「已评测」。"""
     from eval.agent_process.adapt import load_process_package
     from eval.agent_process.roles.worker import evaluate_node
 
     pkg = load_process_package(_write_run_package(tmp_path), case_id="LV-T01")
     out = evaluate_node(pkg, "n1", judge=CapturingJudge(verdict="met"))
-    # 有 Judge 才能谈「证据是否支持结论」，且只是 pipeline_check
+
+    assert out["evidence_basis"]["query_intent"] == "pipeline_check"
+    for dim in ("calculation", "evidence_support", "task_completion"):
+        assert out["evidence_basis"][dim] == "unknown", \
+            f"{dim} 没有被单独评判，不能标成已评测"
+
+
+def test_judge_can_report_multiple_dimensions(tmp_path):
+    """Judge 若真的返回了其他维度的结论，才把那些维度标成已评测。"""
+    from eval.agent_process.adapt import load_process_package
+    from eval.agent_process.roles.common import make_judge
+    from eval.agent_process.roles.worker import evaluate_node
+
+    judge = make_judge("fake", point_fn=lambda q, p, f, a: {
+        "verdict": "met", "reason": "意图一致",
+        "dimensions": {"calculation": "met", "evidence_support": "partial"}})
+    pkg = load_process_package(_write_run_package(tmp_path), case_id="LV-T01")
+    out = evaluate_node(pkg, "n1", judge=judge)
+
+    assert out["evidence_basis"]["query_intent"] == "pipeline_check"
+    assert out["evidence_basis"]["calculation"] == "pipeline_check"
     assert out["evidence_basis"]["evidence_support"] == "pipeline_check"
-    assert out["evidence_basis"]["reference_integrity"] == "measured"
+    # 没返回的维度仍然 unknown
+    assert out["evidence_basis"]["task_completion"] == "unknown"
+
+
+def test_judge_dimension_with_unknown_verdict_stays_unknown(tmp_path):
+    from eval.agent_process.adapt import load_process_package
+    from eval.agent_process.roles.common import make_judge
+    from eval.agent_process.roles.worker import evaluate_node
+
+    judge = make_judge("fake", point_fn=lambda q, p, f, a: {
+        "verdict": "met", "dimensions": {"calculation": "unknown"}})
+    pkg = load_process_package(_write_run_package(tmp_path), case_id="LV-T01")
+    out = evaluate_node(pkg, "n1", judge=judge)
+
+    assert out["evidence_basis"]["query_intent"] == "pipeline_check"
+    assert out["evidence_basis"]["calculation"] == "unknown"
 
 
 def test_unknown_verdict_does_not_earn_a_basis(tmp_path):

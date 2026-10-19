@@ -89,7 +89,7 @@ def _count_node_activity(pkg: ProcessPackage, node_id: str, trace: list[dict]) -
     for e in child:
         by_tool[e.get("tool") or ""] = by_tool.get(e.get("tool") or "", 0) + 1
     queries = _node_query_records(pkg, node_id)
-    reasons, last, recovered, recovered_failed = _query_outcomes(queries)
+    reasons, _unresolved, recovered_failed, unresolved_failed = _query_outcomes(queries)
     return {
         "role_calls": len(calls),
         "child_steps": sum(c.child_steps or 0 for c in calls),
@@ -97,7 +97,9 @@ def _count_node_activity(pkg: ProcessPackage, node_id: str, trace: list[dict]) -
         "recall_reads": by_tool.get("recall", 0),
         "query_calls": len(queries),
         "failed_query_calls": sum(1 for r in reasons if r != "ok"),
+        # 只有同一查询意图重试成功才算「已恢复」；其余算「未解决」
         "recovered_failed_query_calls": recovered_failed,
+        "unresolved_failed_query_calls": unresolved_failed,
         # 同节点内对同一工具的重复调用：冗余调用，仅计数，不自动扣分
         "redundant_same_tool": sum(n - 1 for n in by_tool.values() if n > 1),
         "tool_calls_by_tool": by_tool,
@@ -147,51 +149,104 @@ def _judge_inputs(pkg: ProcessPackage, node: Any, latest: Any,
     return point, json.dumps(material, ensure_ascii=False, indent=1)
 
 
-def _work_basis(judged: bool, measured: bool, judge_is_live: bool) -> dict:
-    """依据等级必须与程序**实际检查到的东西**一致。
+def _work_basis(judged_dims: set[str], measured: bool, judge_is_live: bool) -> dict:
+    """依据等级必须与程序 / Judge **实际检查到的那个维度**一致。
 
     - reference_integrity：程序真的测了（引用的 rid 是否存在）→ measured
     - data_completeness / result_structure / gap_statement：结构可数 → measured
-    - query_intent / calculation / evidence_support / task_completion：需要判断语义，
-      程序没做独立核验 → 只有 Judge **给出实质判定**才算 judged，否则 unknown。
-      **不能因为「产物自己写了完成报告」就标 measured** —— 那是被测方自报。
-
-    调用方传进来的 `judged` 必须是「Judge 给了实质结论」；判成 unknown 等于没判。
+    - query_intent / calculation / evidence_support / task_completion：需要语义判断。
+      只有 Judge **针对该维度**给出实质判定才算 judged，否则 unknown。
+      **不能因为「Judge 判过 query_intent」就把其余维度也标成已评测**，
+      也不能因为「产物自己写了完成报告」就标 measured（那是被测方自报）。
     """
     m = evidence_basis(measured, False)
-    j = evidence_basis(False, judged, judge_is_live=judge_is_live)
+    def j(dim: str) -> str:
+        return evidence_basis(False, dim in judged_dims, judge_is_live=judge_is_live)
     return {
-        "query_intent": j,
+        "query_intent": j("query_intent"),
         "data_completeness": m,
         "result_structure": m,
-        "calculation": j,
+        "calculation": j("calculation"),
         "reference_integrity": m,
-        "evidence_support": j,
-        "task_completion": j,
+        "evidence_support": j("evidence_support"),
+        "task_completion": j("task_completion"),
         "gap_statement": m,
     }
 
 
-def _judge_gave_verdict(judged: dict | None) -> bool:
-    """Judge 是否给了实质结论。`unknown` 等于没判，不能拿来标依据等级。"""
-    if not judged:
-        return False
-    verdict = ((judged.get("query_intent") or {}).get("verdict") or "unknown")
-    return verdict != "unknown"
+def _judged_dimensions(res: dict | None) -> set[str]:
+    """Judge 实际给出了实质结论的**维度**集合。
+
+    单次调用默认只判 `query_intent`；若返回里带 `dimensions`（{维度: 判定}），
+    只有其中判定非 unknown 的维度才算数。判 unknown 等于没判。
+    """
+    if not res:
+        return set()
+    out: set[str] = set()
+    dims = res.get("dimensions") or {}
+    if isinstance(dims, dict):
+        out |= {d for d, v in dims.items() if v and v != "unknown"}
+    if (res.get("verdict") or "unknown") != "unknown":
+        out.add("query_intent")
+    return out
 
 
-def _query_outcomes(queries: list[Any]) -> tuple[list[str], str | None, bool, int]:
-    """返回（全部原因码，最后一个有结论的原因码，是否已恢复，被恢复的失败数）。
+def _intent_key(q: Any, idx: int) -> tuple:
+    """查询意图的判定键。
 
-    恢复判定的关键是**最后一次有结论的查询**：先失败后成功=已恢复（失败只是观察，
-    不是根因）；先成功后失败=未恢复（照旧归因）。
+    同一问题（或同一计划）的多次调用才算一次重试。**不同查询之间不互相"恢复"**：
+    后一次去查别的指标成功，不代表前一次失败的任务补上了。
+    问题文本拿不到时才退到计划签名；两者都没有就按序号视作不同意图（保守）。
+    """
+    if getattr(q, "question", None):
+        return ("q", " ".join(str(q.question).split()).lower())
+    if getattr(q, "plan", None):
+        import json as _json
+        return ("plan", _json.dumps(q.plan, sort_keys=True, ensure_ascii=False))
+    return ("unique", idx)
+
+
+def _query_outcomes(queries: list[Any]) -> tuple[list[str], list[str], int, int]:
+    """按**查询意图**分组统计。
+
+    返回（全部原因码，未解决失败的原因码列表，已恢复失败数，未解决失败数）。
+
+    - 同一意图内：最后一次有结论的调用为 ok → 该意图此前的失败算「已恢复」。
+    - 该意图最后一次仍非 ok → 这些失败算「未解决」，进入未解决列表。
+    - 不同意图互不影响。
     """
     reasons = [classify_query(q) for q in queries]
-    conclusive = [r for r in reasons if r not in _INCONCLUSIVE_REASONS]
-    last = conclusive[-1] if conclusive else None
-    recovered = last == "ok"
-    failed = sum(1 for r in reasons if r != "ok")
-    return reasons, last, recovered, (failed if recovered else 0)
+    groups: dict[tuple, list[int]] = {}
+    for idx, q in enumerate(queries):
+        groups.setdefault(_intent_key(q, idx), []).append(idx)
+
+    recovered = 0
+    unresolved_calls = 0
+    unresolved_reasons: list[str] = []
+    for idxs in groups.values():
+        conclusive = [(i, reasons[i]) for i in idxs
+                      if reasons[i] not in _INCONCLUSIVE_REASONS]
+        if not conclusive:
+            continue
+        last_i, last_r = conclusive[-1]
+        failed_before = [i for i in idxs if reasons[i] != "ok" and i < last_i]
+        if last_r == "ok":
+            recovered += len(failed_before)
+        else:
+            unresolved_calls += sum(1 for i in idxs if reasons[i] != "ok")
+            unresolved_reasons.append(last_r)
+    return reasons, unresolved_reasons, recovered, unresolved_calls
+
+
+def _node_delivered(measured: dict) -> bool:
+    """节点是否真的交付了（产物完成、无缺 rid、完成标准全达标、无缺必需输入）。
+
+    只有没交付时才谈「根因」；节点已交付时，某条查询失败只是观察。
+    """
+    return (measured.get("execution_status") == "completed"
+            and not measured.get("facts_missing_rid")
+            and not measured.get("criteria_uncovered")
+            and not measured.get("required_missing_inputs"))
 
 
 def _attribute(pkg: ProcessPackage, node: Any, measured: dict,
@@ -208,17 +263,21 @@ def _attribute(pkg: ProcessPackage, node: Any, measured: dict,
                 "reason": f"上游节点未完成：{incomplete}，本节点拿不到上游产物",
                 "evidence": {"incomplete_upstream": incomplete}}
 
-    # 2) 查询链路给出的确定证据 —— 只在**未被后续成功查询补救**时才算根因
-    reasons, last, recovered, recovered_failed = _query_outcomes(queries)
-    if last is not None and not recovered:
-        cause = _CAUSE_BY_REASON.get(last)
+    # 2) 查询链路：只有**未被同一意图重试补齐**的失败、且节点确实没交付，才算根因
+    reasons, unresolved_reasons, recovered_failed, unresolved_failed = \
+        _query_outcomes(queries)
+    if unresolved_reasons and not _node_delivered(measured):
+        cause = _CAUSE_BY_REASON.get(unresolved_reasons[-1])
         if cause:
             return {"cause": cause,
-                    "reason": f"最后一次查询原因码 {last}"
-                              + (f"（此前 {recovered_failed} 次失败已恢复）"
+                    "reason": f"存在未解决的查询失败，最后一次原因码 "
+                              f"{unresolved_reasons[-1]}"
+                              + (f"（另有 {recovered_failed} 次同意图失败已恢复）"
                                  if recovered_failed else ""),
-                    "evidence": {"reasons": reasons, "last_reason": last,
-                                 "recovered_failures": recovered_failed}}
+                    "evidence": {"reasons": reasons,
+                                 "unresolved_reasons": unresolved_reasons,
+                                 "recovered_failures": recovered_failed,
+                                 "unresolved_failures": unresolved_failed}}
 
     # 3) 产物自报缺必需输入
     if measured.get("required_missing_inputs"):
@@ -236,11 +295,18 @@ def _attribute(pkg: ProcessPackage, node: Any, measured: dict,
                             "reason": f"上游产物 {src} 自带必需输入缺口",
                             "evidence": {"upstream_artifact": src}}
 
-    if recovered and recovered_failed:
+    if recovered_failed and not unresolved_failed:
         return {"cause": "unknown",
-                "reason": f"{recovered_failed} 次查询失败后重试成功并完成，"
+                "reason": f"{recovered_failed} 次查询失败后同一意图重试成功，"
                           "失败已恢复，不构成根因",
                 "evidence": {"reasons": reasons, "recovered_failures": recovered_failed}}
+
+    if unresolved_failed:
+        return {"cause": "unknown",
+                "reason": f"{unresolved_failed} 次查询失败未被同一意图的重试补齐；"
+                          "节点最终仍然交付，因此不把整节点归为某个根因",
+                "evidence": {"reasons": reasons,
+                             "unresolved_failures": unresolved_failed}}
 
     status = (node.execution_status if node else "") or measured.get("execution_status")
     if status in ("failed", "blocked") or measured.get("facts_missing_rid"):
@@ -277,26 +343,36 @@ def evaluate_node(pkg: ProcessPackage, node_id: str, *, judge: Any = None,
     attribution = _attribute(pkg, node, measured, queries)
 
     judged = None
+    judged_dims: set[str] = set()
     if judge is not None:
         question = (pkg.contract or {}).get("query") or ""
         point, material = _judge_inputs(pkg, node, latest, queries)
         res = judge.score_point(question, point, "", material) or {}
+        judged_dims = _judged_dimensions(res)
         judged = {"query_intent": {"verdict": res.get("verdict", "unknown"),
-                                   "reason": res.get("reason", "")}}
+                                   "reason": res.get("reason", "")},
+                  # Judge 实际返回的逐维判定（没有就是空），依据等级据此分配
+                  "dimensions": res.get("dimensions") or {},
+                  "judged_dimensions": sorted(judged_dims)}
         if judged["query_intent"]["verdict"] == "contradicted":
             attribution = {"cause": "intent_error",
                            "reason": "判定：查询意图与节点目标不符",
                            "evidence": {"verdict": "contradicted"}}
 
     measured_ok = latest is not None
-    basis = _work_basis(_judge_gave_verdict(judged), measured_ok, judge_is_live)
+    basis = _work_basis(judged_dims, measured_ok, judge_is_live)
     notes = ["节点声明 completed 不等于任务成功；本评测只看证据是否站得住",
              "轮数/重试/冗余调用只计数，不自动影响质量判断（PRD §8.2）",
              "`reference_integrity` 只说明引用的 rid 是否存在；"
-             "「证据是否支持结论」属语义判断，无 Judge 时为 unknown"]
+             "「证据是否支持结论」属语义判断，无对应 Judge 判定时为 unknown",
+             "恢复判定按**查询意图**分组：只有同一问题的重试成功才算恢复，"
+             "查别的指标成功不代表前一次失败已补齐"]
     if counts.get("recovered_failed_query_calls"):
-        notes.append(f"{counts['recovered_failed_query_calls']} 次查询失败后重试成功，"
+        notes.append(f"{counts['recovered_failed_query_calls']} 次查询失败后同意图重试成功，"
                      "失败已恢复，不计入根因")
+    if counts.get("unresolved_failed_query_calls"):
+        notes.append(f"{counts['unresolved_failed_query_calls']} 次查询失败未被同一意图的"
+                     "重试补齐（不同查询之间不算恢复）")
 
     return {
         "node_id": node_id,
@@ -405,19 +481,21 @@ def evaluate_sample(sample: dict, judge: Any = None, *,
                 break
 
     judged = None
+    judged_dims: set[str] = set()
     if judge is not None:
         res = judge.score_point(sample.get("question", ""),
                                 {"node_goal": _N.goal}, "", art.summary or "") or {}
+        judged_dims = _judged_dimensions(res)
         judged = {"query_intent": {"verdict": res.get("verdict", "unknown"),
-                                   "reason": res.get("reason", "")}}
+                                   "reason": res.get("reason", "")},
+                  "dimensions": res.get("dimensions") or {},
+                  "judged_dimensions": sorted(judged_dims)}
         if judged["query_intent"]["verdict"] == "contradicted":
             attribution = {"cause": "intent_error",
                            "reason": "判定：查询意图与节点目标不符",
                            "evidence": {"verdict": "contradicted"}}
 
-    measured_basis = evidence_basis(True, False)
-    judged_basis = evidence_basis(False, _judge_gave_verdict(judged),
-                                  judge_is_live=judge_is_live)
+    basis = _work_basis(judged_dims, True, judge_is_live)
     expected = (sample.get("annotations") or {}).get("cause")
     return {
         "sample_id": sample.get("sample_id"),
@@ -435,16 +513,7 @@ def evaluate_sample(sample: dict, judge: Any = None, *,
         "attribution": attribution,
         "judged": judged,
         "dimensions": list(WORKER_DIMENSIONS),
-        "evidence_basis": {
-            "query_intent": judged_basis,
-            "data_completeness": measured_basis,
-            "result_structure": measured_basis,
-            "calculation": judged_basis,
-            "reference_integrity": measured_basis,
-            "evidence_support": judged_basis,
-            "task_completion": judged_basis,
-            "gap_statement": measured_basis,
-        },
+        "evidence_basis": basis,
         "annotation": sample.get("annotations") or {},
         # 复现情况：程序归因是否与标注一致。不一致时必须显式报出，不能隐藏。
         "cause_matches_annotation": attribution["cause"] == expected,

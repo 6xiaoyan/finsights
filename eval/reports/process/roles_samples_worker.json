@@ -46,7 +46,9 @@
     "query_intent": {
      "verdict": "unknown",
      "reason": "离线模式未做模型判定（pipeline_check）"
-    }
+    },
+    "dimensions": {},
+    "judged_dimensions": []
    },
    "dimensions": [
     "query_intent",
@@ -118,7 +120,9 @@
     "query_intent": {
      "verdict": "unknown",
      "reason": "离线模式未做模型判定（pipeline_check）"
-    }
+    },
+    "dimensions": {},
+    "judged_dimensions": []
    },
    "dimensions": [
     "query_intent",
@@ -196,7 +200,9 @@
     "query_intent": {
      "verdict": "unknown",
      "reason": "离线模式未做模型判定（pipeline_check）"
-    }
+    },
+    "dimensions": {},
+    "judged_dimensions": []
    },
    "dimensions": [
     "query_intent",
@@ -272,7 +278,9 @@
     "query_intent": {
      "verdict": "unknown",
      "reason": "离线模式未做模型判定（pipeline_check）"
-    }
+    },
+    "dimensions": {},
+    "judged_dimensions": []
    },
    "dimensions": [
     "query_intent",
@@ -348,7 +356,9 @@
     "query_intent": {
      "verdict": "unknown",
      "reason": "离线模式未做模型判定（pipeline_check）"
-    }
+    },
+    "dimensions": {},
+    "judged_dimensions": []
    },
    "dimensions": [
     "query_intent",
@@ -426,7 +436,9 @@
     "query_intent": {
      "verdict": "unknown",
      "reason": "离线模式未做模型判定（pipeline_check）"
-    }
+    },
+    "dimensions": {},
+    "judged_dimensions": []
    },
    "dimensions": [
     "query_intent",
@@ -502,7 +514,9 @@
     "query_intent": {
      "verdict": "unknown",
      "reason": "离线模式未做模型判定（pipeline_check）"
-    }
+    },
+    "dimensions": {},
+    "judged_dimensions": []
    },
    "dimensions": [
     "query_intent",

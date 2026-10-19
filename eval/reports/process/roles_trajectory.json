@@ -101,6 +101,7 @@
       "query_calls": 2,
       "failed_query_calls": 0,
       "recovered_failed_query_calls": 0,
+      "unresolved_failed_query_calls": 0,
       "redundant_same_tool": 1,
       "tool_calls_by_tool": {
        "list_metrics": 1,
@@ -136,7 +137,9 @@
       "query_intent": {
        "verdict": "unknown",
        "reason": "离线模式未做模型判定（pipeline_check）"
-      }
+      },
+      "dimensions": {},
+      "judged_dimensions": []
      },
      "dimensions": [
       "query_intent",
@@ -161,7 +164,8 @@
      "notes": [
       "节点声明 completed 不等于任务成功；本评测只看证据是否站得住",
       "轮数/重试/冗余调用只计数，不自动影响质量判断（PRD §8.2）",
-      "`reference_integrity` 只说明引用的 rid 是否存在；「证据是否支持结论」属语义判断，无 Judge 时为 unknown"
+      "`reference_integrity` 只说明引用的 rid 是否存在；「证据是否支持结论」属语义判断，无对应 Judge 判定时为 unknown",
+      "恢复判定按**查询意图**分组：只有同一问题的重试成功才算恢复，查别的指标成功不代表前一次失败已补齐"
      ]
     },
     "n2": {
@@ -210,6 +214,7 @@
       "query_calls": 1,
       "failed_query_calls": 0,
       "recovered_failed_query_calls": 0,
+      "unresolved_failed_query_calls": 0,
       "redundant_same_tool": 0,
       "tool_calls_by_tool": {
        "list_metrics": 1,
@@ -236,7 +241,9 @@
       "query_intent": {
        "verdict": "unknown",
        "reason": "离线模式未做模型判定（pipeline_check）"
-      }
+      },
+      "dimensions": {},
+      "judged_dimensions": []
      },
      "dimensions": [
       "query_intent",
@@ -261,7 +268,8 @@
      "notes": [
       "节点声明 completed 不等于任务成功；本评测只看证据是否站得住",
       "轮数/重试/冗余调用只计数，不自动影响质量判断（PRD §8.2）",
-      "`reference_integrity` 只说明引用的 rid 是否存在；「证据是否支持结论」属语义判断，无 Judge 时为 unknown"
+      "`reference_integrity` 只说明引用的 rid 是否存在；「证据是否支持结论」属语义判断，无对应 Judge 判定时为 unknown",
+      "恢复判定按**查询意图**分组：只有同一问题的重试成功才算恢复，查别的指标成功不代表前一次失败已补齐"
      ]
     },
     "n3": {
@@ -315,6 +323,7 @@
       "query_calls": 6,
       "failed_query_calls": 0,
       "recovered_failed_query_calls": 0,
+      "unresolved_failed_query_calls": 0,
       "redundant_same_tool": 11,
       "tool_calls_by_tool": {
        "list_metrics": 2,
@@ -388,7 +397,9 @@
       "query_intent": {
        "verdict": "unknown",
        "reason": "离线模式未做模型判定（pipeline_check）"
-      }
+      },
+      "dimensions": {},
+      "judged_dimensions": []
      },
      "dimensions": [
       "query_intent",
@@ -413,7 +424,8 @@
      "notes": [
       "节点声明 completed 不等于任务成功；本评测只看证据是否站得住",
       "轮数/重试/冗余调用只计数，不自动影响质量判断（PRD §8.2）",
-      "`reference_integrity` 只说明引用的 rid 是否存在；「证据是否支持结论」属语义判断，无 Judge 时为 unknown"
+      "`reference_integrity` 只说明引用的 rid 是否存在；「证据是否支持结论」属语义判断，无对应 Judge 判定时为 unknown",
+      "恢复判定按**查询意图**分组：只有同一问题的重试成功才算恢复，查别的指标成功不代表前一次失败已补齐"
      ]
     },
     "n4": {
@@ -466,6 +478,7 @@
       "query_calls": 2,
       "failed_query_calls": 0,
       "recovered_failed_query_calls": 0,
+      "unresolved_failed_query_calls": 0,
       "redundant_same_tool": 2,
       "tool_calls_by_tool": {
        "list_metrics": 1,
@@ -503,7 +516,9 @@
       "query_intent": {
        "verdict": "unknown",
        "reason": "离线模式未做模型判定（pipeline_check）"
-      }
+      },
+      "dimensions": {},
+      "judged_dimensions": []
      },
      "dimensions": [
       "query_intent",
@@ -528,7 +543,8 @@
      "notes": [
       "节点声明 completed 不等于任务成功；本评测只看证据是否站得住",
       "轮数/重试/冗余调用只计数，不自动影响质量判断（PRD §8.2）",
-      "`reference_integrity` 只说明引用的 rid 是否存在；「证据是否支持结论」属语义判断，无 Judge 时为 unknown"
+      "`reference_integrity` 只说明引用的 rid 是否存在；「证据是否支持结论」属语义判断，无对应 Judge 判定时为 unknown",
+      "恢复判定按**查询意图**分组：只有同一问题的重试成功才算恢复，查别的指标成功不代表前一次失败已补齐"
      ]
     }
    },
