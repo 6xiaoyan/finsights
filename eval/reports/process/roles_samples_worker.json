@@ -1,0 +1,561 @@
+{
+ "mode": "samples",
+ "role": "worker",
+ "judge": "fake",
+ "is_real_quality_score": false,
+ "not_real_quality_score": true,
+ "note": "固定样例 + 模拟判定：只验证评测流程，不是真实质量评分",
+ "samples": [
+  {
+   "sample_id": "WK-01",
+   "node_id": "n1",
+   "measured": {
+    "artifact_id": "art1",
+    "node_id": "n1",
+    "version": "rev1-attempt1",
+    "execution_status": "completed",
+    "declared_status": "",
+    "stale": false,
+    "fact_count": 2,
+    "facts_with_rid": 2,
+    "facts_missing_rid": 0,
+    "rids_not_in_store": [],
+    "calculations_missing_output_rid": 0,
+    "criteria_covered": 1,
+    "criteria_uncovered": 0,
+    "evidence_refs_empty": false,
+    "evidence_refs_not_in_store": [],
+    "required_missing_inputs": [],
+    "limitations": []
+   },
+   "self_reported": {
+    "task_completion": {
+     "source": "artifact.completion_report",
+     "criteria_covered": 1,
+     "criteria_uncovered": 0,
+     "declared_status": "",
+     "note": "由产物自报，评测侧未独立核验"
+    }
+   },
+   "attribution": {
+    "cause": "unknown",
+    "reason": "证据不足",
+    "evidence": {}
+   },
+   "judged": {
+    "query_intent": {
+     "verdict": "unknown",
+     "reason": "离线模式未做模型判定（pipeline_check）"
+    },
+    "dimensions": {},
+    "judged_dimensions": []
+   },
+   "dimensions": [
+    "query_intent",
+    "data_completeness",
+    "result_structure",
+    "calculation",
+    "reference_integrity",
+    "evidence_support",
+    "task_completion",
+    "gap_statement"
+   ],
+   "evidence_basis": {
+    "query_intent": "unknown",
+    "data_completeness": "measured",
+    "result_structure": "measured",
+    "calculation": "unknown",
+    "reference_integrity": "measured",
+    "evidence_support": "unknown",
+    "task_completion": "unknown",
+    "gap_statement": "measured"
+   },
+   "annotation": {
+    "cause": "unknown",
+    "notes": [
+     "取数与计算均指向真实 rid，无失败证据，归因为 unknown 是正确结果"
+    ]
+   },
+   "cause_matches_annotation": true,
+   "expected_cause": "unknown",
+   "requires_live_judge": false
+  },
+  {
+   "sample_id": "WK-02",
+   "node_id": "n1",
+   "measured": {
+    "artifact_id": "art1",
+    "node_id": "n1",
+    "version": "rev1-attempt1",
+    "execution_status": "completed",
+    "declared_status": "",
+    "stale": false,
+    "fact_count": 1,
+    "facts_with_rid": 1,
+    "facts_missing_rid": 0,
+    "rids_not_in_store": [],
+    "calculations_missing_output_rid": 0,
+    "criteria_covered": 1,
+    "criteria_uncovered": 0,
+    "evidence_refs_empty": false,
+    "evidence_refs_not_in_store": [],
+    "required_missing_inputs": [],
+    "limitations": []
+   },
+   "self_reported": {
+    "task_completion": {
+     "source": "artifact.completion_report",
+     "criteria_covered": 1,
+     "criteria_uncovered": 0,
+     "declared_status": "",
+     "note": "由产物自报，评测侧未独立核验"
+    }
+   },
+   "attribution": {
+    "cause": "unknown",
+    "reason": "证据不足",
+    "evidence": {}
+   },
+   "judged": {
+    "query_intent": {
+     "verdict": "unknown",
+     "reason": "离线模式未做模型判定（pipeline_check）"
+    },
+    "dimensions": {},
+    "judged_dimensions": []
+   },
+   "dimensions": [
+    "query_intent",
+    "data_completeness",
+    "result_structure",
+    "calculation",
+    "reference_integrity",
+    "evidence_support",
+    "task_completion",
+    "gap_statement"
+   ],
+   "evidence_basis": {
+    "query_intent": "unknown",
+    "data_completeness": "measured",
+    "result_structure": "measured",
+    "calculation": "unknown",
+    "reference_integrity": "measured",
+    "evidence_support": "unknown",
+    "task_completion": "unknown",
+    "gap_statement": "measured"
+   },
+   "annotation": {
+    "cause": "intent_error",
+    "notes": [
+     "节点目标是判断增长质量，但只查了收入，没查应收账款：查询意图与节点目标不符，需要 Judge 判定 contradicted"
+    ]
+   },
+   "cause_matches_annotation": false,
+   "expected_cause": "intent_error",
+   "requires_live_judge": true
+  },
+  {
+   "sample_id": "WK-03",
+   "node_id": "n2",
+   "measured": {
+    "artifact_id": "art2",
+    "node_id": "n2",
+    "version": "rev1-attempt1",
+    "execution_status": "blocked",
+    "declared_status": "",
+    "stale": false,
+    "fact_count": 0,
+    "facts_with_rid": 0,
+    "facts_missing_rid": 0,
+    "rids_not_in_store": [],
+    "calculations_missing_output_rid": 0,
+    "criteria_covered": 0,
+    "criteria_uncovered": 0,
+    "evidence_refs_empty": true,
+    "evidence_refs_not_in_store": [],
+    "required_missing_inputs": [
+     "上游毛利率数据"
+    ],
+    "limitations": []
+   },
+   "self_reported": {
+    "task_completion": {
+     "source": "artifact.completion_report",
+     "criteria_covered": 0,
+     "criteria_uncovered": 0,
+     "declared_status": "",
+     "note": "由产物自报，评测侧未独立核验"
+    }
+   },
+   "attribution": {
+    "cause": "handoff_omission",
+    "reason": "上游节点未完成：['n1']",
+    "evidence": {
+     "incomplete_upstream": [
+      "n1"
+     ]
+    }
+   },
+   "judged": {
+    "query_intent": {
+     "verdict": "unknown",
+     "reason": "离线模式未做模型判定（pipeline_check）"
+    },
+    "dimensions": {},
+    "judged_dimensions": []
+   },
+   "dimensions": [
+    "query_intent",
+    "data_completeness",
+    "result_structure",
+    "calculation",
+    "reference_integrity",
+    "evidence_support",
+    "task_completion",
+    "gap_statement"
+   ],
+   "evidence_basis": {
+    "query_intent": "unknown",
+    "data_completeness": "measured",
+    "result_structure": "measured",
+    "calculation": "unknown",
+    "reference_integrity": "measured",
+    "evidence_support": "unknown",
+    "task_completion": "unknown",
+    "gap_statement": "measured"
+   },
+   "annotation": {
+    "cause": "handoff_omission",
+    "notes": [
+     "n1 停在 paused，n2 拿不到上游产物：错在交接，不算 n2 的意图问题"
+    ]
+   },
+   "cause_matches_annotation": true,
+   "expected_cause": "handoff_omission",
+   "requires_live_judge": false
+  },
+  {
+   "sample_id": "WK-04",
+   "node_id": "n1",
+   "measured": {
+    "artifact_id": "art1",
+    "node_id": "n1",
+    "version": "rev1-attempt1",
+    "execution_status": "failed",
+    "declared_status": "",
+    "stale": false,
+    "fact_count": 0,
+    "facts_with_rid": 0,
+    "facts_missing_rid": 0,
+    "rids_not_in_store": [],
+    "calculations_missing_output_rid": 0,
+    "criteria_covered": 0,
+    "criteria_uncovered": 0,
+    "evidence_refs_empty": true,
+    "evidence_refs_not_in_store": [],
+    "required_missing_inputs": [],
+    "limitations": []
+   },
+   "self_reported": {
+    "task_completion": {
+     "source": "artifact.completion_report",
+     "criteria_covered": 0,
+     "criteria_uncovered": 0,
+     "declared_status": "",
+     "note": "由产物自报，评测侧未独立核验"
+    }
+   },
+   "attribution": {
+    "cause": "text2sql_parse_error",
+    "reason": "查询原因码 parse_fail",
+    "evidence": {
+     "reasons": [
+      "parse_fail"
+     ]
+    }
+   },
+   "judged": {
+    "query_intent": {
+     "verdict": "unknown",
+     "reason": "离线模式未做模型判定（pipeline_check）"
+    },
+    "dimensions": {},
+    "judged_dimensions": []
+   },
+   "dimensions": [
+    "query_intent",
+    "data_completeness",
+    "result_structure",
+    "calculation",
+    "reference_integrity",
+    "evidence_support",
+    "task_completion",
+    "gap_statement"
+   ],
+   "evidence_basis": {
+    "query_intent": "unknown",
+    "data_completeness": "measured",
+    "result_structure": "measured",
+    "calculation": "unknown",
+    "reference_integrity": "measured",
+    "evidence_support": "unknown",
+    "task_completion": "unknown",
+    "gap_statement": "measured"
+   },
+   "annotation": {
+    "cause": "text2sql_parse_error",
+    "notes": [
+     "提取器没产出合法计划，属解析失败，不是数据不可用"
+    ]
+   },
+   "cause_matches_annotation": true,
+   "expected_cause": "text2sql_parse_error",
+   "requires_live_judge": false
+  },
+  {
+   "sample_id": "WK-05",
+   "node_id": "n1",
+   "measured": {
+    "artifact_id": "art1",
+    "node_id": "n1",
+    "version": "rev1-attempt1",
+    "execution_status": "failed",
+    "declared_status": "",
+    "stale": false,
+    "fact_count": 0,
+    "facts_with_rid": 0,
+    "facts_missing_rid": 0,
+    "rids_not_in_store": [],
+    "calculations_missing_output_rid": 0,
+    "criteria_covered": 0,
+    "criteria_uncovered": 0,
+    "evidence_refs_empty": true,
+    "evidence_refs_not_in_store": [],
+    "required_missing_inputs": [],
+    "limitations": []
+   },
+   "self_reported": {
+    "task_completion": {
+     "source": "artifact.completion_report",
+     "criteria_covered": 0,
+     "criteria_uncovered": 0,
+     "declared_status": "",
+     "note": "由产物自报，评测侧未独立核验"
+    }
+   },
+   "attribution": {
+    "cause": "executor_error",
+    "reason": "查询原因码 exec_fail",
+    "evidence": {
+     "reasons": [
+      "exec_fail"
+     ]
+    }
+   },
+   "judged": {
+    "query_intent": {
+     "verdict": "unknown",
+     "reason": "离线模式未做模型判定（pipeline_check）"
+    },
+    "dimensions": {},
+    "judged_dimensions": []
+   },
+   "dimensions": [
+    "query_intent",
+    "data_completeness",
+    "result_structure",
+    "calculation",
+    "reference_integrity",
+    "evidence_support",
+    "task_completion",
+    "gap_statement"
+   ],
+   "evidence_basis": {
+    "query_intent": "unknown",
+    "data_completeness": "measured",
+    "result_structure": "measured",
+    "calculation": "unknown",
+    "reference_integrity": "measured",
+    "evidence_support": "unknown",
+    "task_completion": "unknown",
+    "gap_statement": "measured"
+   },
+   "annotation": {
+    "cause": "executor_error",
+    "notes": [
+     "计划已生成但执行报错，归执行器错误"
+    ]
+   },
+   "cause_matches_annotation": true,
+   "expected_cause": "executor_error",
+   "requires_live_judge": false
+  },
+  {
+   "sample_id": "WK-06",
+   "node_id": "n1",
+   "measured": {
+    "artifact_id": "art1",
+    "node_id": "n1",
+    "version": "rev1-attempt1",
+    "execution_status": "completed",
+    "declared_status": "",
+    "stale": false,
+    "fact_count": 0,
+    "facts_with_rid": 0,
+    "facts_missing_rid": 0,
+    "rids_not_in_store": [],
+    "calculations_missing_output_rid": 0,
+    "criteria_covered": 0,
+    "criteria_uncovered": 1,
+    "evidence_refs_empty": true,
+    "evidence_refs_not_in_store": [],
+    "required_missing_inputs": [
+     "FY2025Q1 存货"
+    ],
+    "limitations": []
+   },
+   "self_reported": {
+    "task_completion": {
+     "source": "artifact.completion_report",
+     "criteria_covered": 0,
+     "criteria_uncovered": 1,
+     "declared_status": "",
+     "note": "由产物自报，评测侧未独立核验"
+    }
+   },
+   "attribution": {
+    "cause": "data_unavailable",
+    "reason": "查询原因码 no_data",
+    "evidence": {
+     "reasons": [
+      "no_data"
+     ]
+    }
+   },
+   "judged": {
+    "query_intent": {
+     "verdict": "unknown",
+     "reason": "离线模式未做模型判定（pipeline_check）"
+    },
+    "dimensions": {},
+    "judged_dimensions": []
+   },
+   "dimensions": [
+    "query_intent",
+    "data_completeness",
+    "result_structure",
+    "calculation",
+    "reference_integrity",
+    "evidence_support",
+    "task_completion",
+    "gap_statement"
+   ],
+   "evidence_basis": {
+    "query_intent": "unknown",
+    "data_completeness": "measured",
+    "result_structure": "measured",
+    "calculation": "unknown",
+    "reference_integrity": "measured",
+    "evidence_support": "unknown",
+    "task_completion": "unknown",
+    "gap_statement": "measured"
+   },
+   "annotation": {
+    "cause": "data_unavailable",
+    "notes": [
+     "空结果不等于 0；该期间数据不可用，是数据问题不是执行问题"
+    ]
+   },
+   "cause_matches_annotation": true,
+   "expected_cause": "data_unavailable",
+   "requires_live_judge": false
+  },
+  {
+   "sample_id": "WK-07",
+   "node_id": "n2",
+   "measured": {
+    "artifact_id": "art2",
+    "node_id": "n2",
+    "version": "rev1-attempt1",
+    "execution_status": "completed",
+    "declared_status": "",
+    "stale": false,
+    "fact_count": 1,
+    "facts_with_rid": 1,
+    "facts_missing_rid": 0,
+    "rids_not_in_store": [],
+    "calculations_missing_output_rid": 0,
+    "criteria_covered": 0,
+    "criteria_uncovered": 1,
+    "evidence_refs_empty": false,
+    "evidence_refs_not_in_store": [],
+    "required_missing_inputs": [],
+    "limitations": []
+   },
+   "self_reported": {
+    "task_completion": {
+     "source": "artifact.completion_report",
+     "criteria_covered": 0,
+     "criteria_uncovered": 1,
+     "declared_status": "",
+     "note": "由产物自报，评测侧未独立核验"
+    }
+   },
+   "attribution": {
+    "cause": "upstream_goal_error",
+    "reason": "上游产物自带必需输入缺口：['art9']",
+    "evidence": {
+     "upstream_artifact_gaps": [
+      "art9"
+     ]
+    }
+   },
+   "judged": {
+    "query_intent": {
+     "verdict": "unknown",
+     "reason": "离线模式未做模型判定（pipeline_check）"
+    },
+    "dimensions": {},
+    "judged_dimensions": []
+   },
+   "dimensions": [
+    "query_intent",
+    "data_completeness",
+    "result_structure",
+    "calculation",
+    "reference_integrity",
+    "evidence_support",
+    "task_completion",
+    "gap_statement"
+   ],
+   "evidence_basis": {
+    "query_intent": "unknown",
+    "data_completeness": "measured",
+    "result_structure": "measured",
+    "calculation": "unknown",
+    "reference_integrity": "measured",
+    "evidence_support": "unknown",
+    "task_completion": "unknown",
+    "gap_statement": "measured"
+   },
+   "annotation": {
+    "cause": "upstream_goal_error",
+    "notes": [
+     "上游节点本身交付了，但其产物自带必需输入缺口：问题出在上游目标设定，不在本节点的查询"
+    ]
+   },
+   "cause_matches_annotation": true,
+   "expected_cause": "upstream_goal_error",
+   "requires_live_judge": false
+  }
+ ],
+ "count": 7,
+ "agreement": 6,
+ "total": 7,
+ "requires_live_judge": [
+  "WK-02"
+ ],
+ "mismatched": [
+  "WK-02"
+ ]
+}

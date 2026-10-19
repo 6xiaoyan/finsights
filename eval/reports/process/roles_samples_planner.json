@@ -1,0 +1,373 @@
+{
+ "mode": "samples",
+ "role": "planner",
+ "judge": "fake",
+ "is_real_quality_score": false,
+ "not_real_quality_score": true,
+ "note": "固定样例 + 模拟判定：只验证评测流程，不是真实质量评分",
+ "samples": [
+  {
+   "sample_id": "PL-01",
+   "question": "联想 FY2024Q2 存货同比变化及其对营运资金的影响？",
+   "measured": {
+    "revision": 1,
+    "node_count": 2,
+    "required_node_count": 2,
+    "duplicate_goals": [],
+    "dangling_deps": [],
+    "self_deps": [],
+    "cycle": false,
+    "scope_drift": [
+     "n1"
+    ],
+    "completion_criteria_empty": []
+   },
+   "coverage": {
+    "status": "judged",
+    "mapping": [
+     {
+      "point_id": "p1",
+      "atomic_judgment": "给出联想 FY2024Q2 存货数值",
+      "required": "required",
+      "verdict": "unknown",
+      "coverage": "unknown",
+      "reason": "离线模式未做模型判定（pipeline_check）"
+     },
+     {
+      "point_id": "p2",
+      "atomic_judgment": "说明存货同比变化方向",
+      "required": "required",
+      "verdict": "unknown",
+      "coverage": "unknown",
+      "reason": "离线模式未做模型判定（pipeline_check）"
+     }
+    ],
+    "reason": ""
+   },
+   "dimensions": [
+    "executability",
+    "dependency_soundness",
+    "coverage",
+    "duplication",
+    "scope_drift"
+   ],
+   "evidence_basis": {
+    "executability": "measured",
+    "dependency_soundness": "measured",
+    "duplication": "measured",
+    "scope_drift": "measured",
+    "coverage": "pipeline_check"
+   },
+   "annotation": {
+    "coverage": {
+     "p1": "explicit",
+     "p2": "explicit"
+    },
+    "expected_flags": [],
+    "notes": [
+     "两节点、依赖清晰，任务范围与合同一致"
+    ]
+   }
+  },
+  {
+   "sample_id": "PL-02",
+   "question": "联想 FY2024Q2 收入增长的质量如何？",
+   "measured": {
+    "revision": 1,
+    "node_count": 2,
+    "required_node_count": 2,
+    "duplicate_goals": [],
+    "dangling_deps": [],
+    "self_deps": [],
+    "cycle": false,
+    "scope_drift": [
+     "n1"
+    ],
+    "completion_criteria_empty": []
+   },
+   "coverage": {
+    "status": "judged",
+    "mapping": [
+     {
+      "point_id": "p1",
+      "atomic_judgment": "给出收入同比",
+      "required": "required",
+      "verdict": "unknown",
+      "coverage": "unknown",
+      "reason": "离线模式未做模型判定（pipeline_check）"
+     },
+     {
+      "point_id": "p2",
+      "atomic_judgment": "指出应收账款增速与收入增速的关系",
+      "required": "required",
+      "verdict": "unknown",
+      "coverage": "unknown",
+      "reason": "离线模式未做模型判定（pipeline_check）"
+     }
+    ],
+    "reason": ""
+   },
+   "dimensions": [
+    "executability",
+    "dependency_soundness",
+    "coverage",
+    "duplication",
+    "scope_drift"
+   ],
+   "evidence_basis": {
+    "executability": "measured",
+    "dependency_soundness": "measured",
+    "duplication": "measured",
+    "scope_drift": "measured",
+    "coverage": "pipeline_check"
+   },
+   "annotation": {
+    "coverage": {
+     "p1": "explicit",
+     "p2": "implicit"
+    },
+    "expected_flags": [],
+    "notes": [
+     "p2 未逐字写在 goal 里，但 n1 取的应收账款指标与 n2 的判断任务合理隐含了它"
+    ]
+   }
+  },
+  {
+   "sample_id": "PL-03",
+   "question": "联想 FY2024Q2 存货同比、环比与同业对比情况？",
+   "measured": {
+    "revision": 1,
+    "node_count": 1,
+    "required_node_count": 1,
+    "duplicate_goals": [],
+    "dangling_deps": [],
+    "self_deps": [],
+    "cycle": false,
+    "scope_drift": [],
+    "completion_criteria_empty": []
+   },
+   "coverage": {
+    "status": "judged",
+    "mapping": [
+     {
+      "point_id": "p1",
+      "atomic_judgment": "给出存货同比",
+      "required": "required",
+      "verdict": "unknown",
+      "coverage": "unknown",
+      "reason": "离线模式未做模型判定（pipeline_check）"
+     },
+     {
+      "point_id": "p2",
+      "atomic_judgment": "给出与 HP/Dell 的存货对比",
+      "required": "required",
+      "verdict": "unknown",
+      "coverage": "unknown",
+      "reason": "离线模式未做模型判定（pipeline_check）"
+     }
+    ],
+    "reason": ""
+   },
+   "dimensions": [
+    "executability",
+    "dependency_soundness",
+    "coverage",
+    "duplication",
+    "scope_drift"
+   ],
+   "evidence_basis": {
+    "executability": "measured",
+    "dependency_soundness": "measured",
+    "duplication": "measured",
+    "scope_drift": "measured",
+    "coverage": "pipeline_check"
+   },
+   "annotation": {
+    "coverage": {
+     "p1": "explicit",
+     "p2": "uncovered"
+    },
+    "expected_flags": [
+     "uncovered_point"
+    ],
+    "notes": [
+     "同业对比是合同的明确要求，计划里没有任何节点覆盖"
+    ]
+   }
+  },
+  {
+   "sample_id": "PL-04",
+   "question": "联想 FY2024Q2 存货与应付账款的关系？",
+   "measured": {
+    "revision": 1,
+    "node_count": 3,
+    "required_node_count": 3,
+    "duplicate_goals": [
+     [
+      "n1",
+      "n2"
+     ]
+    ],
+    "dangling_deps": [],
+    "self_deps": [],
+    "cycle": false,
+    "scope_drift": [],
+    "completion_criteria_empty": []
+   },
+   "coverage": {
+    "status": "judged",
+    "mapping": [
+     {
+      "point_id": "p1",
+      "atomic_judgment": "给出存货与应付账款两个数值",
+      "required": "required",
+      "verdict": "unknown",
+      "coverage": "unknown",
+      "reason": "离线模式未做模型判定（pipeline_check）"
+     }
+    ],
+    "reason": ""
+   },
+   "dimensions": [
+    "executability",
+    "dependency_soundness",
+    "coverage",
+    "duplication",
+    "scope_drift"
+   ],
+   "evidence_basis": {
+    "executability": "measured",
+    "dependency_soundness": "measured",
+    "duplication": "measured",
+    "scope_drift": "measured",
+    "coverage": "pipeline_check"
+   },
+   "annotation": {
+    "coverage": {
+     "p1": "explicit"
+    },
+    "expected_flags": [
+     "duplicate_node"
+    ],
+    "notes": [
+     "n1 与 n2 归一化后目标相同，是重复任务而不是更细的拆分"
+    ]
+   }
+  },
+  {
+   "sample_id": "PL-05",
+   "question": "联想 FY2024Q2 存货同比变化？",
+   "measured": {
+    "revision": 1,
+    "node_count": 2,
+    "required_node_count": 1,
+    "duplicate_goals": [],
+    "dangling_deps": [],
+    "self_deps": [],
+    "cycle": false,
+    "scope_drift": [
+     "n2"
+    ],
+    "completion_criteria_empty": []
+   },
+   "coverage": {
+    "status": "judged",
+    "mapping": [
+     {
+      "point_id": "p1",
+      "atomic_judgment": "给出 FY2024Q2 存货同比",
+      "required": "required",
+      "verdict": "unknown",
+      "coverage": "unknown",
+      "reason": "离线模式未做模型判定（pipeline_check）"
+     }
+    ],
+    "reason": ""
+   },
+   "dimensions": [
+    "executability",
+    "dependency_soundness",
+    "coverage",
+    "duplication",
+    "scope_drift"
+   ],
+   "evidence_basis": {
+    "executability": "measured",
+    "dependency_soundness": "measured",
+    "duplication": "measured",
+    "scope_drift": "measured",
+    "coverage": "pipeline_check"
+   },
+   "annotation": {
+    "coverage": {
+     "p1": "explicit"
+    },
+    "expected_flags": [
+     "scope_drift"
+    ],
+    "notes": [
+     "n2 提到合同期间之外的 FY2023Q4，属范围偏移"
+    ]
+   }
+  },
+  {
+   "sample_id": "PL-06",
+   "question": "联想 FY2024Q2 毛利率变化的原因？",
+   "measured": {
+    "revision": 1,
+    "node_count": 2,
+    "required_node_count": 2,
+    "duplicate_goals": [],
+    "dangling_deps": [
+     "n2->n9"
+    ],
+    "self_deps": [],
+    "cycle": false,
+    "scope_drift": [],
+    "completion_criteria_empty": []
+   },
+   "coverage": {
+    "status": "judged",
+    "mapping": [
+     {
+      "point_id": "p1",
+      "atomic_judgment": "给出毛利率与变化分解",
+      "required": "required",
+      "verdict": "unknown",
+      "coverage": "unknown",
+      "reason": "离线模式未做模型判定（pipeline_check）"
+     }
+    ],
+    "reason": ""
+   },
+   "dimensions": [
+    "executability",
+    "dependency_soundness",
+    "coverage",
+    "duplication",
+    "scope_drift"
+   ],
+   "evidence_basis": {
+    "executability": "measured",
+    "dependency_soundness": "measured",
+    "duplication": "measured",
+    "scope_drift": "measured",
+    "coverage": "pipeline_check"
+   },
+   "annotation": {
+    "coverage": {
+     "p1": "explicit"
+    },
+    "expected_flags": [
+     "dangling_dependency"
+    ],
+    "notes": [
+     "n2 依赖不存在的 n9，依赖图不可执行"
+    ]
+   }
+  }
+ ],
+ "count": 6,
+ "with_coverage_mapping": 6,
+ "total": 6
+}

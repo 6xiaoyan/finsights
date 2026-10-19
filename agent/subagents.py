@@ -245,6 +245,7 @@ class SubAgentRunner:
                         args = json.loads(tc.arguments or "{}")
                     except Exception:
                         args = {}
+                    out = None
                     if tc.name in self.extra_tools:
                         # 注入的只读通道（PRD §8）：不经 tools/data.execute，直接调用
                         try:
@@ -259,11 +260,17 @@ class SubAgentRunner:
                             out.text[:2000] if out.text else "（结果见 rid）")
                         ok, rid = out.ok, out.rid
                     calls.append({"tool_call_id": tc.id, "content": content, "rid": rid})
-                    events.append({"type": "tool_result", "role": self.role, "step": step,
-                                   "tool": tc.name, "ok": ok, "rid": rid,
-                                   "call_id": tc.id,                  # §10：调用可一一对应
-                                   "args_head": (tc.arguments or "")[:300],
-                                   "result_head": content[:200]})
+                    ev = {"type": "tool_result", "role": self.role, "step": step,
+                          "tool": tc.name, "ok": ok, "rid": rid,
+                          "call_id": tc.id,                  # §10：调用可一一对应
+                          "args_head": (tc.arguments or "")[:300],
+                          "result_head": content[:200]}
+                    # 调用级查询 id（仅 query_financial_data）：把这条事件与运行包里的
+                    # analysis/query_trace.jsonl 记录关联起来。纯观测，不改 content。
+                    qtid = getattr(out, "query_trace_id", None) if out is not None else None
+                    if qtid:
+                        ev["query_trace_id"] = qtid
+                    events.append(ev)
                     messages.append({"role": "assistant", "content": "",
                                      "tool_calls": [{"id": tc.id, "type": "function",
                                                      "function": {"name": tc.name,

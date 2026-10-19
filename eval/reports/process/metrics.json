@@ -1,0 +1,139 @@
+{
+ "metrics_version": "process-metrics-v1",
+ "tool_calls": {
+  "total": 99,
+  "tool_result_events": 98,
+  "ok": 95,
+  "error": 3,
+  "unknown_status": 0,
+  "skipped": 1,
+  "deduped_duplicates": 0,
+  "by_tool": {
+   "calc": {
+    "ok": 6,
+    "error": 2
+   },
+   "draft_answer": {
+    "ok": 2
+   },
+   "execute_analysis": {
+    "ok": 5
+   },
+   "final_answer": {
+    "error": 1
+   },
+   "list_metrics": {
+    "ok": 5
+   },
+   "plan_analysis": {
+    "ok": 1
+   },
+   "query_financial_data": {
+    "skipped": 1,
+    "ok": 11
+   },
+   "read_analysis_object": {
+    "ok": 55
+   },
+   "recall": {
+    "ok": 3
+   },
+   "review_analysis": {
+    "ok": 7
+   }
+  },
+  "exception_types": {
+   "CalcRejected": 2
+  }
+ },
+ "exception_types": {
+  "CalcRejected": 2
+ },
+ "retries": {
+  "llm_retry": 0,
+  "stop_reject": 0,
+  "protocol_correction": 0
+ },
+ "role_calls": {
+  "total": 13,
+  "by_role": {
+   "planner": 1,
+   "reviewer": 7,
+   "worker": 5
+  },
+  "pairs_missing_end": 0
+ },
+ "rounds": {
+  "main_assistant_events": 20,
+  "main_steps_reported": 20,
+  "subagent_child_steps": 52,
+  "subagent_child_steps_reported": 52,
+  "child_steps_complete": true
+ },
+ "extraction": {
+  "calls_reported": 11,
+  "attempts_seen": null,
+  "format_retries_seen": null,
+  "available": false,
+  "prompt_version": "6aae694677ce"
+ },
+ "queries": {
+  "calls": 11,
+  "unique_result_ids": 9,
+  "rid_reuse_calls": 2,
+  "by_status": {
+   "ok": 11
+  },
+  "source": "derived"
+ },
+ "result_reads": {
+  "recall_calls": 3,
+  "read_analysis_object_calls": 55,
+  "reviewer_evidence_reads": 48
+ },
+ "latency_ms": {
+  "roles_total": 128712,
+  "by_role_call": {
+   "planner@1#plan": 3848,
+   "worker@2#n1": 12555,
+   "worker@3#n2": 5565,
+   "worker@4#n3": 19056,
+   "reviewer@6#art3": 11361,
+   "reviewer@6#art2": 5617,
+   "worker@7#n3": 20367,
+   "reviewer@8#art4": 8644,
+   "worker@9#n4": 14315,
+   "reviewer@11#art5": 6309,
+   "reviewer@13#answer-cand6": 7677,
+   "reviewer@17#answer-cand7": 7220,
+   "reviewer@19#answer-cand7": 6178
+  },
+  "complete": true,
+  "missing_latency_calls": []
+ },
+ "tokens": {
+  "prompt_tokens": 383994,
+  "completion_tokens": 22438,
+  "source": "run_meta",
+  "subagent_prompt_tokens": 157368,
+  "subagent_completion_tokens": 17336,
+  "subagent_complete": true,
+  "notes": [
+   "run_meta.usage 是整次运行的用量；子 Agent token 是其中的子集，不相加"
+  ]
+ },
+ "cost_usd_estimate": 0.0710619,
+ "cost_note": "按 config.llm.pricing_usd_per_mtok 估算，非实际账单",
+ "denominators": {
+  "tool_calls_total": 99,
+  "tool_calls_ok_plus_error_plus_skipped_plus_unknown": 99,
+  "role_calls_total": 13,
+  "produced_by_calls": 11
+ },
+ "discrepancies": [],
+ "notes": [
+  "工具调用成功只描述程序运行状态，不表示取数业务正确（PRD §7.2）",
+  "metrics 是运行状态，与质量评分分列展示，不合并为总分",
+  "extraction_calls 自报 11 次，但该包没有逐次提取明细，无法重算，不参与差异比较"
+ ]
+}

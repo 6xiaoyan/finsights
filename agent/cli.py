@@ -297,6 +297,35 @@ def _export_package(out_dir: Path, question: str, as_of, db_path: Path, client,
                                                     "analysis_review.md"]
         (out_dir / "run_meta.json").write_text(json.dumps(meta, ensure_ascii=False, indent=1),
                                                encoding="utf-8")
+
+    # ---- 新增观测产物（PRD §7.1）：查询链路明细与子 Agent 可见上下文。
+    # 两者分别落在**不同的 stats 字典**里：查询记录写在注入给工具的 ToolContext.stats
+    # （子 Agent 复用父的同一引用），可见上下文写在 RunContext.stats。读错字典会静默丢数据。
+    # 没有数据时不写空文件；但计数照写 0——0 表示"这次运行确实没有"，与"没测"不同。
+    analysis_dir = out_dir / "analysis"
+    written: list[str] = []
+    from agent.multi import redact_record
+    qlog = (getattr(getattr(ctx, "tool_ctx", None), "stats", None) or {}).get("query_trace") or []
+    if qlog:
+        analysis_dir.mkdir(parents=True, exist_ok=True)
+        (analysis_dir / "query_trace.jsonl").write_text(
+            "\n".join(json.dumps(redact_record(r), ensure_ascii=False) for r in qlog) + "\n",
+            encoding="utf-8")
+        written.append("query_trace.jsonl")
+    vlog = (getattr(ctx, "stats", None) or {}).get("visible_context") or []
+    if vlog:
+        analysis_dir.mkdir(parents=True, exist_ok=True)
+        (analysis_dir / "visible_context.jsonl").write_text(
+            "\n".join(json.dumps(redact_record(r), ensure_ascii=False) for r in vlog) + "\n",
+            encoding="utf-8")
+        written.append("visible_context.jsonl")
+    meta["query_trace_calls"] = len(qlog)
+    meta["visible_context_calls"] = len(vlog)
+    if written and "multi_agent" in meta:
+        meta["multi_agent"]["process_files"] = list(
+            meta["multi_agent"].get("process_files") or []) + written
+    (out_dir / "run_meta.json").write_text(json.dumps(meta, ensure_ascii=False, indent=1),
+                                           encoding="utf-8")
     return meta
 
 
