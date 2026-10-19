@@ -222,20 +222,30 @@ def _query_outcomes(queries: list[Any]) -> tuple[list[str], list[str], int, int]
 
     recovered = 0
     unresolved_calls = 0
-    unresolved_reasons: list[str] = []
+    unresolved: list[tuple[int, str]] = []
     for idxs in groups.values():
-        conclusive = [(i, reasons[i]) for i in idxs
-                      if reasons[i] not in _INCONCLUSIVE_REASONS]
-        if not conclusive:
-            continue
-        last_i, last_r = conclusive[-1]
-        failed_before = [i for i in idxs if reasons[i] != "ok" and i < last_i]
-        if last_r == "ok":
-            recovered += len(failed_before)
-        else:
-            unresolved_calls += sum(1 for i in idxs if reasons[i] != "ok")
-            unresolved_reasons.append(last_r)
-    return reasons, unresolved_reasons, recovered, unresolved_calls
+        # 按**每次成功**划分失败段：成功之前累积的失败都被这次成功补上；
+        # 最后一次成功之后仍剩下的失败才是未解决的。
+        # 只按「该意图最后一次结果」一刀切会把中间成功补上的失败也算成未解决。
+        pending = 0                     # 自上次成功以来累积的失败数
+        last_fail_i, last_fail_r = None, None
+        for i in idxs:
+            r = reasons[i]
+            if r in _INCONCLUSIVE_REASONS:
+                continue
+            if r == "ok":
+                recovered += pending
+                pending = 0
+                last_fail_i, last_fail_r = None, None
+            else:
+                pending += 1
+                last_fail_i, last_fail_r = i, r
+        if pending:
+            unresolved_calls += pending
+            unresolved.append((last_fail_i, last_fail_r))
+
+    unresolved.sort()
+    return reasons, [r for _, r in unresolved], recovered, unresolved_calls
 
 
 def _node_delivered(measured: dict) -> bool:

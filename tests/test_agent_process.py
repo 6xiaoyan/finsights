@@ -1504,6 +1504,72 @@ def test_distinct_queries_are_counted_separately(tmp_path):
     assert out["counts"]["recovered_failed_query_calls"] == 0
 
 
+def test_fail_success_fail_counts_only_the_trailing_failure(tmp_path):
+    """同一问题「失败 → 成功 → 再失败」：中间的恢复必须算数。
+
+    第一次失败被中间那次成功补上了，只有最后一次（成功之后再失败）是未解决的。
+    只按「该意图最后一次结果」一刀切，会把两次失败都记成未解决。
+    """
+    from eval.agent_process.adapt import load_process_package
+    from eval.agent_process.roles.worker import evaluate_node
+
+    same_q = "联想 FY2024Q2 存货"
+    specs = [{"ok": True, "rid": None, "status": "empty", "args": {"question": same_q}},
+             {"ok": True, "rid": "r2", "status": "ok", "args": {"question": same_q}},
+             {"ok": True, "rid": None, "status": "empty", "args": {"question": same_q}}]
+    pkg = load_process_package(
+        _write_run_package(tmp_path, with_instrumentation=True, query_specs=specs),
+        case_id="LV-T01")
+    out = evaluate_node(pkg, "n1")
+
+    c = out["counts"]
+    assert c["failed_query_calls"] == 2
+    assert c["recovered_failed_query_calls"] == 1, "中间成功补上的那次应算已恢复"
+    assert c["unresolved_failed_query_calls"] == 1, "只有成功之后的那次失败未解决"
+
+
+def test_multiple_successes_recover_their_preceding_failures(tmp_path):
+    """失败→成功→失败→成功：两次失败都被各自后面那次成功补上，没有未解决项。"""
+    from eval.agent_process.adapt import load_process_package
+    from eval.agent_process.roles.worker import evaluate_node
+
+    same_q = "联想 FY2024Q2 存货"
+    specs = [{"ok": True, "rid": None, "status": "empty", "args": {"question": same_q}},
+             {"ok": True, "rid": "r2", "status": "ok", "args": {"question": same_q}},
+             {"ok": True, "rid": None, "status": "empty", "args": {"question": same_q}},
+             {"ok": True, "rid": "r2", "status": "ok", "args": {"question": same_q}}]
+    pkg = load_process_package(
+        _write_run_package(tmp_path, with_instrumentation=True, query_specs=specs),
+        case_id="LV-T01")
+    out = evaluate_node(pkg, "n1")
+
+    c = out["counts"]
+    assert c["failed_query_calls"] == 2
+    assert c["recovered_failed_query_calls"] == 2
+    assert c["unresolved_failed_query_calls"] == 0
+
+
+def test_leading_failures_then_success_all_recovered(tmp_path):
+    """连续两次失败后成功：两次都算恢复，不是只算最后一次。"""
+    from eval.agent_process.adapt import load_process_package
+    from eval.agent_process.roles.worker import evaluate_node
+
+    same_q = "联想 FY2024Q2 存货"
+    specs = [{"ok": True, "rid": None, "status": "empty", "args": {"question": same_q}},
+             {"ok": False, "rid": None, "status": "error",
+              "issue_codes": ["query_error"], "args": {"question": same_q}},
+             {"ok": True, "rid": "r2", "status": "ok", "args": {"question": same_q}}]
+    pkg = load_process_package(
+        _write_run_package(tmp_path, with_instrumentation=True, query_specs=specs),
+        case_id="LV-T01")
+    out = evaluate_node(pkg, "n1")
+
+    c = out["counts"]
+    assert c["failed_query_calls"] == 2
+    assert c["recovered_failed_query_calls"] == 2
+    assert c["unresolved_failed_query_calls"] == 0
+
+
 # --- 审查发现 3：依据等级必须与代码实际检查的内容一致 ---
 
 def test_task_completion_is_not_claimed_as_measured(tmp_path):
