@@ -1,0 +1,158 @@
+[
+ {
+  "title": "二零二五/二六年財政年度第三季業績公佈",
+  "url": "https://www1.hkexnews.hk/listedco/listconews/sehk/2026/0212/2026021200274_c.pdf",
+  "publish_date": "2026-02-12",
+  "periods": [
+   "FY2026 9M",
+   "FY2026Q3"
+  ],
+  "cases": [
+   "LV-E2E-FY2026-9M-GM-WEIGHT-001",
+   "LV-E2E-FY2026Q4-IMPLIED-QUARTER-001",
+   "LV-E2E-FY2026Q4-QOQ-DIVERGENCE-001",
+   "LV-E2E-FY2026Q3-OI-VS-NI-001"
+  ],
+  "pdf": "data/raw/lenovo/FY26Q3_120220261202.pdf",
+  "sha256_16": "7f09d8928e14e3e8"
+ },
+ {
+  "title": "二零二五/二六年財政年度第一季業績公佈",
+  "url": "https://www1.hkexnews.hk/listedco/listconews/sehk/2025/0814/2025081400028_c.pdf",
+  "publish_date": "2025-08-14",
+  "periods": [
+   "FY2026Q1"
+  ],
+  "cases": [
+   "LV-E2E-FY2026-9M-GM-WEIGHT-001",
+   "LV-E2E-FY2027Q1-REVENUE-SCALE-001",
+   "LV-E2E-FY2027Q1-WORKING-CAPITAL-CCC-001",
+   "LV-E2E-FY2026Q1-CONFLICT-001",
+   "LV-E2E-FY2026Q2-REVENUE-FORECAST-001",
+   "LV-E2E-FY2026Q3-REVENUE-FORECAST-001",
+   "LV-E2E-FY2026Q4-REVENUE-FORECAST-001",
+   "LV-E2E-FY2026Q2-GM-FORECAST-001"
+  ],
+  "pdf": "data/raw/lenovo/FY26Q1_140820250742.pdf",
+  "sha256_16": "086cfbfe97aaf10f"
+ },
+ {
+  "title": "二零二五 / 二六年財政年度中期業績公佈",
+  "url": "https://www1.hkexnews.hk/listedco/listconews/sehk/2025/1120/2025112000058_c.pdf",
+  "publish_date": "2025-11-20",
+  "periods": [
+   "FY2026Q2",
+   "FY2026 H1 与 Q2"
+  ],
+  "cases": [
+   "LV-E2E-FY2026-9M-GM-WEIGHT-001",
+   "LV-E2E-FY2026-H1-VS-Q2-001"
+  ],
+  "pdf": "data/raw/lenovo/FY26Q2_201120250729.pdf",
+  "sha256_16": "56f3219fcc0a287c"
+ },
+ {
+  "title": "二零二五/ 二六年財政年度全年業績公佈",
+  "url": "https://www1.hkexnews.hk/listedco/listconews/sehk/2026/0522/2026052200034_c.pdf",
+  "publish_date": "2026-05-22",
+  "periods": [
+   "FY2026 全年",
+   "FY2026Q4",
+   "FY2026 全年与单季"
+  ],
+  "cases": [
+   "LV-E2E-FY2026Q4-IMPLIED-QUARTER-001",
+   "LV-E2E-FY2026Q4-QOQ-DIVERGENCE-001",
+   "LV-E2E-FY2026Q4-DSO-001",
+   "LV-E2E-FY2026Q4-DEFERRED-001",
+   "LV-E2E-FY2026-ANNUAL-BRIDGE-001",
+   "LV-E2E-FY2027Q1-WORKING-CAPITAL-CCC-001",
+   "LV-E2E-FY2026-NI-BOUNDARY-001",
+   "LV-E2E-COLUMN-PERIOD-JUDGMENT-001"
+  ],
+  "pdf": "data/raw/lenovo/FY26Q4_220520260732.pdf",
+  "sha256_16": "1823c37cd2e7c7e4"
+ },
+ {
+  "title": "二零二四/ 二五年財政年度全年業績公佈",
+  "url": "https://www1.hkexnews.hk/listedco/listconews/sehk/2025/0522/2025052200194_c.pdf",
+  "publish_date": "2025-05-22",
+  "periods": [
+   "FY2025Q4 单季",
+   "FY2025 全年",
+   "FY2025Q4",
+   "FY2025 全年（as_of 可见）"
+  ],
+  "cases": [
+   "LV-E2E-FY2025Q4-SINGLE-VS-ANNUAL-001",
+   "LV-E2E-FY2026Q4-DSO-001",
+   "LV-E2E-FY2026Q1-REVENUE-FORECAST-001"
+  ],
+  "pdf": "data/raw/lenovo/FY25Q4_220520251203.pdf",
+  "sha256_16": "d311c555d65370e9"
+ },
+ {
+  "title": "二零二六/ 二七年財政年度第一季業績公佈",
+  "url": "https://www1.hkexnews.hk/listedco/listconews/sehk/2026/0813/2026081300142_c.pdf",
+  "publish_date": "2026-08-13",
+  "periods": [
+   "FY2027Q1"
+  ],
+  "cases": [
+   "LV-E2E-FY2027Q1-REVENUE-SCALE-001",
+   "LV-E2E-FY2027Q1-CASH-MIX-001",
+   "LV-E2E-FY2027Q1-REVENUE-GROWTH-001",
+   "LV-E2E-FY2027Q1-WORKING-CAPITAL-CCC-001",
+   "LV-E2E-FY2027Q1-STOCKPILING-JUDGMENT-001",
+   "LV-E2E-FY2027Q1-LIQUIDITY-JUDGMENT-001",
+   "LV-E2E-SYNTHETIC-DETAIL-BOUNDARY-001",
+   "LV-E2E-FY2027Q1-SEGMENT-GAP-001",
+   "LV-E2E-FY2027Q2-REVENUE-FORECAST-001"
+  ],
+  "pdf": "data/raw/lenovo/FY27Q1_130820261201.pdf",
+  "sha256_16": "337d22412402e35a"
+ },
+ {
+  "title": "二零二四/二五年財政年度第三季業績公佈",
+  "url": "https://www1.hkexnews.hk/listedco/listconews/sehk/2025/0220/2025022000140_c.pdf",
+  "publish_date": "2025-02-20",
+  "periods": [
+   "FY2025Q3 与 9M",
+   "FY2025Q3"
+  ],
+  "cases": [
+   "LV-E2E-FY2025Q3-OPEX-RATIO-001",
+   "LV-E2E-FY2025Q3-EFFICIENCY-JUDGMENT-001"
+  ],
+  "pdf": "data/raw/lenovo/FY25Q3_200220251201.pdf",
+  "sha256_16": "2dace4b8e7f0585e"
+ },
+ {
+  "title": "二零二三/ 二四年財政年度全年業績公佈",
+  "url": "https://www1.hkexnews.hk/listedco/listconews/sehk/2024/0523/2024052300286_c.pdf",
+  "publish_date": "2024-05-23",
+  "periods": [
+   "FY2024 全年",
+   "FY2024Q4"
+  ],
+  "cases": [
+   "LV-E2E-FY2024-ANNUAL-BRIDGE-001",
+   "LV-E2E-FY2024-INVENTORY-DIO-001"
+  ],
+  "pdf": "data/raw/lenovo/FY24Q4_230520241204.pdf",
+  "sha256_16": "6dbdbf36e794b8a7"
+ },
+ {
+  "title": "二零二四/二五年財政年度第一季業績公佈",
+  "url": "https://www1.hkexnews.hk/listedco/listconews/sehk/2024/0815/2024081500198_c.pdf",
+  "publish_date": "2024-08-15",
+  "periods": [
+   "FY2025Q1（as_of 可见）"
+  ],
+  "cases": [
+   "LV-E2E-FY2026Q1-REVENUE-FORECAST-001"
+  ],
+  "pdf": "data/raw/lenovo/FY25Q1_150820241201.pdf",
+  "sha256_16": "b665d9a5148f34ca"
+ }
+]
